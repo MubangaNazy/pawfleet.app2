@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc:*)",
+      "Bash(npm run:*)",
+      "Bash(npm install:*)",
+      "Bash(for f:*)",
+      "Bash(do echo:*)",
+      "Read(//c/Users/HC COMPUTER STORE/Desktop/pawfleet/src/pages/**)",
+      "Bash(done)",
+      "Bash(head -20 grep -n \"grid-cols\\\\|overflow\\\\|table\\\\|px-5\\\\|max-w\" \"c:\\\\Users\\\\HC COMPUTER STORE\\\\Desktop\\\\pawfleet\\\\src\\\\pages\\\\admin\\\\Payments.tsx\")",
+      "Bash(head -20 grep -n \"grid-cols\\\\|overflow\\\\|table\\\\|px-5\\\\|max-w\" \"c:\\\\Users\\\\HC COMPUTER STORE\\\\Desktop\\\\pawfleet\\\\src\\\\pages\\\\walker\\\\Dashboard.tsx\")",
+      "Bash(git --version)",
+      "Bash(gh --version)"
+    ]
+  }
+}

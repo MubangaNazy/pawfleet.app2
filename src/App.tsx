@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppProvider, useApp } from './context/AppContext';
 import { ToastProvider } from './components/ui/Toast';
 import { Layout } from './components/layout/Layout';
+import SplashScreen from './components/SplashScreen';
 import Login from './pages/Login';
 
 // Admin pages
@@ -26,6 +27,10 @@ import OwnerRequestWalk from './pages/owner/RequestWalk';
 import OwnerHistory from './pages/owner/History';
 import OwnerDogs from './pages/owner/Dogs';
 import DogProfile from './pages/owner/DogProfile';
+import OwnerServices from './pages/owner/Services';
+import OwnerShop from './pages/owner/Shop';
+import OwnerProfile from './pages/owner/Profile';
+import WalkTracker from './pages/owner/WalkTracker';
 
 function ProtectedRoute({ children, role }: { children: React.ReactNode; role?: string | string[] }) {
   const { currentUser } = useApp();
@@ -57,7 +62,6 @@ function AppRoutes() {
         <Route path="walkers" element={<AdminWalkers />} />
         <Route path="owners" element={<AdminOwners />} />
         <Route path="payments" element={<AdminPayments />} />
-        {/* Legacy redirects */}
         <Route path="dashboard" element={<Navigate to="/admin" replace />} />
       </Route>
 
@@ -66,7 +70,6 @@ function AppRoutes() {
         <Route path="walks" element={<WalkerMyWalks />} />
         <Route path="earnings" element={<WalkerEarnings />} />
         <Route path="badges" element={<WalkerBadges />} />
-        {/* Legacy redirects */}
         <Route path="dashboard" element={<Navigate to="/walker" replace />} />
         <Route path="my-walks" element={<Navigate to="/walker/walks" replace />} />
       </Route>
@@ -77,6 +80,10 @@ function AppRoutes() {
         <Route path="history" element={<OwnerHistory />} />
         <Route path="dogs" element={<OwnerDogs />} />
         <Route path="dogs/:dogId" element={<DogProfile />} />
+        <Route path="services" element={<OwnerServices />} />
+        <Route path="shop" element={<OwnerShop />} />
+        <Route path="profile" element={<OwnerProfile />} />
+        <Route path="track/:walkId" element={<WalkTracker />} />
         {/* Legacy redirects */}
         <Route path="dashboard" element={<Navigate to="/owner" replace />} />
         <Route path="request-walk" element={<Navigate to="/owner/request" replace />} />
@@ -88,10 +95,20 @@ function AppRoutes() {
 }
 
 export default function App() {
+  const [showSplash, setShowSplash] = useState(() => {
+    return !localStorage.getItem('pawfleet_onboarded');
+  });
+
+  const handleSplashDone = () => {
+    localStorage.setItem('pawfleet_onboarded', '1');
+    setShowSplash(false);
+  };
+
   return (
     <BrowserRouter>
       <AppProvider>
         <ToastProvider>
+          {showSplash && <SplashScreen onDone={handleSplashDone} />}
           <AppRoutes />
         </ToastProvider>
       </AppProvider>

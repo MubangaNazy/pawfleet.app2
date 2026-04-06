@@ -3,7 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import {
   PawPrint, LayoutDashboard, Map, ListChecks, PlusCircle,
   Users, UserCog, CreditCard, Activity, DollarSign, Clock,
-  LogOut, X, Dog, ChevronRight,
+  LogOut, X, Dog, ChevronRight, Scissors, ShoppingBag, User,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
@@ -27,10 +27,13 @@ const walkerNav = [
 ];
 
 const ownerNav = [
-  { to: '/owner',         icon: LayoutDashboard, label: 'Dashboard', exact: true },
-  { to: '/owner/request', icon: PlusCircle,      label: 'Book a Walk' },
-  { to: '/owner/dogs',    icon: Dog,             label: 'My Dogs' },
-  { to: '/owner/history', icon: Clock,           label: 'Walk History' },
+  { to: '/owner',          icon: LayoutDashboard, label: 'Dashboard',  exact: true },
+  { to: '/owner/request',  icon: PlusCircle,      label: 'Book a Walk' },
+  { to: '/owner/dogs',     icon: Dog,             label: 'My Dogs' },
+  { to: '/owner/history',  icon: Clock,           label: 'Walk History' },
+  { to: '/owner/services', icon: Scissors,        label: 'Services' },
+  { to: '/owner/shop',     icon: ShoppingBag,     label: 'Shop' },
+  { to: '/owner/profile',  icon: User,            label: 'Profile' },
 ];
 
 const roleGradient: Record<string, string> = {

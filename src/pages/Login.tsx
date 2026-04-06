@@ -11,9 +11,9 @@ import { Role } from '../types';
 type DemoRole = { label: string; sub: string; identifier: string; password: string; role: Role; emoji: string; gradient: string };
 
 const DEMOS: DemoRole[] = [
-  { label: 'Admin',  sub: 'Business owner',   identifier: '0977000001', password: 'admin123',  role: 'admin',  emoji: '👑', gradient: 'from-violet-500 to-purple-600' },
-  { label: 'Walker', sub: 'Dog walker agent',  identifier: '0977000002', password: 'walker123', role: 'walker', emoji: '🦮', gradient: 'from-sky-500 to-blue-600' },
-  { label: 'Owner',  sub: 'Dog owner',         identifier: '0977000004', password: 'owner123',  role: 'owner',  emoji: '🐾', gradient: 'from-emerald-500 to-teal-600' },
+  { label: 'Admin',  sub: 'Business owner',   identifier: '0977000001', password: 'admin123',  role: 'admin',  emoji: '👑', gradient: 'from-green-800 to-green-950' },
+  { label: 'Walker', sub: 'Dog walker agent',  identifier: '0977000002', password: 'walker123', role: 'walker', emoji: '🦮', gradient: 'from-emerald-500 to-green-700' },
+  { label: 'Owner',  sub: 'Dog owner',         identifier: '0977000004', password: 'owner123',  role: 'owner',  emoji: '🐾', gradient: 'from-green-400 to-emerald-600' },
 ];
 const ROLE_ROUTES: Record<Role, string> = { admin: '/admin', walker: '/walker', owner: '/owner' };
 
@@ -208,16 +208,16 @@ export default function Login() {
 
       {/* ══════════ LEFT HERO PANEL ══════════ */}
       <div className="hidden lg:flex flex-col w-[55%] relative overflow-hidden"
-        style={{ background: 'linear-gradient(145deg, #07091a 0%, #0f1740 40%, #170d36 70%, #07091a 100%)' }}>
+        style={{ background: 'linear-gradient(145deg, #071a0e 0%, #0f3020 40%, #0a2418 70%, #071a0e 100%)' }}>
 
         {/* Animated background orbs */}
         <div className="absolute inset-0 pointer-events-none">
           <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] rounded-full opacity-20"
-            style={{ background: 'radial-gradient(circle, #6366f1 0%, transparent 70%)', animation: 'orb-spin 20s linear infinite' }} />
+            style={{ background: 'radial-gradient(circle, #22c55e 0%, transparent 70%)', animation: 'orb-spin 20s linear infinite' }} />
           <div className="absolute bottom-[-15%] right-[-5%] w-[400px] h-[400px] rounded-full opacity-15"
-            style={{ background: 'radial-gradient(circle, #0ea5e9 0%, transparent 70%)', animation: 'orb-spin 25s linear infinite reverse' }} />
+            style={{ background: 'radial-gradient(circle, #10b981 0%, transparent 70%)', animation: 'orb-spin 25s linear infinite reverse' }} />
           <div className="absolute top-[40%] right-[10%] w-[300px] h-[300px] rounded-full opacity-10"
-            style={{ background: 'radial-gradient(circle, #a855f7 0%, transparent 70%)' }} />
+            style={{ background: 'radial-gradient(circle, #4ade80 0%, transparent 70%)' }} />
         </div>
 
         {/* Grid overlay */}
@@ -233,7 +233,7 @@ export default function Login() {
           {/* Logo */}
           <div className="flex items-center gap-3 fade-in-left">
             <div className="w-10 h-10 rounded-xl flex items-center justify-center"
-              style={{ background: 'linear-gradient(135deg, #6366f1, #4776E6)' }}>
+              style={{ background: 'linear-gradient(135deg, #1A572F, #2B8A50)' }}>
               <PawPrint className="w-5 h-5 text-white" />
             </div>
             <span className="text-xl font-bold text-white tracking-tight">PawFleet</span>
@@ -270,7 +270,7 @@ export default function Login() {
               ].map(f => (
                 <div key={f.label}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-white/70 bg-white/8 border border-white/10 backdrop-blur-sm">
-                  <span className="text-indigo-400">{f.icon}</span>
+                  <span className="text-green-400">{f.icon}</span>
                   {f.label}
                 </div>
               ))}
@@ -318,7 +318,7 @@ export default function Login() {
           {/* Mobile logo */}
           <div className="flex items-center gap-3 mb-8 lg:hidden fade-in-up">
             <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg"
-              style={{ background: 'linear-gradient(135deg, #6366f1, #4776E6)' }}>
+              style={{ background: 'linear-gradient(135deg, #1A572F, #2B8A50)' }}>
               <PawPrint className="w-5 h-5 text-white" />
             </div>
             <div>

@@ -37,14 +37,14 @@ const ownerNav = [
 ];
 
 const roleGradient: Record<string, string> = {
-  admin:  'from-violet-500 to-purple-600',
-  walker: 'from-sky-500 to-blue-600',
-  owner:  'from-emerald-500 to-teal-600',
+  admin:  'from-green-800 to-green-950',
+  walker: 'from-emerald-500 to-green-700',
+  owner:  'from-green-500 to-emerald-600',
 };
 const roleBadge: Record<string, string> = {
-  admin:  'bg-violet-50 text-violet-700',
-  walker: 'bg-sky-50 text-sky-700',
-  owner:  'bg-emerald-50 text-emerald-700',
+  admin:  'bg-green-50 text-green-800',
+  walker: 'bg-emerald-50 text-emerald-700',
+  owner:  'bg-green-50 text-green-700',
 };
 
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
@@ -67,7 +67,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
       <div className="px-4 pt-5 pb-4 flex items-center gap-3">
         <div
           className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-md"
-          style={{ background: 'linear-gradient(135deg, #6366f1, #4776E6)' }}
+          style={{ background: 'linear-gradient(135deg, #1A572F, #2B8A50)' }}
         >
           <PawPrint className="w-4.5 h-4.5 text-white" />
         </div>

@@ -48,6 +48,33 @@ function RoleRedirect() {
   return <Navigate to={`/${currentUser.role}`} replace />;
 }
 
+function AppContent() {
+  const { loading } = useApp();
+  if (loading) {
+    return (
+      <div className="fixed inset-0 bg-white flex flex-col items-center justify-center gap-4 z-50">
+        <div className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg" style={{ background: 'linear-gradient(135deg, #1A572F, #2B8A50)' }}>
+          <svg viewBox="0 0 24 24" fill="none" className="w-7 h-7 text-white" stroke="currentColor" strokeWidth={2}>
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" strokeLinecap="round" />
+            <path d="M8 12s1.5 2 4 2 4-2 4-2" strokeLinecap="round" />
+            <circle cx="9" cy="9" r="1" fill="currentColor" stroke="none" />
+            <circle cx="15" cy="9" r="1" fill="currentColor" stroke="none" />
+          </svg>
+        </div>
+        <p className="text-base font-bold text-ink">PawFleet</p>
+        <div className="flex gap-1.5">
+          {[0,1,2].map(i => (
+            <div key={i} className="w-2 h-2 rounded-full bg-primary animate-bounce"
+              style={{ animationDelay: `${i * 0.15}s` }} />
+          ))}
+        </div>
+        <p className="text-xs text-ink-muted">Connecting to database…</p>
+      </div>
+    );
+  }
+  return <AppRoutes />;
+}
+
 function AppRoutes() {
   return (
     <Routes>
@@ -109,7 +136,7 @@ export default function App() {
       <AppProvider>
         <ToastProvider>
           {showSplash && <SplashScreen onDone={handleSplashDone} />}
-          <AppRoutes />
+          <AppContent />
         </ToastProvider>
       </AppProvider>
     </BrowserRouter>

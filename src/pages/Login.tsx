@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Eye, EyeOff, Phone, Lock,
+  PawPrint, Eye, EyeOff, Phone, Lock,
   MapPin, DollarSign, Shield, Zap, ArrowRight, Check,
 } from 'lucide-react';
 import PawFleetLogo from '../components/ui/PawFleetLogo';

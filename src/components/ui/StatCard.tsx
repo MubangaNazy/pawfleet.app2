@@ -10,12 +10,12 @@ interface StatCardProps {
 }
 
 const colorMap = {
-  blue:   { iconBg: 'bg-blue-50',   icon: 'text-blue-600',   bar: 'from-blue-400 to-blue-600',   glow: 'rgba(71,118,230,0.12)' },
-  green:  { iconBg: 'bg-emerald-50',icon: 'text-emerald-600',bar: 'from-emerald-400 to-teal-500', glow: 'rgba(16,185,129,0.12)' },
-  amber:  { iconBg: 'bg-amber-50',  icon: 'text-amber-600',  bar: 'from-amber-400 to-orange-500', glow: 'rgba(245,158,11,0.12)' },
-  cyan:   { iconBg: 'bg-sky-50',    icon: 'text-sky-600',    bar: 'from-sky-400 to-cyan-500',     glow: 'rgba(14,165,233,0.12)' },
-  violet: { iconBg: 'bg-violet-50', icon: 'text-violet-600', bar: 'from-violet-400 to-purple-600',glow: 'rgba(139,92,246,0.12)' },
-  rose:   { iconBg: 'bg-rose-50',   icon: 'text-rose-600',   bar: 'from-rose-400 to-pink-600',    glow: 'rgba(244,63,94,0.12)' },
+  blue:   { iconBg: 'bg-primary-50',          icon: 'text-primary',          bar: 'from-primary to-primary-600',        glow: 'rgba(43,138,80,0.12)' },
+  green:  { iconBg: 'bg-primary-50',          icon: 'text-primary',          bar: 'from-primary to-primary-600',        glow: 'rgba(43,138,80,0.12)' },
+  amber:  { iconBg: 'bg-amber-50',            icon: 'text-amber-600',        bar: 'from-amber-400 to-amber-600',        glow: 'rgba(245,158,11,0.12)' },
+  cyan:   { iconBg: 'bg-primary-50',          icon: 'text-primary-600',      bar: 'from-[#52B788] to-primary',          glow: 'rgba(82,183,136,0.12)' },
+  violet: { iconBg: 'bg-[#EBF5EF]',           icon: 'text-[#1B4332]',        bar: 'from-[#40916C] to-[#1B4332]',       glow: 'rgba(27,67,50,0.12)' },
+  rose:   { iconBg: 'bg-rose-50',             icon: 'text-rose-600',         bar: 'from-rose-400 to-rose-600',          glow: 'rgba(244,63,94,0.12)' },
 };
 
 export function StatCard({ icon, label, value, subtitle, trend, color = 'blue' }: StatCardProps) {

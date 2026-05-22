@@ -1,10 +1,11 @@
 import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
-  PawPrint, LayoutDashboard, Map, ListChecks, PlusCircle,
+  LayoutDashboard, Map, ListChecks, PlusCircle,
   Users, UserCog, CreditCard, Activity, DollarSign, Clock,
   LogOut, X, Dog, ChevronRight, Scissors, ShoppingBag, User,
 } from 'lucide-react';
+import PawFleetLogo from '../ui/PawFleetLogo';
 import { useApp } from '../../context/AppContext';
 
 interface SidebarProps { isOpen: boolean; onClose: () => void; }
@@ -65,23 +66,14 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
       {/* ── Logo ── */}
       <div className="px-4 pt-5 pb-4 flex items-center gap-3">
-        <div
-          className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-md"
-          style={{ background: 'linear-gradient(135deg, #1A572F, #2B8A50)' }}
-        >
-          <PawPrint className="w-4.5 h-4.5 text-white" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <span className="text-[15px] font-bold text-ink tracking-tight block">PawFleet</span>
-          <span className="text-[10px] text-ink-muted leading-none">Dog Walking Co. 🇿🇲</span>
-        </div>
+        <PawFleetLogo size={36} showText className="flex-1 min-w-0" />
         <button className="lg:hidden w-7 h-7 flex items-center justify-center rounded-lg text-ink-muted hover:bg-surface-hover hover:text-ink transition-colors" onClick={onClose}>
           <X className="w-4 h-4" />
         </button>
       </div>
 
       {/* ── Thin accent line ── */}
-      <div className="mx-4 h-px bg-gradient-to-r from-indigo-100 via-blue-100 to-transparent mb-2" />
+      <div className="mx-4 h-px bg-gradient-to-r from-primary-100 via-primary-50 to-transparent mb-2" />
 
       {/* ── Nav ── */}
       <nav className="flex-1 px-2.5 py-2 space-y-0.5 overflow-y-auto">
@@ -94,7 +86,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             className={({ isActive }) =>
               `group flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all duration-150
               ${isActive
-                ? 'bg-gradient-to-r from-primary/10 to-blue-50 text-primary border border-primary/15 shadow-sm'
+                ? 'bg-gradient-to-r from-primary/10 to-primary-50 text-primary border border-primary/15 shadow-sm'
                 : 'text-ink-secondary hover:bg-surface-hover hover:text-ink'
               }`
             }

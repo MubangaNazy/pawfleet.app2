@@ -4,16 +4,17 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        cream: { DEFAULT: '#F4F8F5', 50: '#FAFCFB', 100: '#F4F8F5', 200: '#E3EEE7' },
+        cream: { DEFAULT: '#F0F7F4', 50: '#F8FBF9', 100: '#F0F7F4', 200: '#E0EEE8' },
         primary: {
           DEFAULT: '#2B8A50',
-          50:  '#EDF7F2',
-          100: '#C5E8D4',
+          50:  '#EBF5EF',
+          100: '#C6E6D3',
           500: '#2B8A50',
-          600: '#22703F',
-          700: '#1A572F',
+          600: '#1F6B3D',
+          700: '#1B4332',
         },
-        surface: { DEFAULT: '#FFFFFF', secondary: '#F6FAF7', border: '#DDE9E2', hover: '#EDF5EF' },
+        forest: { DEFAULT: '#1B4332', light: '#2D6A4F', mid: '#40916C', pale: '#EBF5EF' },
+        surface: { DEFAULT: '#FFFFFF', secondary: '#F6FAF7', border: '#DDE9E2', hover: '#EBF5EF' },
         ink: { DEFAULT: '#111827', secondary: '#4B5563', muted: '#9CA3AF' },
         success: { DEFAULT: '#10B981', light: '#D1FAE5', dark: '#065F46' },
         warning: { DEFAULT: '#F59E0B', light: '#FEF3C7', dark: '#92400E' },

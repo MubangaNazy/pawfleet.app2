@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  PawPrint, Eye, EyeOff, Phone, Lock,
+  Eye, EyeOff, Phone, Lock,
   MapPin, DollarSign, Shield, Zap, ArrowRight, Check,
 } from 'lucide-react';
+import PawFleetLogo from '../components/ui/PawFleetLogo';
 import { useApp } from '../context/AppContext';
 import { Role } from '../types';
 
@@ -59,20 +60,20 @@ function FloatingCard2() {
   return (
     <div className="glass-card rounded-2xl p-4 w-48 float-b select-none">
       <div className="flex items-center gap-2 mb-2">
-        <div className="w-7 h-7 rounded-lg bg-amber-400/20 flex items-center justify-center">
-          <DollarSign className="w-3.5 h-3.5 text-amber-300" />
+        <div className="w-7 h-7 rounded-lg bg-white/20 flex items-center justify-center">
+          <DollarSign className="w-3.5 h-3.5 text-white" />
         </div>
         <span className="text-white/80 text-[11px] font-medium">Monthly Revenue</span>
       </div>
       <div className="text-2xl font-bold text-white">ZMW 4,500</div>
       <div className="flex items-center gap-1 mt-1">
-        <span className="text-emerald-400 text-xs font-semibold">↑ 18%</span>
+        <span className="text-emerald-300 text-xs font-semibold">↑ 18%</span>
         <span className="text-white/40 text-xs">vs last month</span>
       </div>
       <div className="mt-3 flex gap-1">
         {[40, 65, 50, 80, 70, 90, 75].map((h, i) => (
           <div key={i} className="flex-1 rounded-sm bg-white/10 flex items-end" style={{ height: 28 }}>
-            <div className="w-full rounded-sm bg-amber-400/60" style={{ height: `${h}%` }} />
+            <div className="w-full rounded-sm bg-white/50" style={{ height: `${h}%` }} />
           </div>
         ))}
       </div>
@@ -115,9 +116,9 @@ function DogIllustration() {
       {/* Neck */}
       <path d="M115 150 Q140 140 165 150 L162 175 Q140 168 118 175Z" fill="rgba(255,255,255,0.13)" />
       {/* Left ear */}
-      <ellipse cx="108" cy="94" rx="20" ry="32" fill="rgba(167,139,250,0.35)" transform="rotate(-18 108 94)" />
+      <ellipse cx="108" cy="94" rx="20" ry="32" fill="rgba(64,145,108,0.40)" transform="rotate(-18 108 94)" />
       {/* Right ear */}
-      <ellipse cx="172" cy="94" rx="20" ry="32" fill="rgba(167,139,250,0.35)" transform="rotate(18 172 94)" />
+      <ellipse cx="172" cy="94" rx="20" ry="32" fill="rgba(64,145,108,0.40)" transform="rotate(18 172 94)" />
       {/* Head */}
       <circle cx="140" cy="110" r="52" fill="rgba(255,255,255,0.14)" />
       {/* Snout */}
@@ -142,8 +143,8 @@ function DogIllustration() {
       {/* Smile */}
       <path d="M128 136 Q140 146 152 136" stroke="rgba(255,255,255,0.7)" strokeWidth="2.5" strokeLinecap="round" fill="none" />
       {/* Collar */}
-      <rect x="116" y="152" width="48" height="9" rx="4.5" fill="rgba(99,102,241,0.6)" />
-      <circle cx="140" cy="156" r="4" fill="rgba(251,191,36,0.9)" />
+      <rect x="116" y="152" width="48" height="9" rx="4.5" fill="rgba(27,67,50,0.75)" />
+      <circle cx="140" cy="156" r="4" fill="rgba(82,183,136,0.95)" />
       {/* Paw on leg */}
       <ellipse cx="104" cy="257" rx="9" ry="5" fill="rgba(255,255,255,0.15)" />
       <ellipse cx="134" cy="258" rx="9" ry="5" fill="rgba(255,255,255,0.15)" />
@@ -232,12 +233,8 @@ export default function Login() {
 
           {/* Logo */}
           <div className="flex items-center gap-3 fade-in-left">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center"
-              style={{ background: 'linear-gradient(135deg, #1A572F, #2B8A50)' }}>
-              <PawPrint className="w-5 h-5 text-white" />
-            </div>
-            <span className="text-xl font-bold text-white tracking-tight">PawFleet</span>
-            <span className="ml-2 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-white/10 text-white/60 border border-white/10">
+            <PawFleetLogo size={40} showText textWhite />
+            <span className="ml-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-white/10 text-white/60 border border-white/10">
               ZAMBIA 🇿🇲
             </span>
           </div>
@@ -307,24 +304,17 @@ export default function Login() {
       </div>
 
       {/* ══════════ RIGHT FORM PANEL ══════════ */}
-      <div className="flex-1 flex items-center justify-center bg-[#F8F6F0] p-6 sm:p-10 relative overflow-hidden">
+      <div className="flex-1 flex items-center justify-center bg-white p-6 sm:p-10 relative overflow-hidden">
 
         {/* Subtle background texture */}
-        <div className="absolute inset-0 opacity-40 pointer-events-none"
-          style={{ backgroundImage: 'radial-gradient(circle at 80% 20%, #e0e7ff 0%, transparent 50%), radial-gradient(circle at 20% 80%, #dbeafe 0%, transparent 50%)' }} />
+        <div className="absolute inset-0 opacity-30 pointer-events-none"
+          style={{ backgroundImage: 'radial-gradient(circle at 80% 20%, #C6E6D3 0%, transparent 55%), radial-gradient(circle at 20% 80%, #EBF5EF 0%, transparent 55%)' }} />
 
         <div className="relative w-full max-w-sm">
 
           {/* Mobile logo */}
-          <div className="flex items-center gap-3 mb-8 lg:hidden fade-in-up">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg"
-              style={{ background: 'linear-gradient(135deg, #1A572F, #2B8A50)' }}>
-              <PawPrint className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <span className="text-xl font-bold text-ink block leading-none">PawFleet</span>
-              <span className="text-[10px] text-ink-muted">Dog Walking Management</span>
-            </div>
+          <div className="mb-8 lg:hidden fade-in-up">
+            <PawFleetLogo size={42} showText />
           </div>
 
           {/* Heading */}

@@ -11,7 +11,7 @@ import { Button } from '../../components/ui/Button';
 const groomingPlans = [
   {
     tag: 'Best Value',
-    tagColor: 'bg-amber-100 text-amber-700',
+    tagColor: 'bg-primary-50 text-primary-600',
     icon: '✂️',
     title: 'Build a Grooming Plan',
     subtitle: 'Monthly or twice-a-month recurring sessions',
@@ -28,7 +28,7 @@ const groomingPlans = [
   },
   {
     tag: 'Popular',
-    tagColor: 'bg-violet-100 text-violet-700',
+    tagColor: 'bg-primary-50 text-primary',
     icon: '💅',
     title: 'Full Groom Package',
     subtitle: 'Bath, trim, nail clip, ear clean',
@@ -41,7 +41,7 @@ const groomingPlans = [
 const walkingPlans = [
   {
     tag: 'Great for first-timers!',
-    tagColor: 'bg-emerald-100 text-emerald-700',
+    tagColor: 'bg-primary-50 text-primary',
     icon: '🦮',
     title: 'Single 40 Min Walk',
     subtitle: 'One-time walk, no commitment',
@@ -58,7 +58,7 @@ const walkingPlans = [
   },
   {
     tag: 'Bestseller',
-    tagColor: 'bg-amber-100 text-amber-700',
+    tagColor: 'bg-primary-50 text-primary-600',
     icon: '🌳',
     title: '40 Min Walk Plans',
     subtitle: 'Most popular — full neighbourhood walk',
@@ -167,7 +167,7 @@ export default function Services() {
         {tab === 'grooming' ? (
           <>
             {/* Hero */}
-            <div className="relative rounded-2xl overflow-hidden bg-gradient-to-br from-violet-500 to-purple-700 p-6 text-white">
+            <div className="relative rounded-2xl overflow-hidden bg-gradient-to-br from-primary to-primary-700 p-6 text-white">
               <div className="flex items-start justify-between">
                 <div>
                   <p className="text-xs font-semibold bg-white/20 px-2.5 py-1 rounded-full inline-block mb-3">
@@ -205,10 +205,10 @@ export default function Services() {
                   { step: 4, title: 'Your groomer arrives', desc: 'A trusted PawFleet groomer shows up right on schedule.' },
                 ].map(({ step, title, desc }) => (
                   <div key={step} className="flex gap-4">
-                    <div className="w-7 h-7 rounded-full bg-violet-100 text-violet-700 text-sm font-bold flex items-center justify-center shrink-0 mt-0.5">
+                    <div className="w-7 h-7 rounded-full bg-primary-50 text-primary text-sm font-bold flex items-center justify-center shrink-0 mt-0.5">
                       {step}
                     </div>
-                    <div className="flex-1 pb-4 border-l border-violet-100 pl-4">
+                    <div className="flex-1 pb-4 border-l border-primary-100 pl-4">
                       <p className="text-sm font-semibold text-ink">{title}</p>
                       <p className="text-xs text-ink-secondary mt-0.5">{desc}</p>
                     </div>
@@ -229,8 +229,8 @@ export default function Services() {
                   { icon: Phone, title: 'Support 9am–7pm', desc: "Got questions? We're just a message away, all day long." },
                 ].map(({ icon: Icon, title, desc }) => (
                   <div key={title} className="flex items-start gap-3">
-                    <div className="w-8 h-8 rounded-xl bg-violet-50 flex items-center justify-center shrink-0">
-                      <Icon className="w-4 h-4 text-violet-600" />
+                    <div className="w-8 h-8 rounded-xl bg-primary-50 flex items-center justify-center shrink-0">
+                      <Icon className="w-4 h-4 text-primary" />
                     </div>
                     <div>
                       <p className="text-sm font-semibold text-ink">{title}</p>
@@ -271,7 +271,7 @@ export default function Services() {
         ) : (
           <>
             {/* Hero */}
-            <div className="relative rounded-2xl overflow-hidden bg-gradient-to-br from-emerald-500 to-teal-700 p-6 text-white">
+            <div className="relative rounded-2xl overflow-hidden bg-gradient-to-br from-primary to-primary-700 p-6 text-white">
               <div className="flex items-start justify-between">
                 <div>
                   <p className="text-xs font-semibold bg-white/20 px-2.5 py-1 rounded-full inline-block mb-3">
@@ -308,10 +308,10 @@ export default function Services() {
                   { step: 3, title: 'Track in real-time', desc: 'The walker starts the session on the app — follow along live, get notified when it ends.' },
                 ].map(({ step, title, desc }) => (
                   <div key={step} className="flex gap-4">
-                    <div className="w-7 h-7 rounded-full bg-emerald-100 text-emerald-700 text-sm font-bold flex items-center justify-center shrink-0 mt-0.5">
+                    <div className="w-7 h-7 rounded-full bg-primary-50 text-primary text-sm font-bold flex items-center justify-center shrink-0 mt-0.5">
                       {step}
                     </div>
-                    <div className="flex-1 pb-4 border-l border-emerald-100 pl-4">
+                    <div className="flex-1 pb-4 border-l border-primary-100 pl-4">
                       <p className="text-sm font-semibold text-ink">{title}</p>
                       <p className="text-xs text-ink-secondary mt-0.5">{desc}</p>
                     </div>
@@ -329,8 +329,8 @@ export default function Services() {
                 { icon: CheckCircle, title: 'Walk Reports', desc: 'Photo updates after every session' },
               ].map(({ icon: Icon, title, desc }) => (
                 <div key={title} className="bg-white border border-surface-border rounded-xl p-4">
-                  <div className="w-8 h-8 bg-emerald-50 rounded-xl flex items-center justify-center mb-2">
-                    <Icon className="w-4 h-4 text-emerald-600" />
+                  <div className="w-8 h-8 bg-primary-50 rounded-xl flex items-center justify-center mb-2">
+                    <Icon className="w-4 h-4 text-primary" />
                   </div>
                   <p className="text-sm font-semibold text-ink">{title}</p>
                   <p className="text-xs text-ink-muted mt-0.5">{desc}</p>
@@ -366,7 +366,7 @@ export default function Services() {
             </div>
 
             {/* CTA */}
-            <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-5 text-center">
+            <div className="bg-primary-50 border border-emerald-200 rounded-2xl p-5 text-center">
               <p className="text-base font-bold text-ink mb-1">Ready to book your first walk?</p>
               <p className="text-sm text-ink-secondary mb-4">Takes less than 30 seconds</p>
               <Button onClick={() => navigate('/owner/request')} icon={<PawPrint className="w-4 h-4" />}>

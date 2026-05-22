@@ -18,17 +18,17 @@ const products: Record<string, Array<{
   meals: [
     {
       id: 'm1', emoji: '🍗', name: 'Chonky Chimken', subtitle: 'Chicken, sweet potato & pumpkin · 500g',
-      price: 1200, oldPrice: 1450, tag: 'High Protein', tagColor: 'bg-orange-100 text-orange-700',
+      price: 1200, oldPrice: 1450, tag: 'High Protein', tagColor: 'bg-primary-50 text-primary-600',
       benefits: ['Healthy Skin & Fur', 'Rich in Omega-3', 'Joint Support'],
     },
     {
       id: 'm2', emoji: '🥩', name: 'Meaty Mutton', subtitle: 'Lamb, rice & carrots · 500g',
-      price: 1350, tag: 'High Protein', tagColor: 'bg-red-100 text-red-700',
+      price: 1350, tag: 'High Protein', tagColor: 'bg-primary-50 text-primary-600',
       benefits: ['Muscle Growth', 'Gut Health', 'Shiny Coat'],
     },
     {
       id: 'm3', emoji: '🌾', name: 'Grain Free Gobble', subtitle: 'Chicken, pumpkin & sweet potato · 500g',
-      price: 1100, tag: 'Grain Free', tagColor: 'bg-amber-100 text-amber-700',
+      price: 1100, tag: 'Grain Free', tagColor: 'bg-primary-50 text-primary-600',
       benefits: ['Allergy Friendly', 'High Fibre', 'Digestive Health'],
     },
     {
@@ -40,7 +40,7 @@ const products: Record<string, Array<{
   food: [
     {
       id: 'f1', emoji: '🥣', name: 'Daily Kibble Pro', subtitle: 'Balanced nutrition · 2kg bag',
-      price: 850, tag: 'Vet Approved', tagColor: 'bg-blue-100 text-blue-700',
+      price: 850, tag: 'Vet Approved', tagColor: 'bg-primary-50 text-primary-600',
       benefits: ['All Life Stages', 'No Fillers', 'Fortified with Vitamins'],
     },
     {
@@ -50,7 +50,7 @@ const products: Record<string, Array<{
     },
     {
       id: 'f3', emoji: '🐟', name: 'Salmon Bites', subtitle: 'Air-dried fish treat · 200g',
-      price: 650, tag: 'Omega Rich', tagColor: 'bg-sky-100 text-sky-700',
+      price: 650, tag: 'Omega Rich', tagColor: 'bg-primary-50 text-primary-600',
       benefits: ['Skin & Coat', 'Brain Health', 'Natural Protein'],
     },
   ],
@@ -62,12 +62,12 @@ const products: Record<string, Array<{
     },
     {
       id: 't2', emoji: '🍠', name: 'Sweet Potato Chews', subtitle: 'Dehydrated · 150g',
-      price: 280, tag: 'Natural', tagColor: 'bg-orange-100 text-orange-700',
+      price: 280, tag: 'Natural', tagColor: 'bg-primary-50 text-primary-600',
       benefits: ['Single Ingredient', 'High Fibre', 'Digestive Health'],
     },
     {
       id: 't3', emoji: '🧁', name: 'Birthday Cake Bites', subtitle: 'Carob & vanilla · 200g',
-      price: 380, tag: 'Grain Free', tagColor: 'bg-pink-100 text-pink-700',
+      price: 380, tag: 'Grain Free', tagColor: 'bg-primary-50 text-primary-600',
       benefits: ['Dog-safe chocolate', 'Soft & Chewy', 'Special Occasions'],
     },
   ],
@@ -79,7 +79,7 @@ const products: Record<string, Array<{
     },
     {
       id: 'a2', emoji: '🦺', name: 'Cooling Vest', subtitle: 'Evaporative cooling · for hot days',
-      price: 1200, tag: 'Summer Essential', tagColor: 'bg-sky-100 text-sky-700',
+      price: 1200, tag: 'Summer Essential', tagColor: 'bg-primary-50 text-primary-600',
       benefits: ['Keeps Dog Cool', 'Machine Washable', 'Lightweight'],
     },
     {
@@ -96,7 +96,7 @@ const products: Record<string, Array<{
     },
     {
       id: 'h2', emoji: '🦷', name: 'Enzymatic Toothpaste', subtitle: 'Chicken flavour · 90g',
-      price: 320, tag: 'Vet Recommended', tagColor: 'bg-teal-100 text-teal-700',
+      price: 320, tag: 'Vet Recommended', tagColor: 'bg-primary-50 text-primary-600',
       benefits: ['Reduces Plaque', 'Fresh Breath', 'No Fluoride'],
     },
     {
@@ -160,7 +160,7 @@ export default function Shop() {
       <div className="px-4 pt-5 space-y-6">
         {/* Banner for meals */}
         {category === 'meals' && (
-          <div className="bg-gradient-to-br from-violet-500 to-purple-700 rounded-2xl p-5 text-white">
+          <div className="bg-gradient-to-br from-primary to-primary-700 rounded-2xl p-5 text-white">
             <div className="flex items-center gap-2 mb-2">
               <Leaf className="w-4 h-4" />
               <span className="text-xs font-semibold">From Our Kitchen to Their Bowl</span>
@@ -195,7 +195,7 @@ export default function Shop() {
                 { n: 3, t: 'Fresh food, delivered', d: 'We gently cook, seal, and deliver your dog\'s plan — all in one go.' },
               ].map(({ n, t, d }) => (
                 <div key={n} className="flex gap-3">
-                  <div className="w-6 h-6 rounded-full bg-violet-100 text-violet-700 text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">
+                  <div className="w-6 h-6 rounded-full bg-white/20 text-white text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">
                     {n}
                   </div>
                   <div>

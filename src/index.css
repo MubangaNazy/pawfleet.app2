@@ -3,11 +3,12 @@
 @tailwind utilities;
 
 :root {
-  --bg: #F4F8F5;
+  --bg: #F0F7F4;
   --surface: #FFFFFF;
   --border: #DDE9E2;
   --primary: #2B8A50;
-  --primary-light: #EDF7F2;
+  --primary-dark: #1B4332;
+  --primary-light: #EBF5EF;
   --text: #111827;
   --text-secondary: #4B5563;
   --text-muted: #9CA3AF;
@@ -108,13 +109,13 @@ html, body, #root {
   animation: shimmer-text 4s linear infinite;
 }
 .gradient-btn {
-  background: linear-gradient(135deg, #1A572F 0%, #2B8A50 50%, #22c55e 100%);
+  background: linear-gradient(135deg, #1B4332 0%, #2B8A50 50%, #40916C 100%);
   background-size: 200% auto;
   transition: background-position 0.4s ease, transform 0.15s ease, box-shadow 0.2s ease;
 }
 .gradient-btn:hover {
   background-position: right center;
-  box-shadow: 0 8px 25px rgba(43,138,80,0.45);
+  box-shadow: 0 8px 25px rgba(27,67,50,0.45);
   transform: translateY(-1px);
 }
 .gradient-btn:active { transform: translateY(0); }

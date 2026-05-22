@@ -51,7 +51,7 @@ export default function Profile() {
   return (
     <div className="max-w-xl mx-auto pb-28 lg:pb-8 px-4 pt-6 space-y-6">
       {/* Profile card */}
-      <div className="bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl p-6 text-white relative overflow-hidden">
+      <div className="bg-gradient-to-br from-primary to-primary-700 rounded-2xl p-6 text-white relative overflow-hidden">
         <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-8 translate-x-8" />
         <div className="relative flex items-center gap-4">
           <div className="w-16 h-16 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center text-2xl font-bold text-white shadow-lg">

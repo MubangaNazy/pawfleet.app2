@@ -47,7 +47,7 @@ export function MapView({ walks, center = [-15.4167, 28.2833], zoom = 13, height
                   <p className="text-xs"><span className="font-medium">Walker:</span> {walker?.name || 'Unassigned'}</p>
                   <p className="text-xs"><span className="font-medium">Owner:</span> {owner?.name || 'Unknown'}</p>
                   <p className="text-xs mt-1">
-                    <span className={`inline-block px-2 py-0.5 rounded-full text-white text-[10px] ${walk.status === 'active' ? 'bg-green-500' : 'bg-blue-500'}`}>
+                    <span className={`inline-block px-2 py-0.5 rounded-full text-white text-[10px] ${walk.status === 'active' ? 'bg-green-500' : 'bg-primary-600'}`}>
                       {walk.status}
                     </span>
                   </p>

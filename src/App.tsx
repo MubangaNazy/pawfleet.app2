@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppProvider, useApp } from './context/AppContext';
+import { CartProvider } from './context/CartContext';
 import { ToastProvider } from './components/ui/Toast';
 import { Layout } from './components/layout/Layout';
 import SplashScreen from './components/SplashScreen';
@@ -31,6 +32,11 @@ import OwnerServices from './pages/owner/Services';
 import OwnerShop from './pages/owner/Shop';
 import OwnerProfile from './pages/owner/Profile';
 import WalkTracker from './pages/owner/WalkTracker';
+import OwnerSchedule from './pages/owner/Schedule';
+import OwnerCart from './pages/owner/Cart';
+import WalkerSchedule from './pages/walker/Schedule';
+import WalkerLiveWalk from './pages/walker/LiveWalk';
+import Chat from './pages/Chat';
 
 function ProtectedRoute({ children, role }: { children: React.ReactNode; role?: string | string[] }) {
   const { currentUser } = useApp();
@@ -95,26 +101,36 @@ function AppRoutes() {
       <Route path="/walker" element={<ProtectedRoute role="walker"><Layout /></ProtectedRoute>}>
         <Route index element={<WalkerDashboard />} />
         <Route path="walks" element={<WalkerMyWalks />} />
+        <Route path="schedule" element={<WalkerSchedule />} />
         <Route path="earnings" element={<WalkerEarnings />} />
         <Route path="badges" element={<WalkerBadges />} />
         <Route path="dashboard" element={<Navigate to="/walker" replace />} />
         <Route path="my-walks" element={<Navigate to="/walker/walks" replace />} />
       </Route>
 
+      {/* Walker live walk + chat (full-screen, outside Layout) */}
+      <Route path="/walker/live/:walkId" element={<ProtectedRoute role="walker"><WalkerLiveWalk /></ProtectedRoute>} />
+      <Route path="/walker/chat/:walkId" element={<ProtectedRoute role="walker"><Chat /></ProtectedRoute>} />
+
       <Route path="/owner" element={<ProtectedRoute role="owner"><Layout /></ProtectedRoute>}>
         <Route index element={<OwnerDashboard />} />
         <Route path="request" element={<OwnerRequestWalk />} />
+        <Route path="schedule" element={<OwnerSchedule />} />
         <Route path="history" element={<OwnerHistory />} />
         <Route path="dogs" element={<OwnerDogs />} />
         <Route path="dogs/:dogId" element={<DogProfile />} />
         <Route path="services" element={<OwnerServices />} />
         <Route path="shop" element={<OwnerShop />} />
+        <Route path="cart" element={<OwnerCart />} />
         <Route path="profile" element={<OwnerProfile />} />
         <Route path="track/:walkId" element={<WalkTracker />} />
         {/* Legacy redirects */}
         <Route path="dashboard" element={<Navigate to="/owner" replace />} />
         <Route path="request-walk" element={<Navigate to="/owner/request" replace />} />
       </Route>
+
+      {/* Owner chat (full-screen, outside Layout) */}
+      <Route path="/owner/chat/:walkId" element={<ProtectedRoute role="owner"><Chat /></ProtectedRoute>} />
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
@@ -134,10 +150,12 @@ export default function App() {
   return (
     <BrowserRouter>
       <AppProvider>
-        <ToastProvider>
-          {showSplash && <SplashScreen onDone={handleSplashDone} />}
-          <AppContent />
-        </ToastProvider>
+        <CartProvider>
+          <ToastProvider>
+            {showSplash && <SplashScreen onDone={handleSplashDone} />}
+            <AppContent />
+          </ToastProvider>
+        </CartProvider>
       </AppProvider>
     </BrowserRouter>
   );

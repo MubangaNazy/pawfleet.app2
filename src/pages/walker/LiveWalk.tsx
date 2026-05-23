@@ -1,0 +1,223 @@
+import React, { useEffect, useState, useRef } from 'react';
+import { useParams, useNavigate, Link } from 'react-router-dom';
+import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
+import L from 'leaflet';
+import { ArrowLeft, Phone, MessageCircle, Square, Navigation, Activity } from 'lucide-react';
+import { useApp } from '../../context/AppContext';
+import { supabase } from '../../lib/supabase';
+import { format } from 'date-fns';
+
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+});
+
+const walkerIcon = new L.DivIcon({
+  html: `<div style="background:#2B8A50;width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:3px solid white;box-shadow:0 2px 10px rgba(0,0,0,0.3);font-size:20px;">🐾</div>`,
+  className: '',
+  iconSize: [40, 40],
+  iconAnchor: [20, 20],
+});
+
+const LUSAKA: [number, number] = [-15.4167, 28.2833];
+
+function RecenterMap({ center }: { center: [number, number] }) {
+  const map = useMap();
+  const firstRef = useRef(true);
+  useEffect(() => {
+    if (firstRef.current) { map.setView(center, 16); firstRef.current = false; }
+    else map.panTo(center, { animate: true, duration: 1 });
+  }, [center, map]);
+  return null;
+}
+
+export default function WalkerLiveWalk() {
+  const { walkId } = useParams<{ walkId: string }>();
+  const { data, endWalk } = useApp();
+  const navigate = useNavigate();
+
+  const [myPos, setMyPos] = useState<[number, number] | null>(null);
+  const [route, setRoute] = useState<[number, number][]>([]);
+  const [elapsed, setElapsed] = useState(0);
+  const [gpsError, setGpsError] = useState(false);
+  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+
+  const walk = data.walks.find(w => w.id === walkId);
+  const dog = data.dogs.find(d => d.id === walk?.dogId);
+  const owner = data.users.find(u => u.id === walk?.ownerId);
+
+  // Elapsed time ticker
+  useEffect(() => {
+    if (walk?.status !== 'active') return;
+    const t = setInterval(() => setElapsed(e => e + 1), 1000);
+    return () => clearInterval(t);
+  }, [walk?.status]);
+
+  // GPS watch + broadcast
+  useEffect(() => {
+    if (!walkId || walk?.status !== 'active') return;
+
+    const channel = supabase.channel(`walk-location-${walkId}`);
+    channel.subscribe();
+    channelRef.current = channel;
+
+    if (!navigator.geolocation) { setGpsError(true); return; }
+
+    const watchId = navigator.geolocation.watchPosition(
+      pos => {
+        const pt: [number, number] = [pos.coords.latitude, pos.coords.longitude];
+        setMyPos(pt);
+        setRoute(prev => [...prev, pt]);
+        channel.send({
+          type: 'broadcast',
+          event: 'location',
+          payload: { lat: pt[0], lng: pt[1] },
+        });
+      },
+      () => setGpsError(true),
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+
+    return () => {
+      navigator.geolocation.clearWatch(watchId);
+      supabase.removeChannel(channel);
+    };
+  }, [walkId, walk?.status]);
+
+  const handleEnd = () => {
+    if (!walkId) return;
+    const loc = myPos
+      ? { lat: myPos[0], lng: myPos[1] }
+      : { lat: LUSAKA[0], lng: LUSAKA[1] };
+    endWalk(walkId, loc);
+    navigate('/walker/walks');
+  };
+
+  const center: [number, number] = myPos || (
+    walk?.startLocation
+      ? [walk.startLocation.lat, walk.startLocation.lng]
+      : LUSAKA
+  );
+
+  const formatElapsed = (s: number) =>
+    `${Math.floor(s / 60).toString().padStart(2, '0')}:${(s % 60).toString().padStart(2, '0')}`;
+
+  if (!walk || walk.status !== 'active') {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 gap-4 p-6 text-center">
+        <p className="text-ink-secondary">No active walk found.</p>
+        <button onClick={() => navigate('/walker/walks')} className="text-primary text-sm font-medium">
+          ← Back to Walks
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col h-screen bg-ink">
+      {/* Header */}
+      <div className="bg-white border-b border-surface-border px-4 py-3 flex items-center gap-3 shrink-0">
+        <button
+          onClick={() => navigate('/walker/walks')}
+          className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-surface-hover text-ink-secondary"
+        >
+          <ArrowLeft className="w-5 h-5" />
+        </button>
+        <div className="flex-1">
+          <p className="text-sm font-bold text-ink">{dog?.name}'s Walk</p>
+          <p className="text-xs text-ink-muted">Owner: {owner?.name}</p>
+        </div>
+        <div className="flex items-center gap-1.5 bg-success/10 border border-success/30 rounded-xl px-3 py-1.5">
+          <span className="w-2 h-2 bg-success rounded-full animate-pulse" />
+          <span className="text-xs font-semibold text-success">LIVE</span>
+        </div>
+      </div>
+
+      {/* Map */}
+      <div className="flex-1 relative">
+        <MapContainer
+          center={center}
+          zoom={16}
+          style={{ height: '100%', width: '100%' }}
+          zoomControl={false}
+        >
+          <TileLayer
+            attribution='&copy; <a href="https://www.openstreetmap.org">OpenStreetMap</a>'
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          />
+          <RecenterMap center={center} />
+
+          {route.length > 1 && (
+            <Polyline positions={route} color="#2B8A50" weight={4} opacity={0.85} />
+          )}
+
+          {myPos && (
+            <Marker position={myPos} icon={walkerIcon}>
+              <Popup>
+                <p className="text-xs font-semibold">You are here</p>
+                <p className="text-xs text-ink-muted">Walking {dog?.name}</p>
+              </Popup>
+            </Marker>
+          )}
+        </MapContainer>
+
+        {gpsError && (
+          <div className="absolute top-3 left-1/2 -translate-x-1/2 bg-amber-500 text-white text-xs px-3 py-1.5 rounded-xl shadow font-semibold z-[1000]">
+            GPS unavailable — location not being shared
+          </div>
+        )}
+
+        {!gpsError && !myPos && (
+          <div className="absolute top-3 left-1/2 -translate-x-1/2 bg-white/95 text-ink text-xs px-3 py-1.5 rounded-xl shadow font-semibold z-[1000] flex items-center gap-2">
+            <div className="w-3 h-3 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+            Getting your location…
+          </div>
+        )}
+      </div>
+
+      {/* Stats bar */}
+      <div className="bg-ink text-white grid grid-cols-3 divide-x divide-white/10 shrink-0">
+        {[
+          { icon: Activity, label: 'Duration', value: formatElapsed(elapsed) },
+          { icon: Navigation, label: 'Points', value: route.length.toString() },
+          { icon: Activity, label: 'Status', value: 'Active' },
+        ].map(({ icon: Icon, label, value }) => (
+          <div key={label} className="flex flex-col items-center py-4 gap-0.5">
+            <Icon className="w-4 h-4 text-white/50 mb-1" />
+            <span className="text-base font-bold">{value}</span>
+            <span className="text-white/50 text-[10px] uppercase tracking-wider">{label}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Action buttons */}
+      <div className="bg-white border-t border-surface-border px-4 py-4 flex gap-3 shrink-0">
+        {owner?.phone && (
+          <a
+            href={`tel:${owner.phone}`}
+            className="flex items-center gap-2 flex-1 justify-center bg-primary-50 text-primary border border-primary/20 py-3 rounded-xl font-semibold text-sm hover:bg-primary/10 transition-colors"
+          >
+            <Phone className="w-4 h-4" />
+            Call Owner
+          </a>
+        )}
+        <Link
+          to={`/walker/chat/${walkId}`}
+          className="flex items-center gap-2 flex-1 justify-center bg-surface-secondary text-ink border border-surface-border py-3 rounded-xl font-semibold text-sm hover:bg-surface-hover transition-colors"
+        >
+          <MessageCircle className="w-4 h-4" />
+          Chat
+        </Link>
+        <button
+          onClick={handleEnd}
+          className="flex items-center gap-2 flex-1 justify-center bg-danger text-white py-3 rounded-xl font-semibold text-sm hover:bg-danger/90 transition-colors"
+        >
+          <Square className="w-4 h-4" />
+          End Walk
+        </button>
+      </div>
+    </div>
+  );
+}

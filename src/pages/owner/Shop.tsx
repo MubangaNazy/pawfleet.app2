@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ShoppingCart, Plus, Star, Leaf, Zap } from 'lucide-react';
+import { useCart } from '../../context/CartContext';
 
 /* ── Data ── */
 const categories = [
@@ -107,15 +109,14 @@ const products: Record<string, Array<{
   ],
 };
 
-/* ── Cart state (demo) ── */
 export default function Shop() {
   const [category, setCategory] = useState('meals');
-  const [cart, setCart] = useState<Record<string, number>>({});
+  const { addItem, updateQty, items, count: cartTotal } = useCart();
+  const navigate = useNavigate();
 
-  const addToCart = (id: string) => setCart(prev => ({ ...prev, [id]: (prev[id] || 0) + 1 }));
-  const cartTotal = Object.values(cart).reduce((a, b) => a + b, 0);
+  const getQty = (id: string) => items.find(i => i.id === id)?.qty || 0;
 
-  const items = products[category] || [];
+  const productList = products[category] || [];
 
   return (
     <div className="max-w-2xl mx-auto pb-28 lg:pb-8">
@@ -214,11 +215,11 @@ export default function Shop() {
             <h3 className="text-sm font-bold text-ink">
               {category === 'meals' ? 'A Peek Into Our Bowls' : categories.find(c => c.id === category)?.label}
             </h3>
-            <span className="text-xs text-ink-muted">{items.length} items</span>
+            <span className="text-xs text-ink-muted">{productList.length} items</span>
           </div>
           <div className="grid grid-cols-1 gap-3">
-            {items.map(item => {
-              const inCart = cart[item.id] || 0;
+            {productList.map(item => {
+              const inCart = getQty(item.id);
               return (
                 <div key={item.id} className="bg-white border border-surface-border rounded-2xl p-4 flex items-center gap-4">
                   <div className="w-16 h-16 rounded-xl bg-surface-secondary flex items-center justify-center text-3xl shrink-0">
@@ -247,14 +248,16 @@ export default function Shop() {
                       {inCart > 0 ? (
                         <div className="flex items-center gap-2">
                           <button
-                            onClick={() => setCart(prev => { const n = { ...prev }; n[item.id]--; if (!n[item.id]) delete n[item.id]; return n; })}
+                            type="button"
+                            onClick={() => updateQty(item.id, inCart - 1)}
                             className="w-7 h-7 rounded-lg bg-surface-secondary text-ink font-bold flex items-center justify-center hover:bg-surface-hover"
                           >
                             −
                           </button>
                           <span className="text-sm font-semibold text-ink w-4 text-center">{inCart}</span>
                           <button
-                            onClick={() => addToCart(item.id)}
+                            type="button"
+                            onClick={() => addItem({ id: item.id, name: item.name, subtitle: item.subtitle, price: item.price, emoji: item.emoji })}
                             className="w-7 h-7 rounded-lg bg-primary text-white font-bold flex items-center justify-center hover:bg-primary/90"
                           >
                             +
@@ -262,7 +265,8 @@ export default function Shop() {
                         </div>
                       ) : (
                         <button
-                          onClick={() => addToCart(item.id)}
+                          type="button"
+                          onClick={() => addItem({ id: item.id, name: item.name, subtitle: item.subtitle, price: item.price, emoji: item.emoji })}
                           className="flex items-center gap-1 bg-primary text-white text-xs font-semibold px-3 py-1.5 rounded-xl hover:bg-primary/90 transition-colors"
                         >
                           <Plus className="w-3 h-3" /> Add
@@ -317,7 +321,11 @@ export default function Shop() {
       {/* Sticky cart bar */}
       {cartTotal > 0 && (
         <div className="fixed bottom-20 lg:bottom-6 left-0 right-0 px-4 z-20">
-          <button className="w-full max-w-2xl mx-auto flex items-center justify-between bg-primary text-white rounded-2xl px-5 py-4 shadow-xl hover:bg-primary/90 transition-colors">
+          <button
+            type="button"
+            onClick={() => navigate('/owner/cart')}
+            className="w-full max-w-2xl mx-auto flex items-center justify-between bg-primary text-white rounded-2xl px-5 py-4 shadow-xl hover:bg-primary/90 transition-colors"
+          >
             <div className="flex items-center gap-2">
               <ShoppingCart className="w-5 h-5" />
               <span className="font-semibold">{cartTotal} item{cartTotal > 1 ? 's' : ''} in cart</span>

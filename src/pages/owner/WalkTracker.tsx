@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import React, { useEffect, useState, useRef } from 'react';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import { ArrowLeft, MapPin, Clock, User, PawPrint, Activity } from 'lucide-react';
+import { ArrowLeft, MapPin, Clock, User, PawPrint, Activity, MessageCircle, Phone } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
-import { format, formatDistanceToNow } from 'date-fns';
+import { supabase } from '../../lib/supabase';
+import { format } from 'date-fns';
 
 // Fix leaflet default icon
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -16,10 +17,10 @@ L.Icon.Default.mergeOptions({
 
 // Paw icon for walker position
 const pawIcon = new L.DivIcon({
-  html: `<div style="background:#6366f1;width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);font-size:18px;">🐾</div>`,
+  html: `<div style="background:#2B8A50;width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:3px solid white;box-shadow:0 2px 10px rgba(0,0,0,0.35);font-size:20px;">🐾</div>`,
   className: '',
-  iconSize: [36, 36],
-  iconAnchor: [18, 18],
+  iconSize: [40, 40],
+  iconAnchor: [20, 20],
 });
 
 // Start icon
@@ -41,6 +42,7 @@ export default function WalkTracker() {
   const { data } = useApp();
   const navigate = useNavigate();
   const [elapsed, setElapsed] = useState(0);
+  const [livePos, setLivePos] = useState<[number, number] | null>(null);
 
   const walk = data.walks.find(w => w.id === walkId);
   const dog = data.dogs.find(d => d.id === walk?.dogId);
@@ -53,6 +55,18 @@ export default function WalkTracker() {
     return () => clearInterval(interval);
   }, [walk?.status]);
 
+  // Subscribe to walker's live GPS broadcast
+  useEffect(() => {
+    if (!walkId || walk?.status !== 'active') return;
+    const channel = supabase
+      .channel(`walk-location-${walkId}`)
+      .on('broadcast', { event: 'location' }, ({ payload }) => {
+        setLivePos([payload.lat, payload.lng]);
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [walkId, walk?.status]);
+
   const formatElapsed = (secs: number) => {
     const m = Math.floor(secs / 60).toString().padStart(2, '0');
     const s = (secs % 60).toString().padStart(2, '0');
@@ -64,7 +78,7 @@ export default function WalkTracker() {
       <div className="flex flex-col items-center justify-center h-64 gap-4 p-6">
         <PawPrint className="w-12 h-12 text-ink-muted" />
         <p className="text-ink-secondary text-center">Walk not found.</p>
-        <button onClick={() => navigate('/owner')} className="text-primary text-sm font-medium">← Back to Dashboard</button>
+        <button type="button" onClick={() => navigate('/owner')} className="text-primary text-sm font-medium">← Back to Dashboard</button>
       </div>
     );
   }
@@ -75,6 +89,7 @@ export default function WalkTracker() {
     [loc.lat, loc.lng],
     ...(endLoc ? [[endLoc.lat, endLoc.lng] as [number, number]] : []),
   ];
+  const liveCenter: [number, number] = livePos || [loc.lat, loc.lng];
   const center: [number, number] = [loc.lat, loc.lng];
 
   const isActive = walk.status === 'active';
@@ -93,6 +108,8 @@ export default function WalkTracker() {
       {/* Header */}
       <div className="bg-white border-b border-surface-border px-4 py-3 flex items-center gap-3 shrink-0">
         <button
+          type="button"
+          title="Back to dashboard"
           onClick={() => navigate('/owner')}
           className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-surface-hover text-ink-secondary"
         >
@@ -107,9 +124,11 @@ export default function WalkTracker() {
           </span>
         </div>
         {isActive && (
-          <div className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-1.5">
-            <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
-            <span className="text-xs font-semibold text-emerald-700">LIVE</span>
+          <div className="flex items-center gap-1.5 bg-success/10 border border-success/30 rounded-xl px-3 py-1.5">
+            <span className="w-2 h-2 bg-success rounded-full animate-pulse" />
+            <span className="text-xs font-semibold text-success">
+              {livePos ? 'GPS LIVE' : 'LIVE'}
+            </span>
           </div>
         )}
       </div>
@@ -127,11 +146,11 @@ export default function WalkTracker() {
               attribution='&copy; <a href="https://www.openstreetmap.org">OpenStreetMap</a>'
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
-            <RecenterMap center={center} />
+            <RecenterMap center={liveCenter} />
 
             {/* Route line */}
             {routePoints.length > 1 && (
-              <Polyline positions={routePoints} color="#6366f1" weight={4} opacity={0.8} />
+              <Polyline positions={routePoints} color="#2B8A50" weight={4} opacity={0.8} />
             )}
 
             {/* Start marker */}
@@ -139,12 +158,14 @@ export default function WalkTracker() {
               <Popup><p className="text-xs font-semibold">Walk started here</p></Popup>
             </Marker>
 
-            {/* Walker position (paw) */}
+            {/* Live walker position (paw) */}
             {isActive && (
-              <Marker position={center} icon={pawIcon}>
+              <Marker position={liveCenter} icon={pawIcon}>
                 <Popup>
                   <p className="text-xs font-semibold">{walker?.name || 'Walker'}</p>
-                  <p className="text-xs text-ink-muted">Currently here with {dog?.name}</p>
+                  <p className="text-xs text-ink-muted">
+                    {livePos ? 'Live location' : 'Last known location'} — with {dog?.name}
+                  </p>
                 </Popup>
               </Marker>
             )}
@@ -197,13 +218,27 @@ export default function WalkTracker() {
             <p className="text-sm font-semibold text-ink">{walker?.name || 'Unassigned'}</p>
             {walker?.phone && <p className="text-xs text-ink-muted">{walker.phone}</p>}
           </div>
-          {isActive && walker && (
-            <a
-              href={`tel:${walker.phone}`}
-              className="text-xs font-semibold text-primary bg-primary/10 px-3 py-1.5 rounded-xl"
-            >
-              Call
-            </a>
+          {walker && (
+            <div className="flex gap-2 shrink-0">
+              {walkId && (
+                <Link
+                  to={`/owner/chat/${walkId}`}
+                  className="w-9 h-9 flex items-center justify-center rounded-xl bg-surface-secondary hover:bg-primary-50 text-ink-secondary hover:text-primary transition-colors"
+                  title="Chat with walker"
+                >
+                  <MessageCircle className="w-4 h-4" />
+                </Link>
+              )}
+              {isActive && walker.phone && (
+                <a
+                  href={`tel:${walker.phone}`}
+                  className="w-9 h-9 flex items-center justify-center rounded-xl bg-primary text-white hover:bg-primary/90 transition-colors"
+                  title="Call walker"
+                >
+                  <Phone className="w-4 h-4" />
+                </a>
+              )}
+            </div>
           )}
         </div>
 

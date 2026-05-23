@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
-import { Play, Square, MapPin, Clock, Navigation, AlertCircle } from 'lucide-react';
+import { Play, Square, MapPin, Clock, Navigation, AlertCircle, MessageCircle } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { StatusBadge, PaymentBadge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
@@ -165,13 +166,24 @@ export default function WalkerMyWalks() {
                 )}
 
                 {walk.status === 'active' && (
-                  <div className="flex items-center gap-3 pt-3 border-t border-surface-border">
+                  <div className="flex items-center gap-3 pt-3 border-t border-surface-border flex-wrap">
+                    <Link
+                      to={`/walker/live/${walk.id}`}
+                      className="flex items-center gap-2 bg-primary text-white text-sm font-semibold px-4 py-2 rounded-xl hover:bg-primary/90 transition-colors"
+                    >
+                      <Navigation className="w-4 h-4" />
+                      Go Live
+                    </Link>
+                    <Link
+                      to={`/walker/chat/${walk.id}`}
+                      className="flex items-center gap-2 bg-surface-secondary text-ink text-sm font-semibold px-4 py-2 rounded-xl hover:bg-surface-hover border border-surface-border transition-colors"
+                    >
+                      <MessageCircle className="w-4 h-4" />
+                      Chat
+                    </Link>
                     <Button variant="danger" size="md" icon={<Square className="w-4 h-4" />} loading={isGpsLoading} onClick={() => handleEnd(walk.id)}>
                       {isGpsLoading ? 'Getting GPS...' : 'End Walk'}
                     </Button>
-                    <div className="flex items-center gap-1.5 text-xs text-ink-muted">
-                      <Clock className="w-3 h-3" /> Duration will be calculated
-                    </div>
                   </div>
                 )}
 

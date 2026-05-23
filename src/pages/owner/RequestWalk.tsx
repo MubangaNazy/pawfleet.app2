@@ -5,12 +5,17 @@ import { useApp } from '../../context/AppContext';
 import { Button } from '../../components/ui/Button';
 import { Select, TextArea } from '../../components/ui/Input';
 
+const todayStr = () => new Date().toISOString().slice(0, 10);
+const defaultTime = '09:00';
+
 export default function OwnerRequestWalk() {
   const { data, currentUser, createWalk } = useApp();
   const navigate = useNavigate();
 
   const myDogs = data.dogs.filter(d => d.ownerId === currentUser?.id);
   const [dogId, setDogId] = useState(myDogs.length === 1 ? myDogs[0].id : '');
+  const [schedDate, setSchedDate] = useState(todayStr());
+  const [schedTime, setSchedTime] = useState(defaultTime);
   const [notes, setNotes] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitted, setSubmitted] = useState(false);
@@ -20,11 +25,12 @@ export default function OwnerRequestWalk() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!dogId) { setErrors({ dogId: 'Please select a dog' }); return; }
+    const scheduledDate = new Date(`${schedDate}T${schedTime}:00`).toISOString();
     createWalk({
       dogId,
       ownerId: currentUser!.id,
       status: 'pending',
-      scheduledDate: new Date().toISOString(),
+      scheduledDate,
       price: 150,
       walkerEarning: 100,
       notes: notes || undefined,
@@ -109,6 +115,29 @@ export default function OwnerRequestWalk() {
             onChange={e => { setDogId(e.target.value); setErrors({}); }}
             error={errors.dogId}
           />
+
+          {/* Date & Time picker */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-ink mb-1.5">Date *</label>
+              <input
+                type="date"
+                value={schedDate}
+                min={todayStr()}
+                onChange={e => setSchedDate(e.target.value)}
+                className="w-full border border-surface-border rounded-xl px-3 py-2.5 text-sm text-ink focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-ink mb-1.5">Time *</label>
+              <input
+                type="time"
+                value={schedTime}
+                onChange={e => setSchedTime(e.target.value)}
+                className="w-full border border-surface-border rounded-xl px-3 py-2.5 text-sm text-ink focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20"
+              />
+            </div>
+          </div>
 
           {selectedDog && (
             <div className="p-3 rounded-xl bg-surface-secondary border border-surface-border flex items-center gap-3">

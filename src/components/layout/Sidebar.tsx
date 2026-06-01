@@ -3,9 +3,9 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Map, ListChecks, PlusCircle,
   Users, UserCog, CreditCard, Activity, DollarSign, Clock,
-  LogOut, X, Dog, ChevronRight, Scissors, ShoppingBag, User, Calendar, MessageCircle, Navigation,
+  LogOut, X, Dog, ChevronRight, Scissors, ShoppingBag, User, Calendar, Bell, Package,
 } from 'lucide-react';
-import PawFleetLogo from '../ui/PawFleetLogo';
+import { Logo } from '../Logo';
 import { useApp } from '../../context/AppContext';
 
 interface SidebarProps { isOpen: boolean; onClose: () => void; }
@@ -18,6 +18,8 @@ const adminNav = [
   { to: '/admin/walkers',     icon: UserCog,         label: 'Walkers' },
   { to: '/admin/owners',      icon: Users,           label: 'Owners' },
   { to: '/admin/payments',    icon: CreditCard,      label: 'Payments' },
+  { to: '/admin/shop',        icon: ShoppingBag,     label: 'Shop Manager' },
+  { to: '/admin/analytics',   icon: Activity,        label: 'Analytics' },
 ];
 
 const walkerNav = [
@@ -39,15 +41,24 @@ const ownerNav = [
   { to: '/owner/profile',    icon: User,            label: 'Profile' },
 ];
 
+const shopownerNav = [
+  { to: '/shopowner',               icon: LayoutDashboard, label: 'Dashboard',   exact: true },
+  { to: '/shopowner/products',      icon: Package,         label: 'My Products' },
+  { to: '/shopowner/orders',        icon: ShoppingBag,     label: 'Orders' },
+  { to: '/shopowner/notifications', icon: Bell,            label: 'Notifications' },
+];
+
 const roleGradient: Record<string, string> = {
-  admin:  'from-green-800 to-green-950',
-  walker: 'from-emerald-500 to-green-700',
-  owner:  'from-green-500 to-emerald-600',
+  admin:     'from-green-800 to-green-950',
+  walker:    'from-emerald-500 to-green-700',
+  owner:     'from-green-500 to-emerald-600',
+  shopowner: 'from-teal-600 to-green-700',
 };
 const roleBadge: Record<string, string> = {
-  admin:  'bg-green-50 text-green-800',
-  walker: 'bg-emerald-50 text-emerald-700',
-  owner:  'bg-green-50 text-green-700',
+  admin:     'bg-green-50 text-green-800',
+  walker:    'bg-emerald-50 text-emerald-700',
+  owner:     'bg-green-50 text-green-700',
+  shopowner: 'bg-teal-50 text-teal-700',
 };
 
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
@@ -55,7 +66,8 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const navigate = useNavigate();
 
   const navItems = currentUser?.role === 'admin' ? adminNav
-    : currentUser?.role === 'walker' ? walkerNav
+    : currentUser?.role === 'walker'    ? walkerNav
+    : currentUser?.role === 'shopowner' ? shopownerNav
     : ownerNav;
 
   const handleLogout = () => { logout(); navigate('/login'); };
@@ -68,8 +80,8 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
       {/* ── Logo ── */}
       <div className="px-4 pt-5 pb-4 flex items-center gap-3">
-        <PawFleetLogo size={36} showText className="flex-1 min-w-0" />
-        <button className="lg:hidden w-7 h-7 flex items-center justify-center rounded-lg text-ink-muted hover:bg-surface-hover hover:text-ink transition-colors" onClick={onClose}>
+        <Logo size={36} showText textColor="#1B4332" className="flex-1 min-w-0" />
+        <button type="button" title="Close menu" className="lg:hidden w-7 h-7 flex items-center justify-center rounded-lg text-ink-muted hover:bg-surface-hover hover:text-ink transition-colors" onClick={onClose}>
           <X className="w-4 h-4" />
         </button>
       </div>
@@ -120,6 +132,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             </span>
           </div>
           <button
+            type="button"
             onClick={handleLogout}
             className="w-7 h-7 flex items-center justify-center rounded-lg text-ink-muted hover:text-danger hover:bg-danger-light transition-all opacity-0 group-hover:opacity-100"
             title="Logout"

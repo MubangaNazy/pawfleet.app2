@@ -9,7 +9,8 @@ import { useApp } from '../../context/AppContext';
 export function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { currentUser } = useApp();
-  const isOwner = currentUser?.role === 'owner';
+  const isOwner  = currentUser?.role === 'owner';
+  const isWalker = currentUser?.role === 'walker';
 
   return (
     <div className="flex h-screen bg-cream overflow-hidden">
@@ -32,13 +33,13 @@ export function Layout() {
           </div>
         </header>
 
-        {/* Content — add bottom padding on mobile for owners to clear the bottom nav */}
-        <main className={`flex-1 overflow-y-auto overflow-x-hidden ${isOwner ? 'pb-16 lg:pb-0' : ''}`}>
+        {/* Content — add bottom padding on mobile for owners and walkers to clear bottom nav */}
+        <main className={`flex-1 overflow-y-auto overflow-x-hidden ${(isOwner || isWalker) ? 'pb-16 lg:pb-0' : ''}`}>
           <Outlet />
         </main>
       </div>
 
-      {/* Mobile bottom nav (owners only) */}
+      {/* Mobile bottom nav (owners + walkers) */}
       <BottomNav />
     </div>
   );

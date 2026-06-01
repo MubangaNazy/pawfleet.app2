@@ -1,12 +1,40 @@
-import React from 'react';
-import { format } from 'date-fns';
+import { useState } from 'react';
+import { format, subDays } from 'date-fns';
 import { TrendingUp, CheckCircle, Clock, DollarSign } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
-import { StatCard } from '../../components/ui/StatCard';
 import { PaymentBadge } from '../../components/ui/Badge';
+
+type Range = '7d' | '30d' | 'all';
+
+function BarChart({ data, height = 100 }: { data: { label: string; value: number }[]; height?: number }) {
+  const max = Math.max(...data.map(d => d.value), 1);
+  return (
+    <div className="flex items-end gap-1.5 w-full" style={{ height }}>
+      {data.map(d => (
+        <div key={d.label} className="flex-1 flex flex-col items-center gap-1 group cursor-default relative">
+          {d.value > 0 && (
+            <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-ink text-white text-[9px] px-1.5 py-0.5 rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
+              K{d.value}
+            </div>
+          )}
+          <div
+            className="w-full rounded-t-md transition-all"
+            style={{
+              height: `${(d.value / max) * (height - 20)}px`,
+              minHeight: d.value > 0 ? 4 : 2,
+              background: d.value > 0 ? 'linear-gradient(180deg,#2B8A50,#1B4332)' : '#E5E7EB',
+            }}
+          />
+          <span className="text-[10px] text-ink-muted leading-none">{d.label}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default function WalkerEarnings() {
   const { data, currentUser } = useApp();
+  const [range, setRange] = useState<Range>('7d');
 
   const myPayments = data.payments.filter(p => p.walkerId === currentUser?.id);
   const paidPayments = myPayments.filter(p => p.status === 'paid');
@@ -18,6 +46,18 @@ export default function WalkerEarnings() {
 
   const myCompletedWalks = data.walks.filter(w => w.walkerId === currentUser?.id && w.status === 'completed');
 
+  // 7-day earnings chart
+  const chartData = Array.from({ length: 7 }, (_, i) => {
+    const d = subDays(new Date(), 6 - i);
+    const ds = format(d, 'yyyy-MM-dd');
+    const earned = myCompletedWalks
+      .filter(w => w.scheduledDate.startsWith(ds))
+      .reduce((s, w) => s + (w.walkerEarning || 0), 0);
+    return { label: format(d, 'EEE'), value: earned };
+  });
+
+  const chartTotal = chartData.reduce((s, d) => s + d.value, 0);
+
   const earningsHistory = myCompletedWalks
     .sort((a, b) => new Date(b.scheduledDate).getTime() - new Date(a.scheduledDate).getTime())
     .map(walk => ({
@@ -28,107 +68,103 @@ export default function WalkerEarnings() {
     }));
 
   return (
-    <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-ink">Earnings</h1>
-        <p className="text-ink-secondary mt-1">{myCompletedWalks.length} completed walks</p>
+    <div className="max-w-2xl mx-auto pb-24">
+      {/* Hero */}
+      <div className="relative overflow-hidden px-5 pt-8 pb-7 mb-5"
+        style={{ background: 'linear-gradient(135deg, #1B4332 0%, #2B8A50 60%, #52B788 100%)' }}>
+        <p className="text-white/70 text-xs font-medium mb-1">Your Earnings</p>
+        <h1 className="text-2xl font-extrabold text-white mb-1">K{totalEarned.toLocaleString()}</h1>
+        <p className="text-white/75 text-sm">{myCompletedWalks.length} walks completed all time</p>
+
+        {/* Stats row */}
+        <div className="grid grid-cols-3 gap-2 mt-5">
+          {[
+            { label: 'Paid Out', value: `K${totalPaid}`, color: '#52B788' },
+            { label: 'Pending', value: `K${totalUnpaid}`, color: '#F59E0B' },
+            { label: 'Avg / Walk', value: myCompletedWalks.length ? `K${Math.round(totalEarned / myCompletedWalks.length)}` : 'K0', color: '#60A5FA' },
+          ].map(s => (
+            <div key={s.label} className="bg-white/15 backdrop-blur rounded-2xl px-3 py-3 text-center">
+              <p className="text-lg font-extrabold text-white">{s.value}</p>
+              <p className="text-white/70 text-[10px] mt-0.5">{s.label}</p>
+            </div>
+          ))}
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <StatCard icon={<TrendingUp className="w-5 h-5" />} label="Total Earned" value={`ZMW ${totalEarned}`} subtitle="All time" color="blue" />
-        <StatCard icon={<CheckCircle className="w-5 h-5" />} label="Total Paid" value={`ZMW ${totalPaid}`} subtitle={`${paidPayments.length} payments`} color="green" />
-        <StatCard icon={<Clock className="w-5 h-5" />} label="Unpaid Balance" value={`ZMW ${totalUnpaid}`} subtitle={`${unpaidPayments.length} awaiting`} color="amber" />
-      </div>
-
-      {totalUnpaid > 0 && (
-        <div className="flex items-center gap-3 p-4 rounded-2xl bg-warning-light border border-warning/30">
-          <Clock className="w-5 h-5 text-warning shrink-0" />
-          <div>
-            <p className="text-sm font-medium text-warning-dark">ZMW {totalUnpaid} is pending payment</p>
-            <p className="text-xs text-ink-secondary mt-0.5">Your admin will process your payment soon.</p>
+      <div className="px-4 space-y-5">
+        {/* Unpaid alert */}
+        {totalUnpaid > 0 && (
+          <div className="flex items-center gap-3 p-4 rounded-2xl bg-amber-50 border border-amber-200">
+            <Clock className="w-5 h-5 text-amber-500 shrink-0" />
+            <div>
+              <p className="text-sm font-semibold text-amber-800">K{totalUnpaid} pending payment</p>
+              <p className="text-xs text-amber-700/70 mt-0.5">Your admin will process your payment soon.</p>
+            </div>
           </div>
-        </div>
-      )}
-
-      <div className="bg-white border border-surface-border rounded-2xl shadow-card overflow-hidden">
-        <div className="px-5 py-4 border-b border-surface-border">
-          <h2 className="font-semibold text-ink">Earnings History</h2>
-        </div>
-        {earningsHistory.length === 0 ? (
-          <div className="py-16 text-center">
-            <DollarSign className="w-10 h-10 text-ink-muted mx-auto mb-3" />
-            <p className="font-medium text-ink">No earnings yet</p>
-            <p className="text-ink-muted text-sm mt-1">Complete walks to start earning</p>
-          </div>
-        ) : (
-          <>
-          {/* Mobile card view */}
-          <div className="sm:hidden divide-y divide-surface-border">
-            {earningsHistory.map(({ walk, payment, dog, owner }) => (
-              <div key={walk.id} className="p-4 space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-xl bg-primary-50 flex items-center justify-center overflow-hidden shrink-0">
-                      {dog?.imageUrl ? <img src={dog.imageUrl} alt={dog.name} className="w-8 h-8 object-cover" /> : '🐕'}
-                    </div>
-                    <span className="font-medium text-sm text-ink">{dog?.name || 'Unknown'}</span>
-                  </div>
-                  {payment ? <PaymentBadge status={payment.status} /> : <span className="text-ink-muted text-xs">—</span>}
-                </div>
-                <div className="flex justify-between text-xs text-ink-secondary">
-                  <span>{owner?.name || 'Unknown'}</span>
-                  <span className="font-semibold text-success-dark">ZMW {walk.walkerEarning}</span>
-                </div>
-                <div className="flex justify-between text-xs text-ink-muted">
-                  <span>{format(new Date(walk.scheduledDate), 'MMM d, yyyy')}</span>
-                  <span>{walk.duration ? `${walk.duration} min` : '—'}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-          {/* Desktop table */}
-          <div className="hidden sm:block overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-surface-border">
-                  <th className="px-5 py-3 text-left text-xs font-medium text-ink-muted uppercase tracking-wider whitespace-nowrap">Dog</th>
-                  <th className="px-5 py-3 text-left text-xs font-medium text-ink-muted uppercase tracking-wider whitespace-nowrap">Owner</th>
-                  <th className="px-5 py-3 text-left text-xs font-medium text-ink-muted uppercase tracking-wider whitespace-nowrap">Date</th>
-                  <th className="px-5 py-3 text-left text-xs font-medium text-ink-muted uppercase tracking-wider whitespace-nowrap">Duration</th>
-                  <th className="px-5 py-3 text-left text-xs font-medium text-ink-muted uppercase tracking-wider whitespace-nowrap">Earned</th>
-                  <th className="px-5 py-3 text-left text-xs font-medium text-ink-muted uppercase tracking-wider whitespace-nowrap">Payment</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-surface-border">
-                {earningsHistory.map(({ walk, payment, dog, owner }) => (
-                  <tr key={walk.id} className="hover:bg-surface-secondary transition-colors">
-                    <td className="px-5 py-3.5">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-xl bg-primary-50 flex items-center justify-center overflow-hidden shrink-0">
-                          {dog?.imageUrl ? <img src={dog.imageUrl} alt={dog.name} className="w-8 h-8 object-cover" /> : '🐕'}
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-ink">{dog?.name || 'Unknown'}</p>
-                          {dog?.breed && <p className="text-xs text-ink-muted">{dog.breed}</p>}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-5 py-3.5 text-sm text-ink">{owner?.name || 'Unknown'}</td>
-                    <td className="px-5 py-3.5 text-sm text-ink-secondary whitespace-nowrap">{format(new Date(walk.scheduledDate), 'MMM d, yyyy')}</td>
-                    <td className="px-5 py-3.5 text-sm text-ink">{walk.duration ? `${walk.duration} min` : '—'}</td>
-                    <td className="px-5 py-3.5">
-                      <span className="text-sm font-semibold text-success-dark">ZMW {walk.walkerEarning}</span>
-                    </td>
-                    <td className="px-5 py-3.5">
-                      {payment ? <PaymentBadge status={payment.status} /> : <span className="text-ink-muted text-xs">—</span>}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          </>
         )}
+
+        {/* Earnings chart */}
+        <div className="bg-white border border-surface-border rounded-2xl p-5">
+          <div className="flex items-center justify-between mb-1">
+            <h2 className="font-bold text-ink">This Week</h2>
+            <span className="text-xs font-bold text-primary">K{chartTotal}</span>
+          </div>
+          <p className="text-xs text-ink-muted mb-4">Daily earnings — last 7 days</p>
+          <BarChart data={chartData} height={110} />
+        </div>
+
+        {/* Summary cards */}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="bg-white border border-surface-border rounded-2xl p-4">
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center mb-3" style={{ background: '#EBF5EF' }}>
+              <TrendingUp className="w-4 h-4" style={{ color: '#2B8A50' }} />
+            </div>
+            <p className="text-xl font-extrabold text-ink">K{totalEarned}</p>
+            <p className="text-xs font-semibold text-ink mt-0.5">Total Earned</p>
+            <p className="text-[11px] text-ink-muted">All time</p>
+          </div>
+          <div className="bg-white border border-surface-border rounded-2xl p-4">
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center mb-3" style={{ background: '#EBF5EF' }}>
+              <CheckCircle className="w-4 h-4" style={{ color: '#2B8A50' }} />
+            </div>
+            <p className="text-xl font-extrabold text-ink">K{totalPaid}</p>
+            <p className="text-xs font-semibold text-ink mt-0.5">Total Paid</p>
+            <p className="text-[11px] text-ink-muted">{paidPayments.length} payments</p>
+          </div>
+        </div>
+
+        {/* Earnings history */}
+        <div className="bg-white border border-surface-border rounded-2xl overflow-hidden">
+          <div className="px-5 py-4 border-b border-surface-border">
+            <h2 className="font-bold text-ink">Earnings History</h2>
+          </div>
+          {earningsHistory.length === 0 ? (
+            <div className="py-16 text-center">
+              <DollarSign className="w-10 h-10 text-ink-muted mx-auto mb-3" />
+              <p className="font-medium text-ink">No earnings yet</p>
+              <p className="text-ink-muted text-sm mt-1">Complete walks to start earning</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-surface-border">
+              {earningsHistory.map(({ walk, payment, dog, owner }) => (
+                <div key={walk.id} className="flex items-center gap-3 px-4 py-3.5 hover:bg-surface-secondary transition-colors">
+                  <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center overflow-hidden shrink-0">
+                    {dog?.imageUrl ? <img src={dog.imageUrl} alt={dog.name} className="w-10 h-10 object-cover" /> : '🐕'}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-ink truncate">{dog?.name || 'Unknown'}</p>
+                    <p className="text-xs text-ink-muted">{owner?.name} · {format(new Date(walk.scheduledDate), 'MMM d, yyyy')}</p>
+                    {walk.duration && <p className="text-[11px] text-ink-muted">{walk.duration} min</p>}
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-sm font-extrabold" style={{ color: '#2B8A50' }}>K{walk.walkerEarning}</p>
+                    {payment ? <PaymentBadge status={payment.status} /> : <span className="text-ink-muted text-xs">—</span>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -52,7 +52,8 @@ interface AppContextType {
   loading: boolean;
   currentUser: User | null;
   data: AppData;
-  login: (id: string, pw: string) => User | null;
+  login: (id: string, pw: string) => Promise<User | null>;
+  register: (name: string, phone: string, email: string, password: string, role: 'owner' | 'walker') => Promise<{ success: boolean; error?: string; user?: User }>;
   logout: () => void;
   createWalk: (walk: Omit<Walk, 'id' | 'createdAt'>) => Walk;
   updateWalk: (id: string, updates: Partial<Walk>) => void;
@@ -65,6 +66,7 @@ interface AppContextType {
   updateDog: (id: string, updates: Partial<Dog>) => void;
   logHealth: (dogId: string, date: string, field: 'water' | 'foodMorning' | 'foodEvening', value: boolean) => void;
   addUser: (user: Omit<User, 'id' | 'createdAt'>) => User;
+  updateUser: (userId: string, updates: Partial<User>) => Promise<void>;
   getWalkerStats: (walkerId: string) => WalkerStats;
   refreshData: () => void;
 }
@@ -113,6 +115,30 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => { loadData(); }, [loadData]);
 
+  // ── Auth state change (handles email confirmation link clicks) ───
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' && session?.user) {
+        const authUser = session.user;
+        // Load profile from database
+        const { data: row } = await supabase.from('users').select('*').eq('id', authUser.id).maybeSingle();
+        if (row) {
+          const user = toUser(row);
+          setCurrentUser(user);
+          sessionStorage.setItem('pawfleet_user', JSON.stringify(user));
+          setData(prev => ({
+            ...prev,
+            users: [...prev.users.filter(u => u.id !== user.id), user],
+          }));
+        }
+      } else if (event === 'SIGNED_OUT') {
+        setCurrentUser(null);
+        sessionStorage.removeItem('pawfleet_user');
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
   // ── Realtime subscriptions ───────────────────────────────
   useEffect(() => {
     const channel = supabase.channel('pawfleet-live')
@@ -133,7 +159,29 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // ── Auth ─────────────────────────────────────────────────
-  const login = (identifier: string, pw: string): User | null => {
+  const login = async (identifier: string, pw: string): Promise<User | null> => {
+    // For email logins, try Supabase Auth first (new real accounts)
+    if (identifier.includes('@')) {
+      const { data: authData, error } = await supabase.auth.signInWithPassword({
+        email: identifier, password: pw,
+      });
+      if (!error && authData?.user) {
+        let user = data.users.find(u => u.email === identifier);
+        if (!user) {
+          const { data: row } = await supabase.from('users').select('*').eq('email', identifier).maybeSingle();
+          if (row) {
+            user = toUser(row);
+            setData(prev => ({ ...prev, users: [...prev.users.filter(u => u.email !== identifier), user!] }));
+          }
+        }
+        if (user) {
+          setCurrentUser(user);
+          sessionStorage.setItem('pawfleet_user', JSON.stringify(user));
+          return user;
+        }
+      }
+    }
+    // Plain-text fallback for demo accounts
     const user = data.users.find(u =>
       (u.phone === identifier || u.email === identifier) && u.password === pw
     ) || null;
@@ -144,7 +192,40 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return user;
   };
 
+  const register = async (name: string, phone: string, email: string, password: string, role: 'owner' | 'walker'): Promise<{ success: boolean; error?: string; user?: User }> => {
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email, password,
+      options: { data: { name, phone, role } },
+    });
+    if (authError) return { success: false, error: authError.message };
+    if (!authData.user) return { success: false, error: 'Registration failed. Please try again.' };
+
+    const userId = authData.user.id;
+    const now = new Date().toISOString();
+    const newUser: User = { id: userId, name, phone, email, password: '', role, createdAt: now };
+
+    await supabase.from('users').upsert({
+      id: userId, name, phone, email: email || null, password: '', role,
+    }, { onConflict: 'id' }).then(({ error }) => { if (error) console.error('register insert:', error); });
+
+    if (role === 'walker') {
+      await supabase.from('walker_stats').upsert({ walker_id: userId }, { onConflict: 'walker_id' })
+        .then(({ error }) => { if (error) console.error('walkerStats register:', error); });
+      setData(prev => ({ ...prev, walkerStats: [...prev.walkerStats, { walkerId: userId, points: 0, streak: 0, badges: [] }] }));
+    }
+
+    setData(prev => ({ ...prev, users: [...prev.users.filter(u => u.id !== userId), newUser] }));
+
+    if (authData.session) {
+      setCurrentUser(newUser);
+      sessionStorage.setItem('pawfleet_user', JSON.stringify(newUser));
+      return { success: true, user: newUser };
+    }
+    return { success: true };
+  };
+
   const logout = () => {
+    supabase.auth.signOut().catch(() => {});
     setCurrentUser(null);
     sessionStorage.removeItem('pawfleet_user');
   };
@@ -318,15 +399,36 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     data.walkerStats.find(s => s.walkerId === walkerId) ||
     { walkerId, points: 0, streak: 0, badges: [] };
 
+  const updateUser = async (userId: string, updates: Partial<User>) => {
+    setData(prev => ({
+      ...prev,
+      users: prev.users.map(u => u.id === userId ? { ...u, ...updates } : u),
+    }));
+    if (currentUser?.id === userId) {
+      const updated = { ...currentUser, ...updates };
+      setCurrentUser(updated);
+      sessionStorage.setItem('pawfleet_user', JSON.stringify(updated));
+    }
+    const dbFields: Record<string, any> = {};
+    if (updates.name !== undefined)     dbFields.name     = updates.name;
+    if (updates.phone !== undefined)    dbFields.phone    = updates.phone;
+    if (updates.email !== undefined)    dbFields.email    = updates.email;
+    if (updates.imageUrl !== undefined) dbFields.image_url = updates.imageUrl;
+    if (Object.keys(dbFields).length > 0) {
+      supabase.from('users').update(dbFields).eq('id', userId)
+        .then(({ error }) => { if (error) console.error('updateUser:', error); });
+    }
+  };
+
   const refreshData = () => { loadData(); };
 
   return (
     <AppContext.Provider value={{
-      loading, currentUser, data, login, logout,
+      loading, currentUser, data, login, register, logout,
       createWalk, updateWalk, startWalk, endWalk,
       assignWalker, cancelWalk, markPaymentPaid,
       createDog, updateDog, logHealth,
-      addUser, getWalkerStats, refreshData,
+      addUser, updateUser, getWalkerStats, refreshData,
     }}>
       {children}
     </AppContext.Provider>

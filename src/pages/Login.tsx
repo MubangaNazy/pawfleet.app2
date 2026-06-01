@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   PawPrint, Eye, EyeOff, Phone, Lock,
   MapPin, DollarSign, Shield, Zap, ArrowRight, Check,
@@ -12,11 +12,12 @@ import { Role } from '../types';
 type DemoRole = { label: string; sub: string; identifier: string; password: string; role: Role; emoji: string; gradient: string };
 
 const DEMOS: DemoRole[] = [
-  { label: 'Admin',  sub: 'Business owner',   identifier: '0977000001', password: 'admin123',  role: 'admin',  emoji: '👑', gradient: 'from-green-800 to-green-950' },
-  { label: 'Walker', sub: 'Dog walker agent',  identifier: '0977000002', password: 'walker123', role: 'walker', emoji: '🦮', gradient: 'from-emerald-500 to-green-700' },
-  { label: 'Owner',  sub: 'Dog owner',         identifier: '0977000004', password: 'owner123',  role: 'owner',  emoji: '🐾', gradient: 'from-green-400 to-emerald-600' },
+  { label: 'Admin',      sub: 'Business owner',   identifier: '0977000001', password: 'admin123',  role: 'admin',      emoji: '👑', gradient: 'from-green-800 to-green-950' },
+  { label: 'Walker',     sub: 'Dog walker agent',  identifier: '0977000002', password: 'walker123', role: 'walker',     emoji: '🦮', gradient: 'from-emerald-500 to-green-700' },
+  { label: 'Owner',      sub: 'Dog owner',         identifier: '0977000004', password: 'owner123',  role: 'owner',      emoji: '🐾', gradient: 'from-green-400 to-emerald-600' },
+  { label: 'Shop Owner', sub: 'Pet shop seller',   identifier: '0977000003', password: 'shop123',   role: 'shopowner',  emoji: '🏪', gradient: 'from-green-600 to-green-900' },
 ];
-const ROLE_ROUTES: Record<Role, string> = { admin: '/admin', walker: '/walker', owner: '/owner' };
+const ROLE_ROUTES: Record<Role, string> = { admin: '/admin', walker: '/walker', owner: '/owner', shopowner: '/shopowner' };
 
 /* ─── Floating Preview Cards ─── */
 function FloatingCard1() {
@@ -191,8 +192,7 @@ export default function Login() {
     e.preventDefault();
     setError('');
     setLoading(true);
-    await new Promise(r => setTimeout(r, 500));
-    const user = login(identifier, password);
+    const user = await login(identifier, password);
     if (user) navigate(ROLE_ROUTES[user.role]);
     else { setError('Invalid credentials. Try a demo account below.'); setLoading(false); }
   };
@@ -430,7 +430,16 @@ export default function Login() {
             ))}
           </div>
 
-          <p className="text-center text-[11px] text-ink-muted mt-5 fade-in-up-4">
+          <div className="mt-5 text-center fade-in-up-4">
+            <p className="text-sm text-ink-secondary">
+              New to PawFleet?{' '}
+              <Link to="/register" className="text-primary font-semibold hover:underline">
+                Create an account →
+              </Link>
+            </p>
+          </div>
+
+          <p className="text-center text-[11px] text-ink-muted mt-4 fade-in-up-4">
             © 2025 PawFleet · Built for Zambia 🇿🇲
           </p>
         </div>

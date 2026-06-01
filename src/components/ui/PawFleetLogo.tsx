@@ -1,7 +1,3 @@
-import React, { useRef } from 'react';
-
-let _counter = 0;
-
 interface Props {
   size?: number;
   showText?: boolean;
@@ -10,36 +6,37 @@ interface Props {
 }
 
 export default function PawFleetLogo({ size = 40, showText = false, textWhite = false, className = '' }: Props) {
-  const gradId = useRef(`pf-g-${_counter++}`).current;
-
   return (
     <div className={`flex items-center gap-3 ${className}`}>
       <svg
         width={size}
         height={size}
-        viewBox="0 0 100 100"
+        viewBox="0 0 120 120"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
         style={{ flexShrink: 0 }}
       >
-        <defs>
-          <linearGradient id={gradId} x1="0" y1="0" x2="100" y2="100" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stopColor="#52B788" />
-            <stop offset="100%" stopColor="#1B4332" />
-          </linearGradient>
-        </defs>
         {/* Rounded square background */}
-        <rect width="100" height="100" rx="24" fill={`url(#${gradId})`} />
-        {/* Leash ring */}
-        <circle cx="40" cy="55" r="20" stroke="white" strokeWidth="5" fill="none" />
-        {/* Leash grip stick */}
-        <line x1="56" y1="69" x2="70" y2="82" stroke="white" strokeWidth="5" strokeLinecap="round" />
-        {/* Leaf 1 – upper left, angled */}
-        <ellipse cx="52" cy="33" rx="5.5" ry="10" stroke="white" strokeWidth="3.5" fill="none" transform="rotate(-28 52 33)" />
-        {/* Leaf 2 – centre, pointing up */}
-        <ellipse cx="64" cy="27" rx="5.5" ry="10" stroke="white" strokeWidth="3.5" fill="none" />
-        {/* Leaf 3 – right, angled */}
-        <ellipse cx="74" cy="36" rx="5.5" ry="10" stroke="white" strokeWidth="3.5" fill="none" transform="rotate(28 74 36)" />
+        <rect width="120" height="120" rx="26" fill="#2B8A50" />
+
+        {/* Toe 1 – upper, slight left tilt */}
+        <ellipse cx="52" cy="15" rx="11" ry="15" fill="white" transform="rotate(-14 52 15)" />
+        {/* Toe 2 – upper right */}
+        <ellipse cx="76" cy="23" rx="10" ry="13" fill="white" transform="rotate(13 76 23)" />
+        {/* Toe 3 – right */}
+        <ellipse cx="91" cy="46" rx="10" ry="13" fill="white" transform="rotate(30 91 46)" />
+
+        {/* Main P-paw body */}
+        <path
+          fill="white"
+          d="M 27 101 C 19 94, 20 78, 30 68 L 48 35 C 55 21, 72 16, 85 23 C 99 30, 106 48, 96 64 C 86 80, 68 87, 56 81 L 50 79 L 43 97 C 38 107, 29 107, 27 101 Z"
+        />
+
+        {/* Green counter/cutout — creates the inner paw-pad hole */}
+        <path
+          fill="#2B8A50"
+          d="M 56 36 C 71 31, 88 41, 87 58 C 86 75, 68 83, 56 77 L 52 75 L 55 39 Z"
+        />
       </svg>
 
       {showText && (

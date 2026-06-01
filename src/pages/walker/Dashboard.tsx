@@ -1,24 +1,29 @@
-import React from 'react';
 import { Link } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 import { format, isToday } from 'date-fns';
-import { CheckCircle, DollarSign, Clock, ArrowRight, Flame, Star, MapPin } from 'lucide-react';
+import { CheckCircle, DollarSign, Clock, ArrowRight, Flame, Star, TrendingUp } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
-import { StatCard } from '../../components/ui/StatCard';
-import { StatusBadge, PaymentBadge } from '../../components/ui/Badge';
-import { Button } from '../../components/ui/Button';
-import { ProgressBar } from '../../components/ui/ProgressBar';
+import { StatusBadge } from '../../components/ui/Badge';
+
+const WALK_SLIDES = [
+  'https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=1200&q=85',
+  'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=1200&q=85',
+  'https://images.unsplash.com/photo-1601758228041-f3b2795255f1?w=1200&q=85',
+];
 
 export default function WalkerDashboard() {
   const { data, currentUser, getWalkerStats } = useApp();
 
-  const myWalks = data.walks.filter(w => w.walkerId === currentUser?.id);
+  const myWalks    = data.walks.filter(w => w.walkerId === currentUser?.id);
   const myPayments = data.payments.filter(p => p.walkerId === currentUser?.id);
 
-  const todayWalks = myWalks.filter(w => isToday(new Date(w.scheduledDate)) && (w.status === 'assigned' || w.status === 'active'));
+  const todayWalks = myWalks.filter(w =>
+    isToday(new Date(w.scheduledDate)) && (w.status === 'assigned' || w.status === 'active')
+  );
   const completedToday = myWalks.filter(w => w.status === 'completed' && w.endTime && isToday(new Date(w.endTime)));
   const activeWalk = myWalks.find(w => w.status === 'active');
 
-  const totalEarned = myPayments.reduce((s, p) => s + p.amount, 0);
+  const totalEarned  = myPayments.reduce((s, p) => s + p.amount, 0);
   const unpaidBalance = myPayments.filter(p => p.status === 'unpaid').reduce((s, p) => s + p.amount, 0);
 
   const upcomingWalks = myWalks
@@ -32,84 +37,160 @@ export default function WalkerDashboard() {
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
   const firstName = currentUser?.name.split(' ')[0] || '';
 
-  // Level calculation
+  const [imgSlide, setImgSlide] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setImgSlide(s => (s + 1) % WALK_SLIDES.length), 4200);
+    return () => clearInterval(id);
+  }, []);
+
   const getLevel = (pts: number) => {
-    if (pts >= 1000) return { name: 'Expert', next: null, progress: 100 };
-    if (pts >= 500) return { name: 'Professional', next: 1000, progress: ((pts - 500) / 500) * 100 };
-    if (pts >= 200) return { name: 'Junior', next: 500, progress: ((pts - 200) / 300) * 100 };
-    return { name: 'Rookie', next: 200, progress: (pts / 200) * 100 };
+    if (pts >= 1000) return { name: 'Expert',       next: null,  progress: 100 };
+    if (pts >= 500)  return { name: 'Professional', next: 1000,  progress: ((pts - 500) / 500) * 100 };
+    if (pts >= 200)  return { name: 'Junior',        next: 500,   progress: ((pts - 200) / 300) * 100 };
+    return                  { name: 'Rookie',        next: 200,   progress: (pts / 200) * 100 };
   };
   const level = getLevel(gamStats.points);
 
   return (
-    <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-ink">{greeting}, {firstName} 🐾</h1>
-          <p className="text-ink-secondary mt-1">{format(new Date(), 'EEEE, MMMM d')} — Here's your day</p>
-        </div>
-        {gamStats.streak > 0 && (
-          <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-warning-light border border-warning/30">
-            <Flame className="w-4 h-4 text-warning" />
-            <span className="text-sm font-semibold text-warning-dark">{gamStats.streak} day streak!</span>
-          </div>
-        )}
-      </div>
-
-      {/* Active Walk Banner */}
-      {activeWalk && (
-        <div className="flex items-center gap-4 px-4 py-4 bg-success-light border border-success/30 rounded-2xl">
-          <div className="flex items-center gap-2.5">
-            <span className="w-3 h-3 rounded-full bg-success pulse-dot shrink-0" />
-            <div>
-              <p className="text-sm font-semibold text-success-dark">
-                Walk in Progress — {data.dogs.find(d => d.id === activeWalk.dogId)?.name}
-              </p>
-              <p className="text-xs text-success/70">
-                Started {activeWalk.startTime ? format(new Date(activeWalk.startTime), 'h:mm a') : 'now'}
-              </p>
+    <div className="max-w-2xl mx-auto pb-24">
+      {/* Hero */}
+      <div className="relative overflow-hidden px-5 pt-8 pb-0 mb-5"
+        style={{ background: 'linear-gradient(135deg, #1B4332 0%, #2B8A50 60%, #52B788 100%)' }}>
+        <div className="relative z-10">
+          <div className="flex items-start justify-between gap-4">
+            <div className="text-white">
+              <p className="text-white/70 text-sm mb-1">{format(new Date(), 'EEEE, MMMM d')}</p>
+              <h1 className="text-2xl font-extrabold">{greeting}, {firstName} 🐾</h1>
+              <p className="text-white/75 text-sm mt-1">Here's your day</p>
             </div>
+            {gamStats.streak > 0 && (
+              <div className="flex items-center gap-1.5 bg-white/20 backdrop-blur rounded-2xl px-3 py-2 shrink-0">
+                <Flame className="w-4 h-4 text-amber-300" />
+                <span className="text-sm font-bold text-white">{gamStats.streak}d</span>
+              </div>
+            )}
           </div>
-          <Link to="/walker/walks" className="ml-auto">
-            <Button variant="success" size="sm" iconRight={<ArrowRight className="w-3.5 h-3.5" />}>Manage</Button>
-          </Link>
-        </div>
-      )}
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard icon={<CheckCircle className="w-5 h-5" />} label="Completed Today" value={completedToday.length} subtitle={`${todayWalks.length} remaining`} color="green" />
-        <StatCard icon={<DollarSign className="w-5 h-5" />} label="Total Earned" value={`ZMW ${totalEarned}`} color="blue" />
-        <StatCard icon={<Clock className="w-5 h-5" />} label="Unpaid Balance" value={`ZMW ${unpaidBalance}`} color="amber" subtitle="Awaiting payment" />
-        <StatCard icon={<Star className="w-5 h-5" />} label="Points" value={gamStats.points} color="violet" subtitle={level.name} />
+          {/* Stats row */}
+          <div className="grid grid-cols-3 gap-2 mt-5 pb-6">
+            {[
+              { label: 'Today',   value: completedToday.length, sub: `${todayWalks.length} left` },
+              { label: 'Earned',  value: `K${totalEarned}`,     sub: 'All time' },
+              { label: 'Pending', value: `K${unpaidBalance}`,   sub: 'Owed' },
+            ].map(s => (
+              <div key={s.label} className="bg-white/15 backdrop-blur rounded-2xl px-3 py-3 text-center">
+                <p className="text-lg font-extrabold text-white">{s.value}</p>
+                <p className="text-white/70 text-[10px] mt-0.5">{s.label}</p>
+                <p className="text-white/50 text-[9px]">{s.sub}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Photo slideshow strip */}
+        <div className="relative -mx-5 overflow-hidden" style={{ height: 200 }}>
+          {WALK_SLIDES.map((src, i) => (
+            <img
+              key={i}
+              src={src}
+              alt=""
+              className="absolute inset-0 w-full h-full object-cover"
+              style={{ opacity: imgSlide === i ? 1 : 0, transition: 'opacity 0.9s ease' }}
+            />
+          ))}
+          {/* Green fade at top blending into hero */}
+          <div className="absolute inset-x-0 top-0 h-10"
+            style={{ background: 'linear-gradient(to bottom, #1B4332, transparent)' }} />
+          {/* Green fade at bottom blending into content */}
+          <div className="absolute inset-x-0 bottom-0 h-16"
+            style={{ background: 'linear-gradient(to top, rgba(255,255,255,0.95), transparent)' }} />
+          {/* Slide dots */}
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5 items-center z-10">
+            {WALK_SLIDES.map((_, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => setImgSlide(i)}
+                className="rounded-full transition-all duration-300"
+                style={{
+                  width: imgSlide === i ? 18 : 6,
+                  height: 6,
+                  background: imgSlide === i ? '#1B4332' : 'rgba(27,67,50,0.35)',
+                }}
+              />
+            ))}
+          </div>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Today's Walks */}
-        <div className="bg-white border border-surface-border rounded-2xl shadow-card">
-          <div className="flex items-center justify-between px-5 py-4 border-b border-surface-border">
-            <h2 className="font-semibold text-ink">Today's Walks</h2>
-            <Link to="/walker/walks" className="text-xs text-primary hover:underline flex items-center gap-1">
-              View all <ArrowRight className="w-3 h-3" />
+      <div className="px-4 space-y-4">
+        {/* Active Walk Banner */}
+        {activeWalk && (
+          <div className="flex items-center gap-4 px-4 py-4 bg-success/10 border border-success/30 rounded-2xl">
+            <div className="flex items-center gap-2.5 flex-1">
+              <span className="w-3 h-3 rounded-full bg-success animate-pulse shrink-0" />
+              <div>
+                <p className="text-sm font-bold text-success-dark">
+                  Walk in Progress — {data.dogs.find(d => d.id === activeWalk.dogId)?.name}
+                </p>
+                <p className="text-xs text-ink-muted">
+                  Started {activeWalk.startTime ? format(new Date(activeWalk.startTime), 'h:mm a') : 'now'}
+                </p>
+              </div>
+            </div>
+            <Link to="/walker/walks"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-white text-xs font-bold shrink-0"
+              style={{ background: '#1B4332' }}>
+              Manage <ArrowRight className="w-3 h-3" />
             </Link>
           </div>
-          <div className="p-3 space-y-2">
+        )}
+
+        {/* Quick action grid */}
+        <div className="grid grid-cols-4 gap-3">
+          {[
+            { to: '/walker/walks',    emoji: '🐾', label: 'Walks' },
+            { to: '/walker/schedule', emoji: '📅', label: 'Schedule' },
+            { to: '/walker/earnings', emoji: '💰', label: 'Earnings' },
+            { to: '/walker/badges',   emoji: '🏆', label: 'Badges' },
+          ].map(({ to, emoji, label }) => (
+            <Link key={to} to={to}
+              className="flex flex-col items-center gap-2 py-3 rounded-2xl bg-white border border-surface-border hover:shadow-md transition-all active:scale-95">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl"
+                style={{ background: '#EBF5EF' }}>
+                {emoji}
+              </div>
+              <span className="text-[11px] font-semibold text-ink-secondary">{label}</span>
+            </Link>
+          ))}
+        </div>
+
+        {/* Today's Walks */}
+        <div className="bg-white border border-surface-border rounded-2xl overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-surface-border">
+            <h2 className="font-bold text-ink text-sm">Today's Walks</h2>
+            <Link to="/walker/walks" className="text-xs font-semibold flex items-center gap-1 hover:underline" style={{ color: '#2B8A50' }}>
+              All <ArrowRight className="w-3 h-3" />
+            </Link>
+          </div>
+          <div className="divide-y divide-surface-border">
             {todayWalks.length === 0 ? (
-              <div className="py-8 text-center">
+              <div className="py-10 text-center">
                 <CheckCircle className="w-8 h-8 text-ink-muted mx-auto mb-2" />
-                <p className="text-ink-muted text-sm">No more walks today</p>
+                <p className="text-sm text-ink-muted">No more walks today</p>
               </div>
             ) : todayWalks.map(walk => {
               const dog = data.dogs.find(d => d.id === walk.dogId);
+              const owner = data.users.find(u => u.id === walk.ownerId);
               return (
-                <Link key={walk.id} to="/walker/walks" className="flex items-center gap-3 p-3 rounded-xl hover:bg-surface-hover transition-colors">
-                  <div className="w-9 h-9 rounded-xl bg-primary-50 flex items-center justify-center shrink-0 overflow-hidden">
-                    {dog?.imageUrl ? <img src={dog.imageUrl} alt={dog.name} className="w-9 h-9 object-cover" /> : '🐕'}
+                <Link key={walk.id} to="/walker/walks"
+                  className="flex items-center gap-3 px-4 py-3.5 hover:bg-surface-secondary transition-colors">
+                  <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 overflow-hidden">
+                    {dog?.imageUrl ? <img src={dog.imageUrl} alt={dog.name} className="w-10 h-10 object-cover" /> : '🐕'}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-ink">{dog?.name}</p>
-                    <p className="text-xs text-ink-muted">{data.users.find(u => u.id === walk.ownerId)?.name}</p>
+                    <p className="text-sm font-semibold text-ink">{dog?.name}</p>
+                    <p className="text-xs text-ink-muted">{owner?.name}</p>
                   </div>
                   <StatusBadge status={walk.status} />
                 </Link>
@@ -118,64 +199,87 @@ export default function WalkerDashboard() {
           </div>
         </div>
 
-        {/* Upcoming */}
-        <div className="bg-white border border-surface-border rounded-2xl shadow-card">
-          <div className="flex items-center justify-between px-5 py-4 border-b border-surface-border">
-            <h2 className="font-semibold text-ink">Upcoming Walks</h2>
-            <span className="text-xs text-ink-muted">{upcomingWalks.length} scheduled</span>
-          </div>
-          <div className="p-3 space-y-2">
-            {upcomingWalks.length === 0 ? (
-              <div className="py-8 text-center">
-                <MapPin className="w-8 h-8 text-ink-muted mx-auto mb-2" />
-                <p className="text-ink-muted text-sm">No upcoming walks</p>
-              </div>
-            ) : upcomingWalks.map(walk => {
-              const dog = data.dogs.find(d => d.id === walk.dogId);
-              return (
-                <div key={walk.id} className="flex items-center gap-3 p-3 rounded-xl hover:bg-surface-hover transition-colors">
-                  <div className="w-9 h-9 rounded-xl bg-primary-50 flex items-center justify-center shrink-0">🐕</div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-ink">{dog?.name}</p>
-                    <p className="text-xs text-ink-muted">{format(new Date(walk.scheduledDate), 'MMM d, h:mm a')}</p>
-                  </div>
-                  <StatusBadge status={walk.status} />
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-
-      {/* Points / Gamification preview */}
-      <div className="bg-white border border-surface-border rounded-2xl p-5 shadow-card">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 className="font-semibold text-ink">Your Progress</h2>
-            <p className="text-sm text-ink-secondary mt-0.5">{level.name} · {gamStats.points} points</p>
-          </div>
-          <Link to="/walker/badges">
-            <Button variant="ghost" size="sm" iconRight={<ArrowRight className="w-3.5 h-3.5" />}>View Badges</Button>
-          </Link>
-        </div>
-        {level.next && (
-          <div className="mb-4">
-            <div className="flex justify-between text-xs text-ink-muted mb-1.5">
-              <span>{level.name}</span>
-              <span>{level.next - gamStats.points} pts to next level</span>
+        {/* Upcoming Walks */}
+        {upcomingWalks.length > 0 && (
+          <div className="bg-white border border-surface-border rounded-2xl overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-surface-border">
+              <h2 className="font-bold text-ink text-sm">Upcoming</h2>
+              <span className="text-xs text-ink-muted">{upcomingWalks.length} scheduled</span>
             </div>
-            <ProgressBar value={level.progress} />
+            <div className="divide-y divide-surface-border">
+              {upcomingWalks.map(walk => {
+                const dog = data.dogs.find(d => d.id === walk.dogId);
+                return (
+                  <div key={walk.id} className="flex items-center gap-3 px-4 py-3.5">
+                    <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 text-lg">🐕</div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-ink">{dog?.name}</p>
+                      <p className="text-xs text-ink-muted">{format(new Date(walk.scheduledDate), 'MMM d, h:mm a')}</p>
+                    </div>
+                    <StatusBadge status={walk.status} />
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
-        {gamStats.badges.length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            {gamStats.badges.slice(0, 4).map(badge => (
-              <span key={badge.id} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-surface-secondary border border-surface-border text-xs font-medium text-ink">
-                {badge.icon} {badge.label}
-              </span>
+
+        {/* Progress / Level */}
+        <div className="bg-white border border-surface-border rounded-2xl p-5">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="font-bold text-ink text-sm">Your Progress</h2>
+              <p className="text-xs text-ink-muted mt-0.5">{level.name} · {gamStats.points} pts</p>
+            </div>
+            <Link to="/walker/badges"
+              className="text-xs font-semibold flex items-center gap-1 hover:underline" style={{ color: '#2B8A50' }}>
+              Badges <ArrowRight className="w-3 h-3" />
+            </Link>
+          </div>
+          {level.next && (
+            <div className="mb-4">
+              <div className="flex justify-between text-xs text-ink-muted mb-1.5">
+                <span>{level.name}</span>
+                <span>{level.next - gamStats.points} pts to next</span>
+              </div>
+              <div className="w-full h-2 bg-surface-secondary rounded-full overflow-hidden">
+                <div className="h-full rounded-full transition-all" style={{ width: `${level.progress}%`, background: '#2B8A50' }} />
+              </div>
+            </div>
+          )}
+          {gamStats.badges.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {gamStats.badges.slice(0, 4).map(badge => (
+                <span key={badge.id} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-surface-secondary border border-surface-border text-xs font-medium text-ink">
+                  {badge.icon} {badge.label}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Earnings preview */}
+        <div className="bg-white border border-surface-border rounded-2xl p-5">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-bold text-ink text-sm">Earnings</h2>
+            <Link to="/walker/earnings" className="text-xs font-semibold flex items-center gap-1 hover:underline" style={{ color: '#2B8A50' }}>
+              Details <ArrowRight className="w-3 h-3" />
+            </Link>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { icon: TrendingUp, label: 'Total',    value: `K${totalEarned}`,  color: '#2B8A50' },
+              { icon: CheckCircle, label: 'Paid',    value: `K${myPayments.filter(p=>p.status==='paid').reduce((s,p)=>s+p.amount,0)}`, color: '#2B8A50' },
+              { icon: Clock,       label: 'Pending', value: `K${unpaidBalance}`, color: '#F59E0B' },
+            ].map(({ icon: Icon, label, value, color }) => (
+              <div key={label} className="text-center p-3 rounded-xl bg-surface-secondary border border-surface-border">
+                <Icon className="w-4 h-4 mx-auto mb-1.5" style={{ color }} />
+                <p className="text-sm font-extrabold text-ink">{value}</p>
+                <p className="text-[10px] text-ink-muted">{label}</p>
+              </div>
             ))}
           </div>
-        )}
+        </div>
       </div>
     </div>
   );

@@ -1,183 +1,313 @@
-import React, { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  User, Phone, Mail, Dog, LogOut, ChevronRight,
-  Edit2, CheckCircle, Shield, Bell, HelpCircle, Star,
-} from 'lucide-react';
+import { CreditCard, Bell, Heart, Shield, ChevronRight, Settings, LogOut, Dog, Camera, Upload, X, Check, Pencil } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
-import { format } from 'date-fns';
+import { format, isThisMonth } from 'date-fns';
+import type { OwnerAchievement } from '../../types';
+
+async function resizePhoto(file: File, maxDim = 512, q = 0.78): Promise<string> {
+  return new Promise(resolve => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        let w = img.width, h = img.height;
+        if (w > maxDim || h > maxDim) {
+          if (w > h) { h = Math.round((h / w) * maxDim); w = maxDim; }
+          else { w = Math.round((w / h) * maxDim); h = maxDim; }
+        }
+        const c = document.createElement('canvas'); c.width = w; c.height = h;
+        c.getContext('2d')!.drawImage(img, 0, 0, w, h);
+        resolve(c.toDataURL('image/jpeg', q));
+      };
+      img.src = e.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function computeOwnerAchievements(completedWalks: number, dogs: number, thisMonthWalks: number): OwnerAchievement[] {
+  const now = new Date().toISOString();
+  const all: OwnerAchievement[] = [
+    { id: 'first_walk', label: 'First Walk!', icon: '🐾', description: 'Booked your first walk', earnedAt: now },
+    { id: 'five_walks', label: 'Committed',   icon: '🌿', description: '5 completed walks',   earnedAt: now },
+    { id: 'ten_walks',  label: 'Loyal Owner', icon: '💚', description: '10 completed walks',  earnedAt: now },
+    { id: 'multi_dog',  label: 'Pack Leader', icon: '🐕', description: '2 or more dogs',      earnedAt: now },
+    { id: 'active',     label: 'Active Month',icon: '🔥', description: '3+ walks this month', earnedAt: now },
+  ];
+  return all.filter(a => {
+    if (a.id === 'first_walk') return completedWalks >= 1;
+    if (a.id === 'five_walks') return completedWalks >= 5;
+    if (a.id === 'ten_walks')  return completedWalks >= 10;
+    if (a.id === 'multi_dog')  return dogs >= 2;
+    if (a.id === 'active')     return thisMonthWalks >= 3;
+    return false;
+  });
+}
+
+function computeStreak(walks: { scheduledDate: string; status: string }[]): number {
+  const completedDates = [...new Set(
+    walks.filter(w => w.status === 'completed').map(w => w.scheduledDate.split('T')[0])
+  )].sort().reverse();
+  if (!completedDates.length) return 0;
+  let streak = 0;
+  const today = new Date();
+  for (let i = 0; i < completedDates.length; i++) {
+    const dayDiff = Math.floor((today.getTime() - new Date(completedDates[i]).getTime()) / 86400000);
+    if (dayDiff <= i + 2) streak++;
+    else break;
+  }
+  return streak;
+}
+
+function EditProfileModal({ onClose }: { onClose: () => void }) {
+  const { currentUser, updateUser } = useApp();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [name, setName]       = useState(currentUser?.name || '');
+  const [phone, setPhone]     = useState(currentUser?.phone || '');
+  const [email, setEmail]     = useState(currentUser?.email || '');
+  const [preview, setPreview] = useState<string | null>(currentUser?.imageUrl || null);
+  const [saving, setSaving]   = useState(false);
+
+  const handlePhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPreview(await resizePhoto(file));
+  };
+
+  const handleSave = async () => {
+    if (!currentUser) return;
+    setSaving(true);
+    await updateUser(currentUser.id, {
+      name: name.trim() || currentUser.name,
+      phone: phone.trim() || currentUser.phone,
+      email: email.trim() || undefined,
+      imageUrl: preview || undefined,
+    });
+    await new Promise(r => setTimeout(r, 300));
+    onClose();
+  };
+
+  const initials = (name || currentUser?.name || '?').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col" style={{ background: 'rgba(0,0,0,0.55)' }}
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="mt-auto bg-white rounded-t-3xl w-full max-w-lg mx-auto overflow-y-auto" style={{ maxHeight: '90vh' }}>
+        <div className="flex justify-center pt-3 pb-1"><div className="w-10 h-1 rounded-full bg-surface-border" /></div>
+        <div className="flex items-center justify-between px-5 py-3 border-b border-surface-border">
+          <h2 className="text-lg font-bold text-ink">Edit Profile</h2>
+          <button type="button" onClick={onClose} className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-surface-hover text-ink-muted">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="p-5 space-y-5 pb-10">
+          {/* Photo */}
+          <div className="flex flex-col items-center gap-3">
+            <button type="button" onClick={() => fileRef.current?.click()}
+              className="relative w-24 h-24 rounded-3xl overflow-hidden border-2 border-dashed border-primary/40 hover:border-primary transition-colors group"
+              style={preview ? { border: 'none' } : {}}>
+              {preview
+                ? <><img src={preview} alt="Profile" className="w-24 h-24 object-cover" />
+                    <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <Camera className="w-6 h-6 text-white" />
+                    </div></>
+                : <div className="w-24 h-24 flex flex-col items-center justify-center text-primary/60 gap-1"
+                    style={{ background: '#EBF5EF' }}>
+                    <span className="text-2xl font-bold">{initials}</span>
+                    <Camera className="w-5 h-5" />
+                  </div>}
+            </button>
+            <div className="flex gap-2">
+              <button type="button" onClick={() => { fileRef.current?.removeAttribute('capture'); fileRef.current?.click(); }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-surface-border text-xs font-medium text-ink-secondary hover:bg-surface-hover">
+                <Upload className="w-3 h-3" /> Gallery
+              </button>
+              <button type="button" onClick={() => { fileRef.current?.setAttribute('capture','environment'); fileRef.current?.click(); }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-surface-border text-xs font-medium text-ink-secondary hover:bg-surface-hover">
+                <Camera className="w-3 h-3" /> Camera
+              </button>
+            </div>
+            <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handlePhoto} />
+          </div>
+
+          {[
+            { label: 'Full Name', value: name, setValue: setName, type: 'text', placeholder: 'Your name' },
+            { label: 'Phone',     value: phone, setValue: setPhone, type: 'tel', placeholder: '+260 xxx xxx xxx' },
+            { label: 'Email',     value: email, setValue: setEmail, type: 'email', placeholder: 'you@email.com' },
+          ].map(f => (
+            <div key={f.label}>
+              <label className="block text-sm font-medium text-ink-secondary mb-1.5">{f.label}</label>
+              <input type={f.type} value={f.value} onChange={e => f.setValue(e.target.value)} placeholder={f.placeholder}
+                className="w-full h-11 px-4 rounded-xl border border-surface-border bg-white text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-primary transition-all" />
+            </div>
+          ))}
+
+          <button type="button" disabled={saving} onClick={handleSave}
+            className="w-full h-12 rounded-xl text-white font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-50"
+            style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)' }}>
+            {saving ? 'Saving…' : <><Check className="w-4 h-4" /> Save Changes</>}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function Profile() {
   const { currentUser, data, logout } = useApp();
   const navigate = useNavigate();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
 
-  const myDogs = data.dogs.filter(d => d.ownerId === currentUser?.id);
-  const myWalks = data.walks.filter(w => w.ownerId === currentUser?.id);
-  const completedWalks = myWalks.filter(w => w.status === 'completed');
+  const myDogs          = data.dogs.filter(d => d.ownerId === currentUser?.id);
+  const myWalks         = data.walks.filter(w => w.ownerId === currentUser?.id);
+  const completedWalks  = myWalks.filter(w => w.status === 'completed');
+  const thisMonthWalks  = completedWalks.filter(w => isThisMonth(new Date(w.scheduledDate)));
+  const totalSpent      = thisMonthWalks.reduce((s, w) => s + (w.ownerCost || w.price || 0), 0);
+  const streak          = computeStreak(myWalks);
+  const achievements    = computeOwnerAchievements(completedWalks.length, myDogs.length, thisMonthWalks.length);
 
   const initials = currentUser?.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || '?';
-
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
-  };
-
-  const menuItems = [
-    {
-      group: 'Account',
-      items: [
-        { icon: User,    label: 'Personal Info',       sublabel: currentUser?.name },
-        { icon: Phone,   label: 'Phone Number',         sublabel: currentUser?.phone },
-        { icon: Mail,    label: 'Email Address',         sublabel: currentUser?.email || 'Not set' },
-      ],
-    },
-    {
-      group: 'Preferences',
-      items: [
-        { icon: Bell,    label: 'Notifications',        sublabel: 'Walk updates, reminders' },
-        { icon: Shield,  label: 'Privacy & Security',   sublabel: 'Password, permissions' },
-      ],
-    },
-    {
-      group: 'Support',
-      items: [
-        { icon: HelpCircle, label: 'Help & FAQ',        sublabel: 'Get answers quickly' },
-        { icon: Star,       label: 'Rate PawFleet',     sublabel: 'Share your experience' },
-      ],
-    },
-  ];
+  const handleLogout = () => { logout(); navigate('/login'); };
 
   return (
-    <div className="max-w-xl mx-auto pb-28 lg:pb-8 px-4 pt-6 space-y-6">
-      {/* Profile card */}
-      <div className="bg-gradient-to-br from-primary to-primary-700 rounded-2xl p-6 text-white relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-8 translate-x-8" />
-        <div className="relative flex items-center gap-4">
-          <div className="w-16 h-16 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center text-2xl font-bold text-white shadow-lg">
-            {initials}
+    <div className="bg-white min-h-screen pb-28">
+      <div className="max-w-lg mx-auto px-4 pt-5 space-y-5">
+
+        {/* User info row */}
+        <div className="flex items-center gap-3">
+          <div className="relative w-14 h-14 rounded-2xl overflow-hidden shrink-0" style={{ background: '#1B4332' }}>
+            {currentUser?.imageUrl
+              ? <img src={currentUser.imageUrl} alt={currentUser.name} className="w-full h-full object-cover" />
+              : <div className="w-full h-full flex items-center justify-center text-xl font-extrabold text-white">{initials}</div>}
           </div>
           <div className="flex-1 min-w-0">
-            <h1 className="text-xl font-bold truncate">{currentUser?.name}</h1>
-            <p className="text-white/80 text-sm">{currentUser?.phone}</p>
-            <div className="flex items-center gap-1.5 mt-2">
-              <span className="bg-white/20 text-white text-xs font-semibold px-2.5 py-0.5 rounded-full capitalize">
-                {currentUser?.role}
-              </span>
-              <CheckCircle className="w-3.5 h-3.5 text-white/80" />
-              <span className="text-white/80 text-xs">Verified</span>
-            </div>
+            <p className="font-extrabold text-ink text-lg leading-tight">{currentUser?.name}</p>
+            <p className="text-sm text-ink-secondary truncate">{currentUser?.email || currentUser?.phone}</p>
+            {streak > 0 && (
+              <p className="text-xs font-bold mt-0.5" style={{ color: '#E67E22' }}>🔥 {streak}-day streak</p>
+            )}
           </div>
-          <button className="w-8 h-8 bg-white/20 rounded-xl flex items-center justify-center hover:bg-white/30 transition-colors">
-            <Edit2 className="w-4 h-4 text-white" />
+          <button type="button" onClick={() => setShowEdit(true)}
+            className="w-9 h-9 flex items-center justify-center rounded-full border border-surface-border hover:bg-surface-hover text-ink-secondary">
+            <Pencil className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-3 gap-3 mt-5 pt-4 border-t border-white/20">
-          {[
-            { label: 'Total Walks', value: completedWalks.length },
-            { label: 'My Dogs',     value: myDogs.length },
-            { label: 'Member Since', value: currentUser?.createdAt ? format(new Date(currentUser.createdAt), 'MMM yy') : '—' },
-          ].map(({ label, value }) => (
-            <div key={label} className="text-center">
-              <p className="text-lg font-bold">{value}</p>
-              <p className="text-white/70 text-[10px] mt-0.5">{label}</p>
-            </div>
-          ))}
+        {/* Monthly spending card */}
+        <div className="rounded-3xl p-5 text-white" style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)' }}>
+          <p className="text-xs font-bold text-white/70 uppercase tracking-wider mb-1">↗ This month</p>
+          <p className="text-4xl font-extrabold mb-1">K{totalSpent.toLocaleString() || '0'}</p>
+          <p className="text-sm text-white/70">
+            {thisMonthWalks.length} walk{thisMonthWalks.length !== 1 ? 's' : ''}
+            {myDogs.length > 0 ? ` · ${myDogs.length} dog${myDogs.length !== 1 ? 's' : ''}` : ''}
+          </p>
+          <div className="mt-4 h-1.5 rounded-full bg-white/20 overflow-hidden">
+            <div className="h-full rounded-full bg-white/70 transition-all"
+              style={{ width: `${Math.min((totalSpent / 500) * 100, 100)}%` }} />
+          </div>
+          <p className="text-xs text-white/60 mt-1.5">K{Math.max(500 - totalSpent, 0)} left in monthly budget</p>
         </div>
-      </div>
 
-      {/* My Dogs */}
-      {myDogs.length > 0 && (
+        {/* Achievements / Gamification */}
         <div>
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-bold text-ink">My Dogs</h2>
-            <button onClick={() => navigate('/owner/dogs')} className="text-xs text-primary font-medium">
-              Manage →
+            <p className="font-bold text-ink">Achievements</p>
+            <span className="text-xs text-ink-muted">{achievements.length} earned</span>
+          </div>
+          {achievements.length === 0 ? (
+            <div className="p-4 rounded-2xl border border-surface-border text-center">
+              <p className="text-sm text-ink-muted">Book your first walk to unlock achievements!</p>
+            </div>
+          ) : (
+            <div className="flex gap-2 flex-wrap">
+              {achievements.map(a => (
+                <div key={a.id} className="flex items-center gap-2 px-3 py-2 rounded-2xl border border-surface-border bg-white hover:bg-surface-hover transition-colors">
+                  <span className="text-lg">{a.icon}</span>
+                  <div>
+                    <p className="text-xs font-bold text-ink leading-tight">{a.label}</p>
+                    <p className="text-[10px] text-ink-muted">{a.description}</p>
+                  </div>
+                </div>
+              ))}
+              {/* Locked achievements hint */}
+              {achievements.length < 5 && (
+                <div className="flex items-center gap-2 px-3 py-2 rounded-2xl border border-dashed border-surface-border opacity-50">
+                  <span className="text-lg">🔒</span>
+                  <div>
+                    <p className="text-xs font-bold text-ink leading-tight">Keep going!</p>
+                    <p className="text-[10px] text-ink-muted">More to unlock</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* My dogs */}
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <p className="font-bold text-ink">My dog{myDogs.length !== 1 ? 's' : ''}</p>
+            <button onClick={() => navigate('/owner/dogs')} className="text-xs text-ink-secondary font-medium hover:text-primary">Manage →</button>
+          </div>
+          {myDogs.length === 0 ? (
+            <p className="text-sm text-ink-muted">No dogs registered yet</p>
+          ) : (
+            <div className="space-y-2">
+              {myDogs.map(dog => (
+                <button key={dog.id} onClick={() => navigate(`/owner/dogs/${dog.id}`)}
+                  className="w-full flex items-center gap-3 p-3.5 rounded-2xl border border-surface-border bg-white hover:bg-surface-hover transition-colors text-left">
+                  <div className="w-12 h-12 rounded-2xl overflow-hidden bg-surface-secondary flex items-center justify-center shrink-0">
+                    {dog.imageUrl ? <img src={dog.imageUrl} alt={dog.name} className="w-full h-full object-cover" /> : <Dog className="w-6 h-6 text-ink-muted" />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-ink">{dog.name}</p>
+                    <p className="text-xs text-ink-muted">{dog.breed || 'Mixed'}{dog.age ? ` · ${dog.age} yrs` : ''}</p>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-ink-muted" />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Menu items */}
+        <div className="bg-white border border-surface-border rounded-3xl overflow-hidden divide-y divide-surface-border">
+          {[
+            { icon: CreditCard, label: 'Payment methods' },
+            { icon: Bell,       label: 'Notifications' },
+            { icon: Heart,      label: 'Favourite walkers' },
+            { icon: Shield,     label: 'Privacy & safety' },
+          ].map(item => (
+            <button key={item.label} className="w-full flex items-center gap-4 px-5 py-4 hover:bg-surface-hover transition-colors text-left">
+              <item.icon className="w-5 h-5 text-ink-secondary shrink-0" />
+              <span className="flex-1 text-sm font-semibold text-ink">{item.label}</span>
+              <ChevronRight className="w-4 h-4 text-ink-muted" />
             </button>
-          </div>
-          <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-none">
-            {myDogs.map(dog => (
-              <button
-                key={dog.id}
-                onClick={() => navigate(`/owner/dogs/${dog.id}`)}
-                className="shrink-0 bg-white border border-surface-border rounded-2xl p-3 text-center w-24 hover:border-primary/30 transition-colors"
-              >
-                <div className="w-12 h-12 rounded-xl bg-surface-secondary flex items-center justify-center mx-auto mb-2 overflow-hidden">
-                  {dog.imageUrl
-                    ? <img src={dog.imageUrl} alt={dog.name} className="w-12 h-12 object-cover" />
-                    : <Dog className="w-6 h-6 text-ink-muted" />}
-                </div>
-                <p className="text-xs font-semibold text-ink truncate">{dog.name}</p>
-                <p className="text-[10px] text-ink-muted truncate">{dog.breed || 'Mixed'}</p>
-              </button>
-            ))}
-          </div>
+          ))}
         </div>
-      )}
 
-      {/* Menu groups */}
-      {menuItems.map(group => (
-        <div key={group.group}>
-          <p className="text-xs font-bold text-ink-muted uppercase tracking-wider mb-2">{group.group}</p>
-          <div className="bg-white border border-surface-border rounded-2xl overflow-hidden divide-y divide-surface-border">
-            {group.items.map(item => (
-              <button
-                key={item.label}
-                className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-surface-hover transition-colors text-left"
-              >
-                <div className="w-8 h-8 bg-surface-secondary rounded-xl flex items-center justify-center shrink-0">
-                  <item.icon className="w-4 h-4 text-ink-secondary" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-ink">{item.label}</p>
-                  {item.sublabel && (
-                    <p className="text-xs text-ink-muted truncate">{item.sublabel}</p>
-                  )}
-                </div>
-                <ChevronRight className="w-4 h-4 text-ink-muted shrink-0" />
-              </button>
-            ))}
-          </div>
-        </div>
-      ))}
-
-      {/* Logout */}
-      <div className="bg-white border border-surface-border rounded-2xl overflow-hidden">
+        {/* Sign out */}
         {showLogoutConfirm ? (
-          <div className="p-4 text-center">
-            <p className="text-sm font-medium text-ink mb-1">Log out of PawFleet?</p>
-            <p className="text-xs text-ink-muted mb-4">You'll need to sign in again to access your account.</p>
-            <div className="flex gap-3 justify-center">
-              <button
-                onClick={() => setShowLogoutConfirm(false)}
-                className="px-5 py-2 rounded-xl border border-surface-border text-sm font-medium text-ink hover:bg-surface-hover"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleLogout}
-                className="px-5 py-2 rounded-xl bg-red-500 text-white text-sm font-medium hover:bg-red-600"
-              >
-                Log Out
-              </button>
+          <div className="bg-white border border-surface-border rounded-3xl p-5 text-center">
+            <p className="font-semibold text-ink mb-1 text-sm">Log out of PawFleet?</p>
+            <p className="text-xs text-ink-muted mb-4">You'll need to sign in again.</p>
+            <div className="flex gap-3">
+              <button onClick={() => setShowLogoutConfirm(false)} className="flex-1 py-2.5 rounded-2xl border border-surface-border text-sm font-semibold text-ink hover:bg-surface-hover">Cancel</button>
+              <button onClick={handleLogout} className="flex-1 py-2.5 rounded-2xl bg-danger text-white text-sm font-semibold hover:bg-danger/90">Log Out</button>
             </div>
           </div>
         ) : (
-          <button
-            onClick={() => setShowLogoutConfirm(true)}
-            className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-red-50 transition-colors text-left"
-          >
-            <div className="w-8 h-8 bg-red-50 rounded-xl flex items-center justify-center shrink-0">
-              <LogOut className="w-4 h-4 text-red-500" />
-            </div>
-            <span className="text-sm font-medium text-red-500">Log Out</span>
+          <button onClick={() => setShowLogoutConfirm(true)} className="w-full flex items-center justify-center gap-2 py-4 text-sm font-bold text-danger hover:bg-danger/5 rounded-2xl transition-colors">
+            <LogOut className="w-4 h-4" /> Sign out
           </button>
         )}
+
+        <p className="text-center text-xs text-ink-muted">PawFleet v1.0.0 · Made with 🐾 in Zambia</p>
       </div>
 
-      <p className="text-center text-xs text-ink-muted pb-2">PawFleet v1.0.0 · Made with 🐾 in Zambia</p>
+      {showEdit && <EditProfileModal onClose={() => setShowEdit(false)} />}
     </div>
   );
 }

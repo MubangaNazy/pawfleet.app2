@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
-import { Play, Square, MapPin, Clock, Navigation, AlertCircle, MessageCircle } from 'lucide-react';
+import { Play, Square, MapPin, Navigation, AlertCircle, MessageCircle, CheckCircle2 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { StatusBadge, PaymentBadge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { GeoLocation, WalkStatus } from '../../types';
 
-type Filter = 'all' | WalkStatus;
+type Filter = 'available' | 'all' | WalkStatus;
 
 const LUSAKA_FALLBACK: GeoLocation = { lat: -15.4167, lng: 28.2833, address: 'Lusaka, Zambia' };
 
@@ -23,22 +23,38 @@ async function getGPS(): Promise<GeoLocation> {
 }
 
 export default function WalkerMyWalks() {
-  const { data, currentUser, startWalk, endWalk } = useApp();
-  const [filter, setFilter] = useState<Filter>('all');
+  const { data, currentUser, startWalk, endWalk, assignWalker } = useApp();
+  const [filter, setFilter] = useState<Filter>('available');
   const [gpsLoading, setGpsLoading] = useState<string | null>(null);
+  const [accepting, setAccepting] = useState<string | null>(null);
+
+  const availableWalks = data.walks
+    .filter(w => w.status === 'pending' && !w.walkerId)
+    .sort((a, b) => new Date(a.scheduledDate).getTime() - new Date(b.scheduledDate).getTime());
 
   const myWalks = data.walks
     .filter(w => w.walkerId === currentUser?.id)
     .sort((a, b) => new Date(b.scheduledDate).getTime() - new Date(a.scheduledDate).getTime());
 
-  const filtered = myWalks.filter(w => filter === 'all' ? true : w.status === filter);
+  const filtered = filter === 'available'
+    ? availableWalks
+    : myWalks.filter(w => filter === 'all' ? true : w.status === filter);
 
   const filterTabs: { label: string; value: Filter }[] = [
-    { label: 'All', value: 'all' },
-    { label: 'Assigned', value: 'assigned' },
+    { label: 'Available', value: 'available' },
+    { label: 'My Walks', value: 'all' },
     { label: 'Active', value: 'active' },
     { label: 'Completed', value: 'completed' },
   ];
+
+  const handleAccept = async (walkId: string) => {
+    if (!currentUser) return;
+    setAccepting(walkId);
+    assignWalker(walkId, currentUser.id);
+    await new Promise(r => setTimeout(r, 600));
+    setAccepting(null);
+    setFilter('all');
+  };
 
   const handleStart = async (walkId: string) => {
     setGpsLoading(walkId);
@@ -57,14 +73,18 @@ export default function WalkerMyWalks() {
   return (
     <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-ink">My Walks</h1>
-        <p className="text-ink-secondary mt-1">{myWalks.length} total walks assigned to you</p>
+        <h1 className="text-2xl font-bold text-ink">Walks</h1>
+        <p className="text-ink-secondary mt-1">{availableWalks.length} available · {myWalks.length} assigned to you</p>
       </div>
 
       {/* Filter tabs */}
       <div className="flex gap-1 p-1 bg-surface-secondary border border-surface-border rounded-xl overflow-x-auto flex-nowrap pb-1">
         {filterTabs.map(tab => {
-          const count = tab.value === 'all' ? myWalks.length : myWalks.filter(w => w.status === tab.value).length;
+          const count = tab.value === 'available'
+            ? availableWalks.length
+            : tab.value === 'all'
+              ? myWalks.length
+              : myWalks.filter(w => w.status === tab.value).length;
           return (
             <button
               key={tab.value}
@@ -81,7 +101,12 @@ export default function WalkerMyWalks() {
       {filtered.length === 0 ? (
         <div className="bg-white border border-surface-border rounded-2xl p-16 text-center shadow-card">
           <MapPin className="w-10 h-10 text-ink-muted mx-auto mb-3" />
-          <p className="font-medium text-ink">No walks in this category</p>
+          <p className="font-medium text-ink">
+            {filter === 'available' ? 'No walks available right now' : 'No walks in this category'}
+          </p>
+          {filter === 'available' && (
+            <p className="text-sm text-ink-muted mt-1">Check back later for new walk requests</p>
+          )}
         </div>
       ) : (
         <div className="space-y-4">
@@ -152,6 +177,34 @@ export default function WalkerMyWalks() {
 
                 {walk.notes && (
                   <p className="text-xs text-ink-muted mb-4 italic p-2.5 rounded-xl bg-surface-secondary">"{walk.notes}"</p>
+                )}
+
+                {filter === 'available' && walk.status === 'pending' && !walk.walkerId && (
+                  <div className="flex items-center gap-3 pt-3 border-t border-surface-border">
+                    <button
+                      type="button"
+                      onClick={() => handleAccept(walk.id)}
+                      disabled={accepting === walk.id}
+                      className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-white text-sm font-semibold transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                      style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)' }}
+                    >
+                      {accepting === walk.id ? (
+                        <>
+                          <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                          </svg>
+                          Accepting…
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle2 className="w-4 h-4" />
+                          Accept Walk
+                        </>
+                      )}
+                    </button>
+                    <p className="text-xs text-ink-muted">Walk will be added to your schedule</p>
+                  </div>
                 )}
 
                 {walk.status === 'assigned' && (

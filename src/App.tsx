@@ -2,56 +2,75 @@ import React, { useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppProvider, useApp } from './context/AppContext';
 import { CartProvider } from './context/CartContext';
+import { ShopProvider } from './context/ShopContext';
 import { ToastProvider } from './components/ui/Toast';
 import { Layout } from './components/layout/Layout';
 import SplashScreen from './components/SplashScreen';
 import Login from './pages/Login';
+import Register from './pages/Register';
+import Landing from './pages/Landing';
 
 // Admin pages
-import AdminDashboard from './pages/admin/Dashboard';
-import AdminWalks from './pages/admin/Walks';
-import AdminCreateWalk from './pages/admin/CreateWalk';
-import AdminMapView from './pages/admin/MapView';
-import AdminWalkers from './pages/admin/Walkers';
-import AdminOwners from './pages/admin/Owners';
-import AdminPayments from './pages/admin/Payments';
+import AdminDashboard   from './pages/admin/Dashboard';
+import AdminWalks       from './pages/admin/Walks';
+import AdminCreateWalk  from './pages/admin/CreateWalk';
+import AdminMapView     from './pages/admin/MapView';
+import AdminWalkers     from './pages/admin/Walkers';
+import AdminOwners      from './pages/admin/Owners';
+import AdminPayments    from './pages/admin/Payments';
+import AdminShopManager from './pages/admin/ShopManager';
+import AdminAnalytics   from './pages/admin/Analytics';
 
 // Walker pages
 import WalkerDashboard from './pages/walker/Dashboard';
-import WalkerMyWalks from './pages/walker/MyWalks';
-import WalkerEarnings from './pages/walker/Earnings';
-import WalkerBadges from './pages/walker/Badges';
+import WalkerMyWalks   from './pages/walker/MyWalks';
+import WalkerEarnings  from './pages/walker/Earnings';
+import WalkerBadges    from './pages/walker/Badges';
 
 // Owner pages
-import OwnerDashboard from './pages/owner/Dashboard';
+import OwnerDashboard  from './pages/owner/Dashboard';
 import OwnerRequestWalk from './pages/owner/RequestWalk';
-import OwnerHistory from './pages/owner/History';
-import OwnerDogs from './pages/owner/Dogs';
-import DogProfile from './pages/owner/DogProfile';
-import OwnerServices from './pages/owner/Services';
-import OwnerShop from './pages/owner/Shop';
-import OwnerProfile from './pages/owner/Profile';
-import WalkTracker from './pages/owner/WalkTracker';
-import OwnerSchedule from './pages/owner/Schedule';
-import OwnerCart from './pages/owner/Cart';
-import WalkerSchedule from './pages/walker/Schedule';
-import WalkerLiveWalk from './pages/walker/LiveWalk';
-import Chat from './pages/Chat';
+import OwnerHistory    from './pages/owner/History';
+import OwnerDogs       from './pages/owner/Dogs';
+import DogProfile      from './pages/owner/DogProfile';
+import OwnerServices   from './pages/owner/Services';
+import OwnerShop       from './pages/owner/Shop';
+import OwnerProfile    from './pages/owner/Profile';
+import WalkTracker     from './pages/owner/WalkTracker';
+import OwnerSchedule   from './pages/owner/Schedule';
+import OwnerCart       from './pages/owner/Cart';
+
+// Shared / full-screen
+import WalkerSchedule  from './pages/walker/Schedule';
+import WalkerLiveWalk  from './pages/walker/LiveWalk';
+import WalkerProfile   from './pages/walker/Profile';
+import WalkerDogGuide  from './pages/walker/DogGuide';
+import Chat            from './pages/Chat';
+
+// Shop Owner
+import ShopOwnerDashboard     from './pages/shopowner/Dashboard';
+import ShopOwnerMyProducts    from './pages/shopowner/MyProducts';
+import ShopOwnerOrders        from './pages/shopowner/Orders';
+import ShopOwnerNotifications from './pages/shopowner/Notifications';
 
 function ProtectedRoute({ children, role }: { children: React.ReactNode; role?: string | string[] }) {
   const { currentUser } = useApp();
   if (!currentUser) return <Navigate to="/login" replace />;
   if (role) {
     const roles = Array.isArray(role) ? role : [role];
-    if (!roles.includes(currentUser.role)) return <Navigate to={`/${currentUser.role}`} replace />;
+    if (!roles.includes(currentUser.role)) return <Navigate to={ROLE_ROUTES[currentUser.role] || '/owner'} replace />;
   }
   return <>{children}</>;
 }
 
+const ROLE_ROUTES: Record<string, string> = {
+  admin: '/admin', walker: '/walker', owner: '/owner', shopowner: '/shopowner',
+};
+
 function RoleRedirect() {
   const { currentUser } = useApp();
-  if (!currentUser) return <Navigate to="/login" replace />;
-  return <Navigate to={`/${currentUser.role}`} replace />;
+  if (!currentUser) return <Landing />;
+  return <Navigate to={ROLE_ROUTES[currentUser.role] || '/owner'} replace />;
 }
 
 function AppContent() {
@@ -69,7 +88,7 @@ function AppContent() {
         </div>
         <p className="text-base font-bold text-ink">PawFleet</p>
         <div className="flex gap-1.5">
-          {[0,1,2].map(i => (
+          {[0, 1, 2].map(i => (
             <div key={i} className="w-2 h-2 rounded-full bg-primary animate-bounce"
               style={{ animationDelay: `${i * 0.15}s` }} />
           ))}
@@ -84,52 +103,69 @@ function AppContent() {
 function AppRoutes() {
   return (
     <Routes>
-      <Route path="/login" element={<Login />} />
-      <Route path="/" element={<RoleRedirect />} />
+      <Route path="/login"    element={<Login />} />
+      <Route path="/register" element={<Register />} />
+      <Route path="/landing"  element={<Landing />} />
+      <Route path="/"         element={<RoleRedirect />} />
 
+      {/* ── Admin ── */}
       <Route path="/admin" element={<ProtectedRoute role="admin"><Layout /></ProtectedRoute>}>
-        <Route index element={<AdminDashboard />} />
-        <Route path="walks" element={<AdminWalks />} />
+        <Route index          element={<AdminDashboard />} />
+        <Route path="walks"       element={<AdminWalks />} />
         <Route path="create-walk" element={<AdminCreateWalk />} />
-        <Route path="map" element={<AdminMapView />} />
-        <Route path="walkers" element={<AdminWalkers />} />
-        <Route path="owners" element={<AdminOwners />} />
-        <Route path="payments" element={<AdminPayments />} />
-        <Route path="dashboard" element={<Navigate to="/admin" replace />} />
+        <Route path="map"         element={<AdminMapView />} />
+        <Route path="walkers"     element={<AdminWalkers />} />
+        <Route path="owners"      element={<AdminOwners />} />
+        <Route path="payments"    element={<AdminPayments />} />
+        <Route path="shop"        element={<AdminShopManager />} />
+        <Route path="analytics"   element={<AdminAnalytics />} />
+        <Route path="dashboard"   element={<Navigate to="/admin" replace />} />
       </Route>
 
+      {/* ── Walker ── */}
       <Route path="/walker" element={<ProtectedRoute role="walker"><Layout /></ProtectedRoute>}>
-        <Route index element={<WalkerDashboard />} />
-        <Route path="walks" element={<WalkerMyWalks />} />
-        <Route path="schedule" element={<WalkerSchedule />} />
-        <Route path="earnings" element={<WalkerEarnings />} />
-        <Route path="badges" element={<WalkerBadges />} />
+        <Route index          element={<WalkerDashboard />} />
+        <Route path="walks"     element={<WalkerMyWalks />} />
+        <Route path="schedule"  element={<WalkerSchedule />} />
+        <Route path="earnings"  element={<WalkerEarnings />} />
+        <Route path="badges"    element={<WalkerBadges />} />
+        <Route path="profile"   element={<WalkerProfile />} />
+        <Route path="guide"     element={<WalkerDogGuide />} />
         <Route path="dashboard" element={<Navigate to="/walker" replace />} />
-        <Route path="my-walks" element={<Navigate to="/walker/walks" replace />} />
+        <Route path="my-walks"  element={<Navigate to="/walker/walks" replace />} />
       </Route>
 
-      {/* Walker live walk + chat (full-screen, outside Layout) */}
-      <Route path="/walker/live/:walkId" element={<ProtectedRoute role="walker"><WalkerLiveWalk /></ProtectedRoute>} />
-      <Route path="/walker/chat/:walkId" element={<ProtectedRoute role="walker"><Chat /></ProtectedRoute>} />
+      {/* Walker full-screen (outside Layout) */}
+      <Route path="/walker/live/:walkId"  element={<ProtectedRoute role="walker"><WalkerLiveWalk /></ProtectedRoute>} />
+      <Route path="/walker/chat/:walkId"  element={<ProtectedRoute role="walker"><Chat /></ProtectedRoute>} />
 
+      {/* ── Shop Owner ── */}
+      <Route path="/shopowner" element={<ProtectedRoute role="shopowner"><Layout /></ProtectedRoute>}>
+        <Route index                    element={<ShopOwnerDashboard />} />
+        <Route path="products"          element={<ShopOwnerMyProducts />} />
+        <Route path="orders"            element={<ShopOwnerOrders />} />
+        <Route path="notifications"     element={<ShopOwnerNotifications />} />
+        <Route path="analytics"         element={<Navigate to="/shopowner" replace />} />
+      </Route>
+
+      {/* ── Owner ── */}
       <Route path="/owner" element={<ProtectedRoute role="owner"><Layout /></ProtectedRoute>}>
-        <Route index element={<OwnerDashboard />} />
-        <Route path="request" element={<OwnerRequestWalk />} />
-        <Route path="schedule" element={<OwnerSchedule />} />
-        <Route path="history" element={<OwnerHistory />} />
-        <Route path="dogs" element={<OwnerDogs />} />
+        <Route index          element={<OwnerDashboard />} />
+        <Route path="request"   element={<OwnerRequestWalk />} />
+        <Route path="schedule"  element={<OwnerSchedule />} />
+        <Route path="history"   element={<OwnerHistory />} />
+        <Route path="dogs"      element={<OwnerDogs />} />
         <Route path="dogs/:dogId" element={<DogProfile />} />
-        <Route path="services" element={<OwnerServices />} />
-        <Route path="shop" element={<OwnerShop />} />
-        <Route path="cart" element={<OwnerCart />} />
-        <Route path="profile" element={<OwnerProfile />} />
+        <Route path="services"  element={<OwnerServices />} />
+        <Route path="shop"      element={<OwnerShop />} />
+        <Route path="cart"      element={<OwnerCart />} />
+        <Route path="profile"   element={<OwnerProfile />} />
         <Route path="track/:walkId" element={<WalkTracker />} />
-        {/* Legacy redirects */}
-        <Route path="dashboard" element={<Navigate to="/owner" replace />} />
-        <Route path="request-walk" element={<Navigate to="/owner/request" replace />} />
+        <Route path="dashboard"     element={<Navigate to="/owner" replace />} />
+        <Route path="request-walk"  element={<Navigate to="/owner/request" replace />} />
       </Route>
 
-      {/* Owner chat (full-screen, outside Layout) */}
+      {/* Owner full-screen (outside Layout) */}
       <Route path="/owner/chat/:walkId" element={<ProtectedRoute role="owner"><Chat /></ProtectedRoute>} />
 
       <Route path="*" element={<Navigate to="/" replace />} />
@@ -138,9 +174,7 @@ function AppRoutes() {
 }
 
 export default function App() {
-  const [showSplash, setShowSplash] = useState(() => {
-    return !localStorage.getItem('pawfleet_onboarded');
-  });
+  const [showSplash, setShowSplash] = useState(() => !localStorage.getItem('pawfleet_onboarded'));
 
   const handleSplashDone = () => {
     localStorage.setItem('pawfleet_onboarded', '1');
@@ -151,10 +185,12 @@ export default function App() {
     <BrowserRouter>
       <AppProvider>
         <CartProvider>
-          <ToastProvider>
-            {showSplash && <SplashScreen onDone={handleSplashDone} />}
-            <AppContent />
-          </ToastProvider>
+          <ShopProvider>
+            <ToastProvider>
+              {showSplash && <SplashScreen onDone={handleSplashDone} />}
+              <AppContent />
+            </ToastProvider>
+          </ShopProvider>
         </CartProvider>
       </AppProvider>
     </BrowserRouter>

@@ -1,293 +1,255 @@
-import React, { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
-import L from 'leaflet';
-import { ArrowLeft, MapPin, Clock, User, PawPrint, Activity, MessageCircle, Phone } from 'lucide-react';
+import { GoogleMap, useJsApiLoader, Polyline, OverlayView, Marker } from '@react-google-maps/api';
+import { ArrowLeft, MessageCircle, Phone, Navigation } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { supabase } from '../../lib/supabase';
 import { format } from 'date-fns';
 
-// Fix leaflet default icon
-delete (L.Icon.Default.prototype as any)._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-});
+const MAP_CONTAINER_STYLE = { width: '100%', height: '100%' };
+const LUSAKA_CENTER = { lat: -15.4167, lng: 28.2833 };
+const MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
 
-// Paw icon for walker position
-const pawIcon = new L.DivIcon({
-  html: `<div style="background:#2B8A50;width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:3px solid white;box-shadow:0 2px 10px rgba(0,0,0,0.35);font-size:20px;">🐾</div>`,
-  className: '',
-  iconSize: [40, 40],
-  iconAnchor: [20, 20],
-});
-
-// Start icon
-const startIcon = new L.DivIcon({
-  html: `<div style="background:#10b981;width:14px;height:14px;border-radius:50%;border:3px solid white;box-shadow:0 1px 4px rgba(0,0,0,0.3);"></div>`,
-  className: '',
-  iconSize: [14, 14],
-  iconAnchor: [7, 7],
-});
-
-function RecenterMap({ center }: { center: [number, number] }) {
-  const map = useMap();
-  useEffect(() => { map.setView(center, map.getZoom()); }, [center, map]);
-  return null;
-}
+const MAP_OPTIONS: google.maps.MapOptions = {
+  zoomControl: false,
+  streetViewControl: false,
+  mapTypeControl: false,
+  fullscreenControl: false,
+  styles: [
+    { featureType: 'poi', stylers: [{ visibility: 'off' }] },
+    { featureType: 'transit', stylers: [{ visibility: 'off' }] },
+  ],
+};
 
 export default function WalkTracker() {
   const { walkId } = useParams<{ walkId: string }>();
   const { data } = useApp();
   const navigate = useNavigate();
   const [elapsed, setElapsed] = useState(0);
-  const [livePos, setLivePos] = useState<[number, number] | null>(null);
+  const [livePos, setLivePos] = useState<google.maps.LatLngLiteral | null>(null);
+
+  const { isLoaded, loadError } = useJsApiLoader({
+    googleMapsApiKey: MAPS_API_KEY,
+  });
 
   const walk = data.walks.find(w => w.id === walkId);
   const dog = data.dogs.find(d => d.id === walk?.dogId);
   const walker = data.users.find(u => u.id === walk?.walkerId);
 
-  // Tick elapsed time
   useEffect(() => {
     if (walk?.status !== 'active') return;
     const interval = setInterval(() => setElapsed(e => e + 1), 1000);
     return () => clearInterval(interval);
   }, [walk?.status]);
 
-  // Subscribe to walker's live GPS broadcast
+  // Listen for walker's live position
   useEffect(() => {
     if (!walkId || walk?.status !== 'active') return;
     const channel = supabase
       .channel(`walk-location-${walkId}`)
       .on('broadcast', { event: 'location' }, ({ payload }) => {
-        setLivePos([payload.lat, payload.lng]);
+        setLivePos({ lat: payload.lat, lng: payload.lng });
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [walkId, walk?.status]);
 
-  const formatElapsed = (secs: number) => {
-    const m = Math.floor(secs / 60).toString().padStart(2, '0');
-    const s = (secs % 60).toString().padStart(2, '0');
-    return `${m}:${s}`;
-  };
+  const onMapLoad = useCallback((map: google.maps.Map) => {
+    if (walk?.startLocation) {
+      map.setCenter({ lat: walk.startLocation.lat, lng: walk.startLocation.lng });
+      map.setZoom(15);
+    }
+  }, [walk?.startLocation]);
 
   if (!walk) {
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-4 p-6">
-        <PawPrint className="w-12 h-12 text-ink-muted" />
-        <p className="text-ink-secondary text-center">Walk not found.</p>
-        <button type="button" onClick={() => navigate('/owner')} className="text-primary text-sm font-medium">← Back to Dashboard</button>
+        <span className="text-4xl">🐾</span>
+        <p className="text-ink-secondary">Walk not found.</p>
+        <button type="button" onClick={() => navigate('/owner')} className="text-primary text-sm font-semibold">
+          ← Back to Home
+        </button>
       </div>
     );
   }
 
-  const loc = walk.startLocation || { lat: -15.4167, lng: 28.2833 };
-  const endLoc = walk.endLocation;
-  const routePoints: [number, number][] = [
-    [loc.lat, loc.lng],
-    ...(endLoc ? [[endLoc.lat, endLoc.lng] as [number, number]] : []),
-  ];
-  const liveCenter: [number, number] = livePos || [loc.lat, loc.lng];
-  const center: [number, number] = [loc.lat, loc.lng];
-
+  const startLoc = walk.startLocation ? { lat: walk.startLocation.lat, lng: walk.startLocation.lng } : null;
+  const endLoc = walk.endLocation ? { lat: walk.endLocation.lat, lng: walk.endLocation.lng } : null;
+  const liveCenter = livePos || startLoc || LUSAKA_CENTER;
   const isActive = walk.status === 'active';
   const isCompleted = walk.status === 'completed';
 
-  const statusColor = {
-    active:    'bg-emerald-100 text-emerald-700',
-    completed: 'bg-primary-50 text-primary',
-    pending:   'bg-amber-100 text-amber-700',
-    assigned:  'bg-primary-100 text-primary-600',
-    cancelled: 'bg-red-100 text-red-700',
-  }[walk.status] || 'bg-gray-100 text-gray-700';
+  const elapsedMin = Math.floor(elapsed / 60);
+  const elapsedSec = (elapsed % 60).toString().padStart(2, '0');
+  const durationDisplay = elapsed > 0
+    ? `${elapsedMin}:${elapsedSec}`
+    : walk.duration ? `${walk.duration} min` : '—';
+
+  const routePath: google.maps.LatLngLiteral[] = [
+    ...(startLoc ? [startLoc] : []),
+    ...(livePos ? [livePos] : []),
+    ...(endLoc && !isActive ? [endLoc] : []),
+  ];
 
   return (
-    <div className="flex flex-col h-screen lg:h-auto lg:min-h-screen bg-cream">
+    <div className="flex flex-col h-screen bg-white">
       {/* Header */}
-      <div className="bg-white border-b border-surface-border px-4 py-3 flex items-center gap-3 shrink-0">
-        <button
-          type="button"
-          title="Back to dashboard"
-          onClick={() => navigate('/owner')}
-          className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-surface-hover text-ink-secondary"
-        >
+      <div className="flex items-center gap-3 px-4 py-3 border-b border-surface-border bg-white shrink-0">
+        <button type="button" onClick={() => navigate('/owner')}
+          className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-surface-hover text-ink-secondary">
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div className="flex-1">
-          <h1 className="text-base font-bold text-ink">
-            {dog?.name}'s Walk
-          </h1>
-          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full capitalize ${statusColor}`}>
-            {walk.status}
-          </span>
+          <p className="text-xs text-ink-muted font-semibold uppercase tracking-wider">PawFleet</p>
+          <p className="text-sm font-bold text-ink">
+            {dog?.name ? `${dog.name}'s walk` : 'Live tracking'}
+          </p>
         </div>
-        {isActive && (
-          <div className="flex items-center gap-1.5 bg-success/10 border border-success/30 rounded-xl px-3 py-1.5">
-            <span className="w-2 h-2 bg-success rounded-full animate-pulse" />
-            <span className="text-xs font-semibold text-success">
-              {livePos ? 'GPS LIVE' : 'LIVE'}
-            </span>
+        {isActive && livePos && (
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-success-light border border-success/20">
+            <span className="w-1.5 h-1.5 bg-success rounded-full animate-pulse" />
+            <span className="text-xs font-bold text-success">LIVE</span>
           </div>
         )}
       </div>
 
       {/* Map */}
-      <div className="relative flex-1 lg:flex-none lg:h-72">
-        {walk.startLocation ? (
-          <MapContainer
-            center={center}
+      <div className="flex-1 relative min-h-0">
+        {loadError || !MAPS_API_KEY ? (
+          <div className="flex flex-col items-center justify-center h-full bg-surface-secondary gap-3 p-6 text-center">
+            <span className="text-4xl">🗺️</span>
+            <p className="text-sm text-ink-secondary font-medium">Google Maps not configured</p>
+            <p className="text-xs text-ink-muted">Add VITE_GOOGLE_MAPS_API_KEY to your Vercel environment variables.</p>
+          </div>
+        ) : !isLoaded ? (
+          <div className="flex items-center justify-center h-full bg-surface-secondary">
+            <div className="flex flex-col items-center gap-3">
+              <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+              <p className="text-sm text-ink-secondary">Loading map…</p>
+            </div>
+          </div>
+        ) : !startLoc && !livePos ? (
+          <div className="flex flex-col items-center justify-center h-full bg-surface-secondary gap-3 p-6 text-center">
+            <span className="text-4xl">🗺️</span>
+            <p className="text-sm text-ink-secondary">
+              {walk.status === 'pending' || walk.status === 'assigned'
+                ? 'Map tracking starts when the walker begins the walk'
+                : 'No location data available'}
+            </p>
+          </div>
+        ) : (
+          <GoogleMap
+            mapContainerStyle={MAP_CONTAINER_STYLE}
+            center={liveCenter}
             zoom={15}
-            style={{ height: '100%', width: '100%', minHeight: '280px' }}
-            zoomControl={false}
+            options={MAP_OPTIONS}
+            onLoad={onMapLoad}
           >
-            <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org">OpenStreetMap</a>'
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            />
-            <RecenterMap center={liveCenter} />
-
-            {/* Route line */}
-            {routePoints.length > 1 && (
-              <Polyline positions={routePoints} color="#2B8A50" weight={4} opacity={0.8} />
+            {routePath.length > 1 && (
+              <Polyline
+                path={routePath}
+                options={{ strokeColor: '#1B4332', strokeWeight: 5, strokeOpacity: 0.9 }}
+              />
             )}
 
             {/* Start marker */}
-            <Marker position={[loc.lat, loc.lng]} icon={startIcon}>
-              <Popup><p className="text-xs font-semibold">Walk started here</p></Popup>
-            </Marker>
+            {startLoc && (
+              <OverlayView position={startLoc} mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}>
+                <div style={{
+                  width: 14, height: 14,
+                  background: '#10b981',
+                  borderRadius: '50%',
+                  border: '3px solid white',
+                  boxShadow: '0 2px 6px rgba(0,0,0,0.35)',
+                  transform: 'translate(-50%,-50%)',
+                }} />
+              </OverlayView>
+            )}
 
-            {/* Live walker position (paw) */}
-            {isActive && (
-              <Marker position={liveCenter} icon={pawIcon}>
-                <Popup>
-                  <p className="text-xs font-semibold">{walker?.name || 'Walker'}</p>
-                  <p className="text-xs text-ink-muted">
-                    {livePos ? 'Live location' : 'Last known location'} — with {dog?.name}
-                  </p>
-                </Popup>
-              </Marker>
+            {/* Live walker position */}
+            {isActive && livePos && (
+              <OverlayView position={livePos} mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}>
+                <div style={{
+                  width: 48, height: 48,
+                  background: '#1B4332',
+                  borderRadius: '50%',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  border: '3px solid white',
+                  boxShadow: '0 3px 14px rgba(0,0,0,0.4)',
+                  fontSize: 22,
+                  transform: 'translate(-50%,-50%)',
+                }}>🐾</div>
+              </OverlayView>
             )}
 
             {/* End marker */}
             {endLoc && (
-              <Marker position={[endLoc.lat, endLoc.lng]}>
-                <Popup><p className="text-xs font-semibold">Walk ended here</p></Popup>
-              </Marker>
+              <Marker position={endLoc} />
             )}
-          </MapContainer>
-        ) : (
-          <div className="flex flex-col items-center justify-center h-full bg-surface-secondary min-h-[280px] gap-3">
-            <MapPin className="w-10 h-10 text-ink-muted" />
-            <p className="text-sm text-ink-secondary text-center">
-              {walk.status === 'pending' || walk.status === 'assigned'
-                ? 'Map tracking starts once the walker begins the walk'
-                : 'No location data available'}
-            </p>
-          </div>
+          </GoogleMap>
         )}
       </div>
 
-      {/* Stats bar (active walk) */}
-      {isActive && (
-        <div className="bg-ink text-white grid grid-cols-3 divide-x divide-white/10 shrink-0">
-          {[
-            { icon: Clock,    label: 'Duration', value: formatElapsed(elapsed) },
-            { icon: Activity, label: 'Distance',  value: '—' },
-            { icon: Activity, label: 'Pace',      value: '—' },
-          ].map(({ icon: Icon, label, value }) => (
-            <div key={label} className="flex flex-col items-center py-4 gap-0.5">
-              <Icon className="w-4 h-4 text-white/60 mb-1" />
-              <span className="text-lg font-bold">{value}</span>
-              <span className="text-white/60 text-[10px] uppercase tracking-wider">{label}</span>
-            </div>
-          ))}
-        </div>
-      )}
+      {/* Stats bar */}
+      <div className="grid grid-cols-3 divide-x divide-surface-border bg-white border-t border-surface-border shrink-0">
+        {[
+          { label: 'DISTANCE', value: '—' },
+          { label: 'DURATION', value: durationDisplay },
+          { label: 'STATUS', value: isActive ? 'Active' : isCompleted ? 'Done' : '—' },
+        ].map(({ label, value }) => (
+          <div key={label} className="flex flex-col items-center py-4 gap-0.5">
+            <span className="text-[10px] font-bold text-ink-muted tracking-widest">{label}</span>
+            <span className="text-xl font-extrabold text-ink">{value}</span>
+          </div>
+        ))}
+      </div>
 
-      {/* Walk details card */}
-      <div className="p-4 space-y-3 overflow-y-auto pb-24 lg:pb-6">
-        {/* Walker info */}
-        <div className="bg-white border border-surface-border rounded-2xl p-4 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-primary-50 flex items-center justify-center shrink-0">
-            <User className="w-5 h-5 text-primary" />
+      {/* Walker info card */}
+      <div className="px-4 py-4 border-t border-surface-border bg-white shrink-0 pb-28 lg:pb-6">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 rounded-full overflow-hidden bg-primary-50 flex items-center justify-center shrink-0 border-2 border-surface-border">
+            {walker?.imageUrl
+              ? <img src={walker.imageUrl} alt={walker.name} className="w-full h-full object-cover" />
+              : <span className="text-lg font-bold text-primary">{walker?.name?.[0] || '?'}</span>}
           </div>
-          <div className="flex-1">
-            <p className="text-xs text-ink-muted">Your Walker</p>
-            <p className="text-sm font-semibold text-ink">{walker?.name || 'Unassigned'}</p>
-            {walker?.phone && <p className="text-xs text-ink-muted">{walker.phone}</p>}
-          </div>
-          {walker && (
-            <div className="flex gap-2 shrink-0">
-              {walkId && (
-                <Link
-                  to={`/owner/chat/${walkId}`}
-                  className="w-9 h-9 flex items-center justify-center rounded-xl bg-surface-secondary hover:bg-primary-50 text-ink-secondary hover:text-primary transition-colors"
-                  title="Chat with walker"
-                >
-                  <MessageCircle className="w-4 h-4" />
-                </Link>
+          <div className="flex-1 min-w-0">
+            <p className="font-bold text-ink">{walker?.name || 'Your walker'}</p>
+            <div className="flex items-center gap-1.5 text-xs text-ink-muted mt-0.5">
+              {walk.startLocation?.address && (
+                <span className="truncate">📍 {walk.startLocation.address}</span>
               )}
-              {isActive && walker.phone && (
-                <a
-                  href={`tel:${walker.phone}`}
-                  className="w-9 h-9 flex items-center justify-center rounded-xl bg-primary text-white hover:bg-primary/90 transition-colors"
-                  title="Call walker"
-                >
-                  <Phone className="w-4 h-4" />
-                </a>
-              )}
+              {isActive && <span>· ETA soon</span>}
             </div>
+            {walk.startTime && (
+              <p className="text-xs text-ink-muted mt-0.5">
+                ⏱ Started {format(new Date(walk.startTime), 'h:mm a')}
+              </p>
+            )}
+            {isCompleted && walk.endTime && (
+              <p className="text-xs text-success font-semibold mt-0.5">
+                ✓ Completed at {format(new Date(walk.endTime), 'h:mm a')} · {walk.duration} min
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div className="flex gap-3 mt-4">
+          <Link to={`/owner/chat/${walkId}`}
+            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl border-2 border-surface-border text-sm font-bold text-ink hover:bg-surface-hover transition-colors">
+            <MessageCircle className="w-4 h-4" /> Chat
+          </Link>
+          {walker?.phone && (
+            <a href={`tel:${walker.phone}`}
+              className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl border-2 border-surface-border text-sm font-bold text-ink hover:bg-surface-hover transition-colors">
+              <Phone className="w-4 h-4" /> Call
+            </a>
           )}
+          <button type="button"
+            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-bold text-white transition-colors"
+            style={{ background: '#1B4332' }}>
+            <Navigation className="w-4 h-4" /> Route
+          </button>
         </div>
-
-        {/* Walk info */}
-        <div className="bg-white border border-surface-border rounded-2xl p-4 space-y-3">
-          <p className="text-xs font-bold text-ink-muted uppercase tracking-wider">Walk Details</p>
-          {[
-            { label: 'Dog', value: `${dog?.name}${dog?.breed ? ` · ${dog.breed}` : ''}` },
-            { label: 'Requested', value: format(new Date(walk.createdAt), 'MMM d, yyyy · h:mm a') },
-            { label: 'Status', value: walk.status.charAt(0).toUpperCase() + walk.status.slice(1) },
-            ...(walk.startTime ? [{ label: 'Started', value: format(new Date(walk.startTime), 'h:mm a') }] : []),
-            ...(walk.endTime ? [{ label: 'Ended', value: format(new Date(walk.endTime), 'h:mm a') }] : []),
-            ...(walk.duration ? [{ label: 'Duration', value: `${walk.duration} min` }] : []),
-            { label: 'Walk Fee', value: `ZMW ${walk.price}` },
-            ...(walk.notes ? [{ label: 'Instructions', value: walk.notes }] : []),
-          ].map(({ label, value }) => (
-            <div key={label} className="flex items-start justify-between gap-3">
-              <span className="text-xs text-ink-muted shrink-0">{label}</span>
-              <span className="text-xs font-medium text-ink text-right">{value}</span>
-            </div>
-          ))}
-        </div>
-
-        {/* Completed state */}
-        {isCompleted && (
-          <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 text-center">
-            <p className="text-2xl mb-2">🎉</p>
-            <p className="text-sm font-bold text-ink mb-1">Walk Complete!</p>
-            <p className="text-xs text-ink-secondary">
-              {dog?.name} had a great walk
-              {walk.duration ? ` (${walk.duration} min)` : ''}.
-            </p>
-          </div>
-        )}
-
-        {/* Pending/assigned state */}
-        {(walk.status === 'pending' || walk.status === 'assigned') && (
-          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-center">
-            <p className="text-2xl mb-2">⏳</p>
-            <p className="text-sm font-bold text-ink mb-1">
-              {walk.status === 'pending' ? 'Awaiting Walker Assignment' : 'Walker Assigned — Walk Upcoming'}
-            </p>
-            <p className="text-xs text-ink-secondary">
-              {walk.status === 'pending'
-                ? 'Our team is assigning the best available walker for you.'
-                : `${walker?.name} will arrive soon.`}
-            </p>
-          </div>
-        )}
       </div>
     </div>
   );

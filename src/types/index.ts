@@ -1,4 +1,4 @@
-export type Role = 'admin' | 'walker' | 'owner';
+export type Role = 'admin' | 'walker' | 'owner' | 'shopowner';
 export type WalkStatus = 'pending' | 'assigned' | 'active' | 'completed' | 'cancelled';
 export type PaymentStatus = 'unpaid' | 'paid';
 
@@ -10,6 +10,7 @@ export interface User {
   password: string;
   role: Role;
   createdAt: string;
+  imageUrl?: string;
 }
 
 export interface HealthLog {
@@ -50,6 +51,7 @@ export interface Walk {
   duration?: number;
   price: number;
   walkerEarning: number;
+  ownerCost?: number;
   notes?: string;
   createdAt: string;
 }
@@ -81,6 +83,42 @@ export interface WalkerStats {
   streak: number;
   lastWalkDate?: string;
   badges: WalkerBadge[];
+}
+
+// ── Shop Owner types ─────────────────────────────────────────
+
+export interface Purchase {
+  id: string;
+  productId: string;
+  productName: string;
+  productImg: string;
+  quantity: number;
+  unitPrice: number;
+  total: number;
+  buyerId: string;
+  buyerName: string;
+  shopOwnerId: string;
+  purchasedAt: string;
+  status: 'pending' | 'confirmed' | 'delivered';
+}
+
+export interface ShopNotification {
+  id: string;
+  shopOwnerId: string;
+  type: 'purchase';
+  purchase: Purchase;
+  read: boolean;
+  createdAt: string;
+}
+
+// ── Owner gamification ───────────────────────────────────────
+
+export interface OwnerAchievement {
+  id: string;
+  label: string;
+  icon: string;
+  description: string;
+  earnedAt: string;
 }
 
 export interface AppData {

@@ -1,68 +1,73 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { GoogleMap, useJsApiLoader, Polyline, OverlayView } from '@react-google-maps/api';
+import { MapContainer, TileLayer, Polyline, Marker, useMap } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import { ArrowLeft, Phone, MessageCircle, Square, Navigation, Activity } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { supabase } from '../../lib/supabase';
 
-const MAP_CONTAINER_STYLE = { width: '100%', height: '100%' };
-const LUSAKA_CENTER = { lat: -15.4167, lng: 28.2833 };
-const MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
+type LatLng = [number, number];
+const LUSAKA: LatLng = [-15.4167, 28.2833];
 
-const MAP_OPTIONS: google.maps.MapOptions = {
-  zoomControl: false,
-  streetViewControl: false,
-  mapTypeControl: false,
-  fullscreenControl: false,
-  styles: [
-    { featureType: 'poi', stylers: [{ visibility: 'off' }] },
-    { featureType: 'transit', stylers: [{ visibility: 'off' }] },
-  ],
-};
+const walkerIcon = L.divIcon({
+  html: `<div style="width:44px;height:44px;background:#2B8A50;border-radius:50%;display:flex;align-items:center;justify-content:center;border:3px solid white;box-shadow:0 3px 12px rgba(0,0,0,0.35);font-size:20px;line-height:1;transform:translate(-50%,-50%);position:relative">🐾</div>`,
+  className: '',
+  iconSize: [0, 0],
+  iconAnchor: [0, 0],
+});
+
+function MapFollower({ pos }: { pos: LatLng | null }) {
+  const map = useMap();
+  const firstRef = useRef(true);
+  useEffect(() => {
+    if (!pos) return;
+    if (firstRef.current) {
+      map.setView(pos, 17);
+      firstRef.current = false;
+    } else {
+      map.panTo(pos);
+    }
+  }, [pos, map]);
+  return null;
+}
 
 export default function WalkerLiveWalk() {
   const { walkId } = useParams<{ walkId: string }>();
   const { data, endWalk } = useApp();
   const navigate = useNavigate();
 
-  const [myPos, setMyPos] = useState<google.maps.LatLngLiteral | null>(null);
-  const [route, setRoute] = useState<google.maps.LatLngLiteral[]>([]);
+  const [myPos, setMyPos]     = useState<LatLng | null>(null);
+  const [route, setRoute]     = useState<LatLng[]>([]);
   const [elapsed, setElapsed] = useState(0);
   const [gpsError, setGpsError] = useState(false);
-  const mapRef = useRef<google.maps.Map | null>(null);
-  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const channelRef  = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
-  const isFirstCenter = useRef(true);
 
-  const { isLoaded, loadError } = useJsApiLoader({
-    googleMapsApiKey: MAPS_API_KEY,
-  });
-
-  const walk = data.walks.find(w => w.id === walkId);
-  const dog = data.dogs.find(d => d.id === walk?.dogId);
+  const walk  = data.walks.find(w => w.id === walkId);
+  const dog   = data.dogs.find(d => d.id === walk?.dogId);
   const owner = data.users.find(u => u.id === walk?.ownerId);
 
-  // Elapsed ticker
+  // Elapsed timer
   useEffect(() => {
     if (walk?.status !== 'active') return;
     const t = setInterval(() => setElapsed(e => e + 1), 1000);
     return () => clearInterval(t);
   }, [walk?.status]);
 
-  // Keep screen on
+  // Wake lock
   useEffect(() => {
     if (walk?.status !== 'active') return;
-    const acquire = async () => {
+    (async () => {
       try {
         if ('wakeLock' in navigator)
           wakeLockRef.current = await (navigator as any).wakeLock.request('screen');
       } catch { /* unsupported */ }
-    };
-    acquire();
+    })();
     return () => { wakeLockRef.current?.release(); wakeLockRef.current = null; };
   }, [walk?.status]);
 
-  // GPS watch + Supabase broadcast
+  // GPS + Supabase broadcast
   useEffect(() => {
     if (!walkId || walk?.status !== 'active') return;
     const channel = supabase.channel(`walk-location-${walkId}`);
@@ -72,23 +77,13 @@ export default function WalkerLiveWalk() {
 
     const watchId = navigator.geolocation.watchPosition(
       pos => {
-        const pt = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        const pt: LatLng = [pos.coords.latitude, pos.coords.longitude];
         setMyPos(pt);
         setRoute(prev => [...prev, pt]);
-        channel.send({ type: 'broadcast', event: 'location', payload: pt });
-        // Pan map to walker position
-        if (mapRef.current) {
-          if (isFirstCenter.current) {
-            mapRef.current.setCenter(pt);
-            mapRef.current.setZoom(17);
-            isFirstCenter.current = false;
-          } else {
-            mapRef.current.panTo(pt);
-          }
-        }
+        channel.send({ type: 'broadcast', event: 'location', payload: { lat: pt[0], lng: pt[1] } });
       },
       () => setGpsError(true),
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
     );
     return () => {
       navigator.geolocation.clearWatch(watchId);
@@ -96,20 +91,12 @@ export default function WalkerLiveWalk() {
     };
   }, [walkId, walk?.status]);
 
-  const onMapLoad = useCallback((map: google.maps.Map) => {
-    mapRef.current = map;
-  }, []);
-
   const handleEnd = () => {
     if (!walkId) return;
-    const loc = myPos || LUSAKA_CENTER;
+    const loc = myPos ? { lat: myPos[0], lng: myPos[1] } : { lat: LUSAKA[0], lng: LUSAKA[1] };
     endWalk(walkId, loc);
     navigate('/walker/walks');
   };
-
-  const center = myPos || (walk?.startLocation
-    ? { lat: walk.startLocation.lat, lng: walk.startLocation.lng }
-    : LUSAKA_CENTER);
 
   const formatElapsed = (s: number) =>
     `${Math.floor(s / 60).toString().padStart(2, '0')}:${(s % 60).toString().padStart(2, '0')}`;
@@ -125,10 +112,14 @@ export default function WalkerLiveWalk() {
     );
   }
 
+  const mapCenter = myPos ?? (walk.startLocation
+    ? [walk.startLocation.lat, walk.startLocation.lng] as LatLng
+    : LUSAKA);
+
   return (
     <div className="flex flex-col h-screen bg-ink">
       {/* Header */}
-      <div className="bg-white border-b border-surface-border px-4 py-3 flex items-center gap-3 shrink-0">
+      <div className="bg-white border-b border-surface-border px-4 py-3 flex items-center gap-3 shrink-0 z-[1001]">
         <button type="button" onClick={() => navigate('/walker/walks')}
           className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-surface-hover text-ink-secondary">
           <ArrowLeft className="w-5 h-5" />
@@ -145,57 +136,30 @@ export default function WalkerLiveWalk() {
 
       {/* Map */}
       <div className="flex-1 relative">
-        {loadError || !MAPS_API_KEY ? (
-          <div className="flex flex-col items-center justify-center h-full bg-surface-secondary gap-3 p-6 text-center">
-            <span className="text-4xl">🗺️</span>
-            <p className="text-sm text-ink-secondary font-medium">Google Maps not configured</p>
-            <p className="text-xs text-ink-muted">Add VITE_GOOGLE_MAPS_API_KEY to your Vercel environment variables.</p>
-          </div>
-        ) : !isLoaded ? (
-          <div className="flex items-center justify-center h-full bg-surface-secondary">
-            <div className="flex flex-col items-center gap-3">
-              <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-              <p className="text-sm text-ink-secondary">Loading map…</p>
-            </div>
-          </div>
-        ) : (
-          <GoogleMap
-            mapContainerStyle={MAP_CONTAINER_STYLE}
-            center={center}
-            zoom={16}
-            options={MAP_OPTIONS}
-            onLoad={onMapLoad}
-          >
-            {route.length > 1 && (
-              <Polyline
-                path={route}
-                options={{ strokeColor: '#2B8A50', strokeWeight: 5, strokeOpacity: 0.9 }}
-              />
-            )}
-            {myPos && (
-              <OverlayView position={myPos} mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}>
-                <div style={{
-                  width: 44, height: 44,
-                  background: '#2B8A50',
-                  borderRadius: '50%',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  border: '3px solid white',
-                  boxShadow: '0 3px 12px rgba(0,0,0,0.35)',
-                  fontSize: 20,
-                  transform: 'translate(-50%,-50%)',
-                }}>🐾</div>
-              </OverlayView>
-            )}
-          </GoogleMap>
-        )}
+        <MapContainer
+          center={mapCenter}
+          zoom={16}
+          style={{ width: '100%', height: '100%' }}
+          zoomControl={false}
+          attributionControl={false}
+        >
+          <TileLayer
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            attribution="© OpenStreetMap"
+          />
+          <MapFollower pos={myPos} />
+          {route.length > 1 && (
+            <Polyline positions={route} pathOptions={{ color: '#2B8A50', weight: 5, opacity: 0.9 }} />
+          )}
+          {myPos && <Marker position={myPos} icon={walkerIcon} />}
+        </MapContainer>
 
         {gpsError && (
           <div className="absolute top-3 left-1/2 -translate-x-1/2 bg-amber-500 text-white text-xs px-3 py-1.5 rounded-xl shadow font-semibold z-[1000]">
             GPS unavailable — location not being shared
           </div>
         )}
-
-        {isLoaded && !gpsError && !myPos && (
+        {!gpsError && !myPos && (
           <div className="absolute top-3 left-1/2 -translate-x-1/2 bg-white/95 text-ink text-xs px-3 py-1.5 rounded-xl shadow font-semibold z-[1000] flex items-center gap-2">
             <div className="w-3 h-3 rounded-full border-2 border-primary border-t-transparent animate-spin" />
             Getting your location…
@@ -206,9 +170,9 @@ export default function WalkerLiveWalk() {
       {/* Stats bar */}
       <div className="bg-ink text-white grid grid-cols-3 divide-x divide-white/10 shrink-0">
         {[
-          { icon: Activity, label: 'Duration', value: formatElapsed(elapsed) },
-          { icon: Navigation, label: 'Points', value: route.length.toString() },
-          { icon: Activity, label: 'Status', value: 'Active' },
+          { icon: Activity,  label: 'Duration', value: formatElapsed(elapsed) },
+          { icon: Navigation, label: 'Points',  value: route.length.toString() },
+          { icon: Activity,  label: 'Status',   value: 'Active' },
         ].map(({ icon: Icon, label, value }) => (
           <div key={label} className="flex flex-col items-center py-4 gap-0.5">
             <Icon className="w-4 h-4 text-white/50 mb-1" />

@@ -1,39 +1,46 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { GoogleMap, useJsApiLoader, Polyline, OverlayView, Marker } from '@react-google-maps/api';
+import { MapContainer, TileLayer, Polyline, Marker } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import { ArrowLeft, MessageCircle, Phone, Navigation } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { supabase } from '../../lib/supabase';
 import { format } from 'date-fns';
 
-const MAP_CONTAINER_STYLE = { width: '100%', height: '100%' };
-const LUSAKA_CENTER = { lat: -15.4167, lng: 28.2833 };
-const MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
+type LatLng = [number, number];
+const LUSAKA: LatLng = [-15.4167, 28.2833];
 
-const MAP_OPTIONS: google.maps.MapOptions = {
-  zoomControl: false,
-  streetViewControl: false,
-  mapTypeControl: false,
-  fullscreenControl: false,
-  styles: [
-    { featureType: 'poi', stylers: [{ visibility: 'off' }] },
-    { featureType: 'transit', stylers: [{ visibility: 'off' }] },
-  ],
-};
+const walkerIcon = L.divIcon({
+  html: `<div style="width:48px;height:48px;background:#1B4332;border-radius:50%;display:flex;align-items:center;justify-content:center;border:3px solid white;box-shadow:0 3px 14px rgba(0,0,0,0.4);font-size:22px;line-height:1;transform:translate(-50%,-50%)">🐾</div>`,
+  className: '',
+  iconSize: [0, 0],
+  iconAnchor: [0, 0],
+});
+
+const startIcon = L.divIcon({
+  html: `<div style="width:14px;height:14px;background:#10b981;border-radius:50%;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.35);transform:translate(-50%,-50%)"></div>`,
+  className: '',
+  iconSize: [0, 0],
+  iconAnchor: [0, 0],
+});
+
+const endIcon = L.divIcon({
+  html: `<div style="width:14px;height:14px;background:#EF4444;border-radius:50%;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.35);transform:translate(-50%,-50%)"></div>`,
+  className: '',
+  iconSize: [0, 0],
+  iconAnchor: [0, 0],
+});
 
 export default function WalkTracker() {
   const { walkId } = useParams<{ walkId: string }>();
-  const { data } = useApp();
-  const navigate = useNavigate();
+  const { data }   = useApp();
+  const navigate   = useNavigate();
   const [elapsed, setElapsed] = useState(0);
-  const [livePos, setLivePos] = useState<google.maps.LatLngLiteral | null>(null);
+  const [livePos, setLivePos] = useState<LatLng | null>(null);
 
-  const { isLoaded, loadError } = useJsApiLoader({
-    googleMapsApiKey: MAPS_API_KEY,
-  });
-
-  const walk = data.walks.find(w => w.id === walkId);
-  const dog = data.dogs.find(d => d.id === walk?.dogId);
+  const walk   = data.walks.find(w => w.id === walkId);
+  const dog    = data.dogs.find(d => d.id === walk?.dogId);
   const walker = data.users.find(u => u.id === walk?.walkerId);
 
   useEffect(() => {
@@ -42,24 +49,17 @@ export default function WalkTracker() {
     return () => clearInterval(interval);
   }, [walk?.status]);
 
-  // Listen for walker's live position
+  // Listen for walker's live broadcast
   useEffect(() => {
     if (!walkId || walk?.status !== 'active') return;
     const channel = supabase
       .channel(`walk-location-${walkId}`)
       .on('broadcast', { event: 'location' }, ({ payload }) => {
-        setLivePos({ lat: payload.lat, lng: payload.lng });
+        setLivePos([payload.lat, payload.lng]);
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [walkId, walk?.status]);
-
-  const onMapLoad = useCallback((map: google.maps.Map) => {
-    if (walk?.startLocation) {
-      map.setCenter({ lat: walk.startLocation.lat, lng: walk.startLocation.lng });
-      map.setZoom(15);
-    }
-  }, [walk?.startLocation]);
 
   if (!walk) {
     return (
@@ -73,11 +73,18 @@ export default function WalkTracker() {
     );
   }
 
-  const startLoc = walk.startLocation ? { lat: walk.startLocation.lat, lng: walk.startLocation.lng } : null;
-  const endLoc = walk.endLocation ? { lat: walk.endLocation.lat, lng: walk.endLocation.lng } : null;
-  const liveCenter = livePos || startLoc || LUSAKA_CENTER;
-  const isActive = walk.status === 'active';
+  const startLat = walk.startLocation ? [walk.startLocation.lat, walk.startLocation.lng] as LatLng : null;
+  const endLat   = walk.endLocation   ? [walk.endLocation.lat,   walk.endLocation.lng]   as LatLng : null;
+  const isActive    = walk.status === 'active';
   const isCompleted = walk.status === 'completed';
+
+  const mapCenter = livePos ?? startLat ?? LUSAKA;
+
+  const routePath: LatLng[] = [
+    ...(startLat ? [startLat] : []),
+    ...(livePos  ? [livePos]  : []),
+    ...(endLat && !isActive ? [endLat] : []),
+  ];
 
   const elapsedMin = Math.floor(elapsed / 60);
   const elapsedSec = (elapsed % 60).toString().padStart(2, '0');
@@ -85,17 +92,11 @@ export default function WalkTracker() {
     ? `${elapsedMin}:${elapsedSec}`
     : walk.duration ? `${walk.duration} min` : '—';
 
-  const routePath: google.maps.LatLngLiteral[] = [
-    ...(startLoc ? [startLoc] : []),
-    ...(livePos ? [livePos] : []),
-    ...(endLoc && !isActive ? [endLoc] : []),
-  ];
-
   return (
     <div className="flex flex-col h-screen bg-white">
       {/* Header */}
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-surface-border bg-white shrink-0">
-        <button type="button" onClick={() => navigate('/owner')}
+      <div className="flex items-center gap-3 px-4 py-3 border-b border-surface-border bg-white shrink-0 z-[1001]">
+        <button type="button" onClick={() => navigate('/owner')} aria-label="Back to home"
           className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-surface-hover text-ink-secondary">
           <ArrowLeft className="w-5 h-5" />
         </button>
@@ -115,20 +116,7 @@ export default function WalkTracker() {
 
       {/* Map */}
       <div className="flex-1 relative min-h-0">
-        {loadError || !MAPS_API_KEY ? (
-          <div className="flex flex-col items-center justify-center h-full bg-surface-secondary gap-3 p-6 text-center">
-            <span className="text-4xl">🗺️</span>
-            <p className="text-sm text-ink-secondary font-medium">Google Maps not configured</p>
-            <p className="text-xs text-ink-muted">Add VITE_GOOGLE_MAPS_API_KEY to your Vercel environment variables.</p>
-          </div>
-        ) : !isLoaded ? (
-          <div className="flex items-center justify-center h-full bg-surface-secondary">
-            <div className="flex flex-col items-center gap-3">
-              <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-              <p className="text-sm text-ink-secondary">Loading map…</p>
-            </div>
-          </div>
-        ) : !startLoc && !livePos ? (
+        {!startLat && !livePos ? (
           <div className="flex flex-col items-center justify-center h-full bg-surface-secondary gap-3 p-6 text-center">
             <span className="text-4xl">🗺️</span>
             <p className="text-sm text-ink-secondary">
@@ -138,55 +126,24 @@ export default function WalkTracker() {
             </p>
           </div>
         ) : (
-          <GoogleMap
-            mapContainerStyle={MAP_CONTAINER_STYLE}
-            center={liveCenter}
+          <MapContainer
+            center={mapCenter}
             zoom={15}
-            options={MAP_OPTIONS}
-            onLoad={onMapLoad}
+            style={{ width: '100%', height: '100%' }}
+            zoomControl={false}
+            attributionControl={false}
           >
+            <TileLayer
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              attribution="© OpenStreetMap"
+            />
             {routePath.length > 1 && (
-              <Polyline
-                path={routePath}
-                options={{ strokeColor: '#1B4332', strokeWeight: 5, strokeOpacity: 0.9 }}
-              />
+              <Polyline positions={routePath} pathOptions={{ color: '#1B4332', weight: 5, opacity: 0.9 }} />
             )}
-
-            {/* Start marker */}
-            {startLoc && (
-              <OverlayView position={startLoc} mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}>
-                <div style={{
-                  width: 14, height: 14,
-                  background: '#10b981',
-                  borderRadius: '50%',
-                  border: '3px solid white',
-                  boxShadow: '0 2px 6px rgba(0,0,0,0.35)',
-                  transform: 'translate(-50%,-50%)',
-                }} />
-              </OverlayView>
-            )}
-
-            {/* Live walker position */}
-            {isActive && livePos && (
-              <OverlayView position={livePos} mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}>
-                <div style={{
-                  width: 48, height: 48,
-                  background: '#1B4332',
-                  borderRadius: '50%',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  border: '3px solid white',
-                  boxShadow: '0 3px 14px rgba(0,0,0,0.4)',
-                  fontSize: 22,
-                  transform: 'translate(-50%,-50%)',
-                }}>🐾</div>
-              </OverlayView>
-            )}
-
-            {/* End marker */}
-            {endLoc && (
-              <Marker position={endLoc} />
-            )}
-          </GoogleMap>
+            {startLat && <Marker position={startLat} icon={startIcon} />}
+            {isActive && livePos && <Marker position={livePos} icon={walkerIcon} />}
+            {endLat && <Marker position={endLat} icon={endIcon} />}
+          </MapContainer>
         )}
       </div>
 
@@ -195,7 +152,7 @@ export default function WalkTracker() {
         {[
           { label: 'DISTANCE', value: '—' },
           { label: 'DURATION', value: durationDisplay },
-          { label: 'STATUS', value: isActive ? 'Active' : isCompleted ? 'Done' : '—' },
+          { label: 'STATUS',   value: isActive ? 'Active' : isCompleted ? 'Done' : '—' },
         ].map(({ label, value }) => (
           <div key={label} className="flex flex-col items-center py-4 gap-0.5">
             <span className="text-[10px] font-bold text-ink-muted tracking-widest">{label}</span>
@@ -245,8 +202,7 @@ export default function WalkTracker() {
             </a>
           )}
           <button type="button"
-            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-bold text-white transition-colors"
-            style={{ background: '#1B4332' }}>
+            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-bold text-white transition-colors bg-[#1B4332]">
             <Navigation className="w-4 h-4" /> Route
           </button>
         </div>

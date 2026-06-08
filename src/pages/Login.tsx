@@ -15,7 +15,7 @@ const DEMOS: DemoRole[] = [
   { label: 'Admin',      sub: 'Business owner',   identifier: '0977000001', password: 'admin123',  role: 'admin',      emoji: '👑', gradient: 'from-green-800 to-green-950' },
   { label: 'Walker',     sub: 'Dog walker agent',  identifier: '0977000002', password: 'walker123', role: 'walker',     emoji: '🦮', gradient: 'from-emerald-500 to-green-700' },
   { label: 'Owner',      sub: 'Dog owner',         identifier: '0977000004', password: 'owner123',  role: 'owner',      emoji: '🐾', gradient: 'from-green-400 to-emerald-600' },
-  { label: 'Shop Owner', sub: 'Pet shop seller',   identifier: '0977000003', password: 'shop123',   role: 'shopowner',  emoji: '🏪', gradient: 'from-green-600 to-green-900' },
+  { label: 'Shop Owner', sub: 'Pet shop seller',   identifier: '0977000006', password: 'shop123',   role: 'shopowner',  emoji: '🏪', gradient: 'from-green-600 to-green-900' },
 ];
 const ROLE_ROUTES: Record<Role, string> = { admin: '/admin', walker: '/walker', owner: '/owner', shopowner: '/shopowner' };
 

@@ -30,6 +30,7 @@ const toWalk = (r: any): Walk => ({
 const toPayment = (r: any): Payment => ({
   id: r.id, walkerId: r.walker_id, walkId: r.walk_id,
   amount: Number(r.amount), status: r.status, date: r.date, paidAt: r.paid_at,
+  walkerConfirmed: r.walker_confirmed ?? false,
 });
 
 const toWalkerStats = (r: any): WalkerStats => ({
@@ -62,6 +63,7 @@ interface AppContextType {
   assignWalker: (walkId: string, walkerId: string) => void;
   cancelWalk: (walkId: string) => void;
   markPaymentPaid: (paymentId: string) => void;
+  confirmPaymentReceived: (paymentId: string) => void;
   createDog: (dog: Omit<Dog, 'id'>) => Dog;
   updateDog: (id: string, updates: Partial<Dog>) => void;
   logHealth: (dogId: string, date: string, field: 'water' | 'foodMorning' | 'foodEvening', value: boolean) => void;
@@ -337,6 +339,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       .then(({ error }) => { if (error) console.error('markPaymentPaid:', error); });
   };
 
+  const confirmPaymentReceived = (paymentId: string) => {
+    setData(prev => ({
+      ...prev,
+      payments: prev.payments.map(p => p.id === paymentId ? { ...p, walkerConfirmed: true } : p),
+    }));
+    supabase.from('payments').update({ walker_confirmed: true }).eq('id', paymentId)
+      .then(({ error }) => { if (error) console.warn('confirmPaymentReceived (column may not exist yet):', error); });
+  };
+
   // ── Dogs ─────────────────────────────────────────────────
   const createDog = (dog: Omit<Dog, 'id'>): Dog => {
     const newDog: Dog = { ...dog, id: crypto.randomUUID(), healthLogs: [] };
@@ -426,7 +437,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     <AppContext.Provider value={{
       loading, currentUser, data, login, register, logout,
       createWalk, updateWalk, startWalk, endWalk,
-      assignWalker, cancelWalk, markPaymentPaid,
+      assignWalker, cancelWalk, markPaymentPaid, confirmPaymentReceived,
       createDog, updateDog, logHealth,
       addUser, updateUser, getWalkerStats, refreshData,
     }}>

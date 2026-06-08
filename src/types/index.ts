@@ -64,6 +64,7 @@ export interface Payment {
   status: PaymentStatus;
   date: string;
   paidAt?: string;
+  walkerConfirmed?: boolean;
 }
 
 export type BadgeId = 'first_walk' | 'five_walks' | 'ten_walks' | 'twenty_five_walks' | 'top_walker' | 'consistent';

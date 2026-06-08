@@ -162,36 +162,40 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // ── Auth ─────────────────────────────────────────────────
   const login = async (identifier: string, pw: string): Promise<User | null> => {
-    // For email logins, try Supabase Auth first (new real accounts)
-    if (identifier.includes('@')) {
-      const { data: authData, error } = await supabase.auth.signInWithPassword({
-        email: identifier, password: pw,
-      });
-      if (!error && authData?.user) {
-        let user = data.users.find(u => u.email === identifier);
-        if (!user) {
-          const { data: row } = await supabase.from('users').select('*').eq('email', identifier).maybeSingle();
-          if (row) {
-            user = toUser(row);
-            setData(prev => ({ ...prev, users: [...prev.users.filter(u => u.email !== identifier), user!] }));
-          }
-        }
-        if (user) {
-          setCurrentUser(user);
-          sessionStorage.setItem('pawfleet_user', JSON.stringify(user));
-          return user;
-        }
+    // Resolve email — phone numbers need a lookup first
+    let email = identifier;
+    if (!identifier.includes('@')) {
+      const cached = data.users.find(u => u.phone === identifier);
+      if (cached?.email) {
+        email = cached.email;
+      } else {
+        const { data: row } = await supabase
+          .from('users').select('email').eq('phone', identifier).maybeSingle();
+        if (!row?.email) return null;
+        email = row.email;
       }
     }
-    // Plain-text fallback for demo accounts
-    const user = data.users.find(u =>
-      (u.phone === identifier || u.email === identifier) && u.password === pw
-    ) || null;
+
+    // All authentication goes through Supabase Auth
+    const { data: authData, error } = await supabase.auth.signInWithPassword({ email, password: pw });
+    if (error || !authData?.user) return null;
+
+    // Load profile from public.users
+    let user = data.users.find(u => u.id === authData.user.id);
+    if (!user) {
+      const { data: row } = await supabase
+        .from('users').select('*').eq('id', authData.user.id).maybeSingle();
+      if (row) {
+        user = toUser(row);
+        setData(prev => ({ ...prev, users: [...prev.users.filter(u => u.id !== row.id), user!] }));
+      }
+    }
     if (user) {
       setCurrentUser(user);
       sessionStorage.setItem('pawfleet_user', JSON.stringify(user));
+      return user;
     }
-    return user;
+    return null;
   };
 
   const register = async (name: string, phone: string, email: string, password: string, role: 'owner' | 'walker'): Promise<{ success: boolean; error?: string; user?: User }> => {

@@ -94,13 +94,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [u, d, w, p, s] = await Promise.all([
+      const fetchAll = Promise.all([
         supabase.from('users').select('*').order('created_at'),
         supabase.from('dogs').select('*, health_logs(*)').order('created_at'),
         supabase.from('walks').select('*').order('created_at', { ascending: false }),
         supabase.from('payments').select('*').order('created_at', { ascending: false }),
         supabase.from('walker_stats').select('*'),
       ]);
+      // 6-second timeout — if Supabase is slow/hanging, unblock the app anyway
+      const timeout = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('load_timeout')), 6000)
+      );
+      const [u, d, w, p, s] = await Promise.race([fetchAll, timeout]);
       setData({
         users:       (u.data || []).map(toUser),
         dogs:        (d.data || []).map(toDog),

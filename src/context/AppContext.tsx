@@ -161,30 +161,45 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // ── Auth ─────────────────────────────────────────────────
-  // Demo credentials (passwords were cleared from DB during Auth migration)
-  const DEMO_CREDS = [
-    { email: 'admin@pawfleet.zm',     phone: '0977000001', password: 'admin123'  },
-    { email: 'walker1@pawfleet.zm',   phone: '0977000002', password: 'walker123' },
-    { email: 'owner1@pawfleet.zm',    phone: '0977000004', password: 'owner123'  },
-    { email: 'shopowner@pawfleet.zm', phone: '0977000006', password: 'shop123'   },
-  ];
+  // Hardcoded demo users — fully offline, no DB/Auth queries needed
+  const DEMO_USERS: Record<string, User> = {
+    'admin@pawfleet.zm': {
+      id: '11111111-1111-1111-1111-111111111111', name: 'Chanda Mulenga',
+      phone: '0977000001', email: 'admin@pawfleet.zm', password: '', role: 'admin',
+      createdAt: '2024-01-01T00:00:00Z',
+    },
+    'walker1@pawfleet.zm': {
+      id: '22222222-2222-2222-2222-222222222222', name: 'Bwalya Mutale',
+      phone: '0977000002', email: 'walker1@pawfleet.zm', password: '', role: 'walker',
+      createdAt: '2024-01-01T00:00:00Z',
+    },
+    'owner1@pawfleet.zm': {
+      id: '44444444-4444-4444-4444-444444444444', name: 'Mwila Phiri',
+      phone: '0977000004', email: 'owner1@pawfleet.zm', password: '', role: 'owner',
+      createdAt: '2024-01-01T00:00:00Z',
+    },
+    'shopowner@pawfleet.zm': {
+      id: 'a1b2c3d4-0006-0006-0006-a1b2c3d40006', name: 'Demo Shop Owner',
+      phone: '0977000006', email: 'shopowner@pawfleet.zm', password: '', role: 'shopowner',
+      createdAt: '2024-01-01T00:00:00Z',
+    },
+  };
+  const DEMO_CREDS: Record<string, string> = {
+    'admin@pawfleet.zm': 'admin123', '0977000001': 'admin123',
+    'walker1@pawfleet.zm': 'walker123', '0977000002': 'walker123',
+    'owner1@pawfleet.zm': 'owner123', '0977000004': 'owner123',
+    'shopowner@pawfleet.zm': 'shop123', '0977000006': 'shop123',
+  };
+  const PHONE_TO_EMAIL: Record<string, string> = {
+    '0977000001': 'admin@pawfleet.zm', '0977000002': 'walker1@pawfleet.zm',
+    '0977000004': 'owner1@pawfleet.zm', '0977000006': 'shopowner@pawfleet.zm',
+  };
 
   const login = async (identifier: string, pw: string): Promise<User | null> => {
-    // 1. Demo account bypass — matches hardcoded credentials without needing Supabase Auth
-    const demo = DEMO_CREDS.find(d =>
-      (d.email === identifier || d.phone === identifier) && d.password === pw
-    );
-    if (demo) {
-      let user = data.users.find(u => u.email === demo.email || u.phone === demo.phone) ?? null;
-      if (!user) {
-        // Not in cache yet (page still loading) — query directly by email
-        const { data: rows } = await supabase.from('users').select('*').eq('email', demo.email);
-        const row = rows?.[0];
-        if (row) {
-          user = toUser(row);
-          setData(prev => ({ ...prev, users: [...prev.users.filter(u => u.id !== row.id), user!] }));
-        }
-      }
+    // 1. Demo account bypass — fully hardcoded, no network calls needed
+    const email = PHONE_TO_EMAIL[identifier] ?? identifier;
+    if (DEMO_CREDS[identifier] === pw || DEMO_CREDS[email] === pw) {
+      const user = DEMO_USERS[email] ?? null;
       if (user) {
         setCurrentUser(user);
         sessionStorage.setItem('pawfleet_user', JSON.stringify(user));
@@ -193,27 +208,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
 
     // 2. Try Supabase Auth (real registered accounts)
-    let email = identifier;
-    if (!identifier.includes('@')) {
-      const cached = data.users.find(u => u.phone === identifier);
-      if (cached?.email) email = cached.email;
-    }
-    const { data: authData } = await supabase.auth.signInWithPassword({ email, password: pw });
-    if (authData?.user) {
-      let user = data.users.find(u => u.id === authData.user.id);
-      if (!user) {
-        const { data: row } = await supabase.from('users').select('*').eq('id', authData.user.id).maybeSingle();
-        if (row) {
-          user = toUser(row);
-          setData(prev => ({ ...prev, users: [...prev.users.filter(u => u.id !== row.id), user!] }));
+    try {
+      const { data: authData } = await supabase.auth.signInWithPassword({ email, password: pw });
+      if (authData?.user) {
+        let user = data.users.find(u => u.id === authData.user.id);
+        if (!user) {
+          const { data: row } = await supabase.from('users').select('*').eq('id', authData.user.id).maybeSingle();
+          if (row) {
+            user = toUser(row);
+            setData(prev => ({ ...prev, users: [...prev.users.filter(u => u.id !== row.id), user!] }));
+          }
+        }
+        if (user) {
+          setCurrentUser(user);
+          sessionStorage.setItem('pawfleet_user', JSON.stringify(user));
+          return user;
         }
       }
-      if (user) {
-        setCurrentUser(user);
-        sessionStorage.setItem('pawfleet_user', JSON.stringify(user));
-        return user;
-      }
-    }
+    } catch { /* Supabase Auth unavailable */ }
 
     return null;
   };

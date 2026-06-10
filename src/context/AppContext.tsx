@@ -177,10 +177,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (demo) {
       let user = data.users.find(u => u.email === demo.email || u.phone === demo.phone) ?? null;
       if (!user) {
-        // Not in cache yet — query directly
-        const { data: row } = await supabase.from('users').select('*')
-          .or(`email.eq.${demo.email},phone.eq.${demo.phone}`)
-          .maybeSingle();
+        // Not in cache yet (page still loading) — query directly by email
+        const { data: rows } = await supabase.from('users').select('*').eq('email', demo.email);
+        const row = rows?.[0];
         if (row) {
           user = toUser(row);
           setData(prev => ({ ...prev, users: [...prev.users.filter(u => u.id !== row.id), user!] }));

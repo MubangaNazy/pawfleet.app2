@@ -161,40 +161,61 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // ── Auth ─────────────────────────────────────────────────
+  // Demo credentials (passwords were cleared from DB during Auth migration)
+  const DEMO_CREDS = [
+    { email: 'admin@pawfleet.zm',     phone: '0977000001', password: 'admin123'  },
+    { email: 'walker1@pawfleet.zm',   phone: '0977000002', password: 'walker123' },
+    { email: 'owner1@pawfleet.zm',    phone: '0977000004', password: 'owner123'  },
+    { email: 'shopowner@pawfleet.zm', phone: '0977000006', password: 'shop123'   },
+  ];
+
   const login = async (identifier: string, pw: string): Promise<User | null> => {
-    // Resolve email — phone numbers need a lookup first
+    // 1. Demo account bypass — matches hardcoded credentials without needing Supabase Auth
+    const demo = DEMO_CREDS.find(d =>
+      (d.email === identifier || d.phone === identifier) && d.password === pw
+    );
+    if (demo) {
+      let user = data.users.find(u => u.email === demo.email || u.phone === demo.phone) ?? null;
+      if (!user) {
+        // Not in cache yet — query directly
+        const { data: row } = await supabase.from('users').select('*')
+          .or(`email.eq.${demo.email},phone.eq.${demo.phone}`)
+          .maybeSingle();
+        if (row) {
+          user = toUser(row);
+          setData(prev => ({ ...prev, users: [...prev.users.filter(u => u.id !== row.id), user!] }));
+        }
+      }
+      if (user) {
+        setCurrentUser(user);
+        sessionStorage.setItem('pawfleet_user', JSON.stringify(user));
+        return user;
+      }
+    }
+
+    // 2. Try Supabase Auth (real registered accounts)
     let email = identifier;
     if (!identifier.includes('@')) {
       const cached = data.users.find(u => u.phone === identifier);
-      if (cached?.email) {
-        email = cached.email;
-      } else {
-        const { data: row } = await supabase
-          .from('users').select('email').eq('phone', identifier).maybeSingle();
-        if (!row?.email) return null;
-        email = row.email;
+      if (cached?.email) email = cached.email;
+    }
+    const { data: authData } = await supabase.auth.signInWithPassword({ email, password: pw });
+    if (authData?.user) {
+      let user = data.users.find(u => u.id === authData.user.id);
+      if (!user) {
+        const { data: row } = await supabase.from('users').select('*').eq('id', authData.user.id).maybeSingle();
+        if (row) {
+          user = toUser(row);
+          setData(prev => ({ ...prev, users: [...prev.users.filter(u => u.id !== row.id), user!] }));
+        }
+      }
+      if (user) {
+        setCurrentUser(user);
+        sessionStorage.setItem('pawfleet_user', JSON.stringify(user));
+        return user;
       }
     }
 
-    // All authentication goes through Supabase Auth
-    const { data: authData, error } = await supabase.auth.signInWithPassword({ email, password: pw });
-    if (error || !authData?.user) return null;
-
-    // Load profile from public.users
-    let user = data.users.find(u => u.id === authData.user.id);
-    if (!user) {
-      const { data: row } = await supabase
-        .from('users').select('*').eq('id', authData.user.id).maybeSingle();
-      if (row) {
-        user = toUser(row);
-        setData(prev => ({ ...prev, users: [...prev.users.filter(u => u.id !== row.id), user!] }));
-      }
-    }
-    if (user) {
-      setCurrentUser(user);
-      sessionStorage.setItem('pawfleet_user', JSON.stringify(user));
-      return user;
-    }
     return null;
   };
 

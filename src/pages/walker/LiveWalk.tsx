@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, Phone, MessageCircle, Square, Clock, MapPin, Zap } from 'lucide-react';
+import MapLibreMap from '../../components/ui/MapLibreMap';
 import { useApp } from '../../context/AppContext';
 import { supabase } from '../../lib/supabase';
 
@@ -186,15 +187,14 @@ export default function WalkerLiveWalk() {
         </div>
       </div>
 
-      {/* Map — iframe embed replaces Leaflet for reliability */}
+      {/* Map — MapLibre GL */}
       <div className="flex-1 relative overflow-hidden" style={{ minHeight: 0 }}>
         <div style={{ position: 'absolute', inset: 0 }}>
           {currentPos ? (
-            <iframe
-              key={`${currentPos.lat.toFixed(4)},${currentPos.lng.toFixed(4)}`}
-              src={`https://www.openstreetmap.org/export/embed.html?bbox=${currentPos.lng - 0.008},${currentPos.lat - 0.008},${currentPos.lng + 0.008},${currentPos.lat + 0.008}&layer=mapnik&marker=${currentPos.lat},${currentPos.lng}`}
-              style={{ width: '100%', height: '100%', border: 'none' }}
-              title="Live location"
+            <MapLibreMap
+              lat={currentPos.lat}
+              lng={currentPos.lng}
+              trail={route}
             />
           ) : (
             <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#EBF5EF', flexDirection: 'column', gap: 12 }}>

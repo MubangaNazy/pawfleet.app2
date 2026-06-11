@@ -753,7 +753,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setData(prev => ({ ...prev, users: [...prev.users, newUser] }));
     supabase.from('users').insert({
       id: newUser.id, name: user.name, phone: user.phone,
-      email: user.email ?? null, password: user.password, role: user.role,
+      email: user.email ?? null, password: '', role: user.role,
     }).then(({ error }) => { if (error) console.error('addUser:', error); });
     if (user.role === 'walker') {
       const stats: WalkerStats = { walkerId: newUser.id, points: 0, streak: 0, badges: [] };

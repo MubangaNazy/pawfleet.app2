@@ -4,6 +4,7 @@ import { ArrowLeft, MessageCircle, Phone, Navigation } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { supabase } from '../../lib/supabase';
 import { format } from 'date-fns';
+import MapLibreMap from '../../components/ui/MapLibreMap';
 
 type LatLng = [number, number];
 const LUSAKA: LatLng = [-15.4167, 28.2833];
@@ -91,7 +92,7 @@ export default function WalkTracker() {
         )}
       </div>
 
-      {/* Map — iframe embed replaces Leaflet for reliability */}
+      {/* Map — MapLibre GL */}
       <div className="flex-1 relative overflow-hidden" style={{ minHeight: 0 }}>
         {!displayPos ? (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-surface-secondary gap-3 p-6 text-center">
@@ -104,25 +105,18 @@ export default function WalkTracker() {
           </div>
         ) : (
           <div style={{ position: 'absolute', inset: 0 }}>
-            {livePos ? (
-              <iframe
-                key={`${livePos[0].toFixed(4)},${livePos[1].toFixed(4)}`}
-                src={`https://www.openstreetmap.org/export/embed.html?bbox=${livePos[1] - 0.008},${livePos[0] - 0.008},${livePos[1] + 0.008},${livePos[0] + 0.008}&layer=mapnik&marker=${livePos[0]},${livePos[1]}`}
-                style={{ width: '100%', height: '100%', border: 'none' }}
-                title="Walker location"
-              />
-            ) : (
-              <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#EBF5EF', flexDirection: 'column', gap: 12 }}>
-                <div style={{ fontSize: 40 }}>🐕</div>
-                <p style={{ color: '#2B8A50', fontWeight: 600 }}>Waiting for walker's location…</p>
-              </div>
-            )}
+            <MapLibreMap
+              lat={displayPos.lat}
+              lng={displayPos.lng}
+              endLat={endLat ? endLat[0] : undefined}
+              endLng={endLat ? endLat[1] : undefined}
+            />
           </div>
         )}
         {isActive && !livePos && displayPos && (
           <div className="absolute top-3 left-1/2 -translate-x-1/2 bg-white/95 text-ink text-xs px-3 py-1.5 rounded-xl shadow font-semibold z-[1000] flex items-center gap-2">
             <div className="w-3 h-3 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-            Waiting for walker's location…
+            Waiting for live location…
           </div>
         )}
       </div>

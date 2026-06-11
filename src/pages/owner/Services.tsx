@@ -3,8 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import {
   Scissors, PawPrint, Star, ChevronDown, ChevronUp,
   CheckCircle, Clock, Shield, Heart, Sparkles, Phone,
-  MapPin, ChevronLeft, ChevronRight, CalendarDays, Zap,
+  MapPin, ChevronLeft, ChevronRight, CalendarDays, Zap, X,
 } from 'lucide-react';
+import { useApp } from '../../context/AppContext';
+import { supabase } from '../../lib/supabase';
 
 /* ── Slideshow images ── */
 const SLIDES = [
@@ -246,10 +248,175 @@ function HowItWorks({ steps }: { steps: { icon: React.ReactNode; title: string; 
   );
 }
 
+/* ── Grooming Booking Modal ── */
+interface BookingModalProps {
+  service: typeof GROOM_SERVICES[0];
+  onClose: () => void;
+}
+function GroomingBookingModal({ service, onClose }: BookingModalProps) {
+  const { data, currentUser } = useApp();
+  const ownerDogs = data.dogs.filter(d => d.ownerId === currentUser?.id);
+  const today = new Date().toISOString().split('T')[0];
+
+  const [selectedDog, setSelectedDog] = useState(ownerDogs[0]?.id ?? '');
+  const [bookingDate, setBookingDate] = useState('');
+  const [bookingTime, setBookingTime] = useState('09:00');
+  const [addWalk, setAddWalk] = useState(false);
+  const [notes, setNotes] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [done, setDone] = useState(false);
+
+  const handleSubmit = async () => {
+    if (!selectedDog || !bookingDate || !currentUser) return;
+    setSubmitting(true);
+    const serviceLabel = `GROOMING: ${service.title}${addWalk ? ' + Walk' : ''}`;
+    const scheduled = `${bookingDate}T${bookingTime}:00`;
+    await supabase.from('walks').insert({
+      id: crypto.randomUUID(),
+      dog_id: selectedDog,
+      owner_id: currentUser.id,
+      walker_id: null,
+      status: 'pending',
+      scheduled_date: scheduled,
+      notes: notes ? `${serviceLabel}\n${notes}` : serviceLabel,
+      price: 0,
+      walker_earning: 0,
+      duration: addWalk ? 100 : 60,
+      created_at: new Date().toISOString(),
+    });
+    setSubmitting(false);
+    setDone(true);
+  };
+
+  return (
+    <div className="fixed inset-0 z-[2000] flex items-end justify-center" style={{ background: 'rgba(0,0,0,0.55)' }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="bg-white w-full max-w-md rounded-t-3xl px-5 pt-5 pb-10 shadow-2xl"
+        style={{ animation: 'slideUp 0.25s ease-out', maxHeight: '90vh', overflowY: 'auto' }}>
+        <style>{`@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }`}</style>
+
+        {/* Handle + header */}
+        <div className="w-10 h-1 rounded-full bg-surface-border mx-auto mb-4" />
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <p className="text-base font-extrabold text-ink">{service.title}</p>
+            <p className="text-sm text-ink-muted">{service.price}</p>
+          </div>
+          <button type="button" onClick={onClose} className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-surface-hover text-ink-muted">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {done ? (
+          <div className="flex flex-col items-center gap-4 py-8 text-center">
+            <div className="w-16 h-16 rounded-3xl flex items-center justify-center text-3xl" style={{ background: '#EBF5EF' }}>✅</div>
+            <div>
+              <p className="font-bold text-ink text-base mb-1">Booking Received!</p>
+              <p className="text-sm text-ink-muted">We'll confirm your grooming appointment shortly.</p>
+            </div>
+            <button type="button" onClick={onClose}
+              className="px-8 py-3 rounded-2xl font-bold text-white text-sm"
+              style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)' }}>
+              Done
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {/* Dog selection */}
+            {ownerDogs.length > 0 ? (
+              <div>
+                <label className="block text-xs font-bold text-ink-muted uppercase tracking-wider mb-2">Select Dog</label>
+                <div className="flex gap-2 flex-wrap">
+                  {ownerDogs.map(dog => (
+                    <button key={dog.id} type="button"
+                      onClick={() => setSelectedDog(dog.id)}
+                      className={`flex items-center gap-2 px-3 py-2 rounded-xl border-2 text-sm font-medium transition-all ${
+                        selectedDog === dog.id
+                          ? 'border-primary bg-primary/5 text-primary'
+                          : 'border-surface-border text-ink-secondary hover:bg-surface-hover'
+                      }`}>
+                      {dog.imageUrl
+                        ? <img src={dog.imageUrl} alt={dog.name} className="w-6 h-6 rounded-full object-cover" />
+                        : <span className="text-base">🐶</span>}
+                      {dog.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="p-3 rounded-2xl border border-amber-200 bg-amber-50 text-sm text-amber-700">
+                Add a dog in your profile first before booking.
+              </div>
+            )}
+
+            {/* Date */}
+            <div>
+              <label className="block text-xs font-bold text-ink-muted uppercase tracking-wider mb-2">Date</label>
+              <input type="date" min={today} value={bookingDate} onChange={e => setBookingDate(e.target.value)}
+                className="w-full border border-surface-border rounded-2xl px-4 py-3 text-sm text-ink focus:outline-none focus:border-primary bg-white" />
+            </div>
+
+            {/* Time */}
+            <div>
+              <label className="block text-xs font-bold text-ink-muted uppercase tracking-wider mb-2">Preferred Time</label>
+              <div className="flex gap-2 flex-wrap">
+                {['08:00','09:00','10:00','11:00','14:00','15:00','16:00'].map(t => (
+                  <button key={t} type="button"
+                    onClick={() => setBookingTime(t)}
+                    className={`px-3 py-2 rounded-xl border-2 text-xs font-bold transition-all ${
+                      bookingTime === t
+                        ? 'border-primary bg-primary/5 text-primary'
+                        : 'border-surface-border text-ink-secondary hover:bg-surface-hover'
+                    }`}>
+                    {t}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Add walk toggle */}
+            <div className="flex items-center justify-between p-4 rounded-2xl border border-surface-border bg-surface-secondary">
+              <div className="flex items-center gap-3">
+                <span className="text-xl">🦮</span>
+                <div>
+                  <p className="text-sm font-bold text-ink">Add a Walk</p>
+                  <p className="text-xs text-ink-muted">Combine with a 40-min walk session</p>
+                </div>
+              </div>
+              <button type="button" onClick={() => setAddWalk(v => !v)}
+                className={`w-12 h-6 rounded-full transition-colors relative ${addWalk ? 'bg-primary' : 'bg-surface-border'}`}>
+                <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all ${addWalk ? 'left-6' : 'left-0.5'}`} />
+              </button>
+            </div>
+
+            {/* Notes */}
+            <div>
+              <label className="block text-xs font-bold text-ink-muted uppercase tracking-wider mb-2">Special Instructions (optional)</label>
+              <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2}
+                placeholder="Any allergies, coat type, or other notes…"
+                className="w-full border border-surface-border rounded-2xl px-4 py-3 text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-primary resize-none" />
+            </div>
+
+            <button type="button" onClick={handleSubmit}
+              disabled={!selectedDog || !bookingDate || submitting || ownerDogs.length === 0}
+              className="w-full py-4 rounded-2xl font-bold text-white text-sm disabled:opacity-40 transition-all active:scale-95 flex items-center justify-center gap-2"
+              style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)' }}>
+              {submitting
+                ? <><div className="w-4 h-4 rounded-full border-2 border-white/40 border-t-white animate-spin" /> Booking…</>
+                : <><Scissors className="w-4 h-4" /> Book Grooming{addWalk ? ' + Walk' : ''}</>}
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* ── Main Component ── */
 export default function Services() {
   const navigate = useNavigate();
   const [tab, setTab] = useState<'grooming' | 'walking'>('grooming');
+  const [bookingService, setBookingService] = useState<typeof GROOM_SERVICES[0] | null>(null);
 
   const groomSteps = [
     { icon: <Scissors className="w-5 h-5" />, title: 'Choose a service', desc: 'Pick a one-time groom or a recurring plan — monthly or twice a month.' },
@@ -301,7 +468,7 @@ export default function Services() {
           <div className="px-4 pt-4 space-y-3">
             <p className="text-sm font-bold text-ink-muted uppercase tracking-wider">Choose a Service</p>
             {GROOM_SERVICES.map(svc => (
-              <ServiceCard key={svc.title} svc={svc} onBook={() => navigate('/owner/request')} />
+              <ServiceCard key={svc.title} svc={svc} onBook={() => setBookingService(svc)} />
             ))}
           </div>
 
@@ -363,7 +530,7 @@ export default function Services() {
             <div className="rounded-2xl p-5 text-center border border-emerald-100" style={{ background: '#F0FAF4' }}>
               <p className="text-base font-bold text-ink mb-1">Ready for a fresh, clean pup?</p>
               <p className="text-sm text-ink-secondary mb-4">Book your first grooming session today</p>
-              <button onClick={() => navigate('/owner/request')}
+              <button onClick={() => setBookingService(GROOM_SERVICES[2])}
                 className="px-8 py-3 rounded-2xl text-sm font-bold text-white shadow-sm"
                 style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)' }}>
                 <Scissors className="w-4 h-4 inline mr-2" />
@@ -468,6 +635,11 @@ export default function Services() {
             </div>
           </div>
         </>
+      )}
+
+      {/* Grooming Booking Modal */}
+      {bookingService && (
+        <GroomingBookingModal service={bookingService} onClose={() => setBookingService(null)} />
       )}
     </div>
   );

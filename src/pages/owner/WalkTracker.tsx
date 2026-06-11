@@ -51,15 +51,17 @@ export default function WalkTracker() {
 
   // Listen for walker's live broadcast
   useEffect(() => {
-    if (!walkId || walk?.status !== 'active') return;
+    if (!walkId) return;
     const channel = supabase
-      .channel(`walk-location-${walkId}`)
+      .channel(`walk-location-${walkId}`, { config: { broadcast: { self: false } } })
       .on('broadcast', { event: 'location' }, ({ payload }) => {
-        setLivePos([payload.lat, payload.lng]);
+        if (payload?.lat != null && payload?.lng != null) {
+          setLivePos([payload.lat, payload.lng]);
+        }
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [walkId, walk?.status]);
+  }, [walkId]);
 
   if (!walk) {
     return (

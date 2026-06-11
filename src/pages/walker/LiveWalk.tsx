@@ -51,7 +51,7 @@ function MapFollower({ pos }: { pos: LatLng | null }) {
 
 export default function WalkerLiveWalk() {
   const { walkId } = useParams<{ walkId: string }>();
-  const { data, endWalk, startWalk } = useApp();
+  const { data, endWalk, startWalk, currentUser } = useApp();
   const navigate = useNavigate();
 
   const [myPos, setMyPos]     = useState<LatLng | null>(null);
@@ -59,6 +59,9 @@ export default function WalkerLiveWalk() {
   const [elapsed, setElapsed] = useState(0);
   const [gpsError, setGpsError] = useState(false);
   const [starting, setStarting] = useState(false);
+  const [showPayModal, setShowPayModal] = useState(false);
+  const [payMade, setPayMade]           = useState<boolean | null>(null);
+  const [payMethod, setPayMethod]       = useState('');
   const channelRef  = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
 
@@ -91,24 +94,30 @@ export default function WalkerLiveWalk() {
   // GPS + Supabase broadcast (only when active)
   useEffect(() => {
     if (!walkId || !isActive) return;
-    const channel = supabase.channel(`walk-location-${walkId}`);
-    channel.subscribe();
-    channelRef.current = channel;
     if (!navigator.geolocation) { setGpsError(true); return; }
 
-    const watchId = navigator.geolocation.watchPosition(
-      pos => {
-        const pt: LatLng = [pos.coords.latitude, pos.coords.longitude];
-        setMyPos(pt);
-        setRoute(prev => [...prev, pt]);
-        channel.send({ type: 'broadcast', event: 'location', payload: { lat: pt[0], lng: pt[1] } });
-      },
-      () => setGpsError(true),
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
-    );
+    const channel = supabase.channel(`walk-location-${walkId}`, { config: { broadcast: { self: false } } });
+    let watchId: number | null = null;
+
+    channel.subscribe((status) => {
+      if (status !== 'SUBSCRIBED') return;
+      channelRef.current = channel;
+      watchId = navigator.geolocation.watchPosition(
+        pos => {
+          const pt: LatLng = [pos.coords.latitude, pos.coords.longitude];
+          setMyPos(pt);
+          setRoute(prev => [...prev, pt]);
+          channel.send({ type: 'broadcast', event: 'location', payload: { lat: pt[0], lng: pt[1] } });
+        },
+        () => setGpsError(true),
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
+      );
+    });
+
     return () => {
-      navigator.geolocation.clearWatch(watchId);
+      if (watchId !== null) navigator.geolocation.clearWatch(watchId);
       supabase.removeChannel(channel);
+      channelRef.current = null;
     };
   }, [walkId, isActive]);
 
@@ -123,8 +132,21 @@ export default function WalkerLiveWalk() {
   }, [isActive]);
 
   const handleEnd = () => {
+    setPayMade(null);
+    setPayMethod('');
+    setShowPayModal(true);
+  };
+
+  const confirmEnd = async () => {
     if (!walkId) return;
     const loc = myPos ? { lat: myPos[0], lng: myPos[1] } : { lat: LUSAKA[0], lng: LUSAKA[1] };
+    if (payMade && payMethod) {
+      // Update payment record with method and walker confirmation
+      const payment = data.payments?.find((p: any) => p.walkId === walkId);
+      if (payment) {
+        await supabase.from('payments').update({ payment_method: payMethod, walker_confirmed: true, status: 'paid' }).eq('id', payment.id);
+      }
+    }
     endWalk(walkId, loc);
     navigate('/walker/walks');
   };
@@ -288,6 +310,77 @@ export default function WalkerLiveWalk() {
           </>
         )}
       </div>
+
+      {/* Payment confirmation modal */}
+      {showPayModal && (
+        <div className="fixed inset-0 z-[2000] flex items-end justify-center" style={{ background: 'rgba(0,0,0,0.55)' }}
+          onClick={(e) => { if (e.target === e.currentTarget) setShowPayModal(false); }}>
+          <div className="bg-white w-full max-w-md rounded-t-3xl px-5 pt-6 pb-10 shadow-2xl animate-slide-up"
+            style={{ animation: 'slideUp 0.25s ease-out' }}>
+            <style>{`@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }`}</style>
+
+            {/* Handle */}
+            <div className="w-10 h-1 rounded-full bg-surface-border mx-auto mb-5" />
+
+            <p className="text-base font-extrabold text-ink mb-1 text-center">End Walk</p>
+            <p className="text-sm text-ink-muted text-center mb-6">Has payment been made for this walk?</p>
+
+            {/* Yes / No */}
+            <div className="grid grid-cols-2 gap-3 mb-5">
+              {[true, false].map(val => (
+                <button key={String(val)} type="button"
+                  onClick={() => { setPayMade(val); if (!val) setPayMethod(''); }}
+                  className={`py-3 rounded-2xl font-bold text-sm transition-all border-2 ${
+                    payMade === val
+                      ? val ? 'bg-success/10 border-success text-success' : 'bg-danger/10 border-danger text-danger'
+                      : 'bg-surface-secondary border-surface-border text-ink-secondary hover:bg-surface-hover'
+                  }`}>
+                  {val ? '✓ Yes, paid' : '✗ Not yet'}
+                </button>
+              ))}
+            </div>
+
+            {/* Payment method (shown when yes) */}
+            {payMade === true && (
+              <div className="mb-5">
+                <p className="text-xs font-bold text-ink-muted uppercase tracking-wider mb-3">Payment method</p>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { id: 'mobile_money', label: 'Mobile Money', icon: '📱' },
+                    { id: 'cash',         label: 'Cash',         icon: '💵' },
+                    { id: 'bank_transfer',label: 'Bank Transfer', icon: '🏦' },
+                  ].map(m => (
+                    <button key={m.id} type="button"
+                      onClick={() => setPayMethod(m.id)}
+                      className={`flex flex-col items-center gap-1 py-3 rounded-2xl border-2 transition-all ${
+                        payMethod === m.id
+                          ? 'border-primary bg-primary/5 text-primary'
+                          : 'border-surface-border bg-white text-ink-secondary hover:bg-surface-hover'
+                      }`}>
+                      <span className="text-xl">{m.icon}</span>
+                      <span className="text-[10px] font-bold text-center leading-tight">{m.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Confirm button */}
+            <button type="button"
+              onClick={confirmEnd}
+              disabled={payMade === null || (payMade === true && !payMethod)}
+              className="w-full py-4 rounded-2xl font-bold text-white text-sm disabled:opacity-40 transition-all active:scale-95"
+              style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)' }}>
+              Confirm & End Walk
+            </button>
+
+            <button type="button" onClick={() => setShowPayModal(false)}
+              className="w-full mt-3 py-3 rounded-2xl text-sm font-medium text-ink-muted hover:text-ink transition-colors">
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

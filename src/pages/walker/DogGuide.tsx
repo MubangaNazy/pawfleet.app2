@@ -110,6 +110,25 @@ const GUIDE: Section[] = [
       'Always carry the owner\'s phone number and the PawFleet admin contact.',
     ],
   },
+  {
+    emoji: '✂️',
+    title: 'Grooming Basics',
+    tag: 'Grooming',
+    summary: 'Step-by-step guide to grooming a dog safely and comfortably at home.',
+    tips: [
+      'Brush thoroughly before bathing — wet fur mats much harder than dry fur.',
+      'Use lukewarm water only; test on your wrist first. Dogs are sensitive to temperature.',
+      'Wet the body from the neck down first, leaving the head for last to prevent panic.',
+      'Apply dog-specific shampoo in sections using gentle circular motions.',
+      'Rinse completely — leftover shampoo causes skin irritation and itching.',
+      'Towel dry by pressing (not rubbing) in the direction of fur growth.',
+      'If using a hairdryer, keep it on the lowest heat setting and move it constantly.',
+      'Brush again while the coat is damp to prevent mats forming as it dries.',
+      'For nail trimming: clip only the curved tip — avoid the pink "quick" (blood vessel inside).',
+      'Clean ears by dampening a cotton ball with ear cleaner and wiping gently — never insert anything deep.',
+      'Reward with treats and calm praise throughout — end every session on a positive note.',
+    ],
+  },
 ];
 
 const COLORS = [
@@ -120,12 +139,14 @@ const COLORS = [
   { accent: '#D97706', light: '#FFFBEB', border: '#FDE68A' },
   { accent: '#2B8A50', light: '#EBF5EF', border: '#C6E6D3' },
   { accent: '#DC2626', light: '#FEF2F2', border: '#FECACA' },
+  { accent: '#7C3AED', light: '#F5F3FF', border: '#DDD6FE' },
 ];
 
 const TAG_COLORS: Record<string, string> = {
   Preparation: '#2B8A50',
   'During Walk': '#40916C',
   Emergency: '#DC2626',
+  Grooming: '#7C3AED',
 };
 
 function GuideCard({
@@ -302,7 +323,7 @@ export default function DogGuide() {
             {[
               { label: `${GUIDE.length} Sections`, emoji: '📚' },
               { label: 'Beginner Friendly', emoji: '✅' },
-              { label: 'Safety First', emoji: '🛡️' },
+              { label: 'Grooming Guide', emoji: '✂️' },
             ].map(b => (
               <div
                 key={b.label}

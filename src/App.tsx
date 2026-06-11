@@ -97,7 +97,34 @@ function AppContent() {
           ))}
         </div>
         <p className="text-xs text-ink-muted">Starting up PawFleet…</p>
-        <p className="text-[10px] text-ink-muted/50 mt-2">Made by Pegasus AI</p>
+
+        {/* Dog walking animation */}
+        <style>{`
+          @keyframes dogWalk {
+            0%   { left: 4%;  transform: scaleX(1); }
+            44%  { left: 78%; transform: scaleX(1); }
+            50%  { left: 78%; transform: scaleX(-1); }
+            94%  { left: 4%;  transform: scaleX(-1); }
+            100% { left: 4%;  transform: scaleX(1); }
+          }
+          @keyframes trailGrow {
+            0%   { width: 4%; }
+            44%  { width: 82%; }
+            50%  { width: 82%; }
+            94%  { width: 4%; }
+            100% { width: 4%; }
+          }
+        `}</style>
+        <div style={{ position: 'relative', width: 160, height: 40 }}>
+          {/* Trail bar */}
+          <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 5, borderRadius: 999, background: '#EBF5EF', overflow: 'hidden' }}>
+            <div style={{ height: '100%', borderRadius: 999, background: 'linear-gradient(90deg, #1B4332, #52B788)', animation: 'trailGrow 2.4s ease-in-out infinite' }} />
+          </div>
+          {/* Dog */}
+          <div style={{ position: 'absolute', bottom: 7, fontSize: 22, lineHeight: 1, animation: 'dogWalk 2.4s linear infinite', display: 'inline-block' }}>🐕</div>
+        </div>
+
+        <p className="text-[10px] text-ink-muted/50 mt-1">Made by Pegasus AI</p>
       </div>
     );
   }

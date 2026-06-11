@@ -31,6 +31,7 @@ const toPayment = (r: any): Payment => ({
   id: r.id, walkerId: r.walker_id, walkId: r.walk_id,
   amount: Number(r.amount), status: r.status, date: r.date, paidAt: r.paid_at,
   walkerConfirmed: r.walker_confirmed ?? false,
+  paymentMethod: r.payment_method ?? undefined,
 });
 
 const toWalkerStats = (r: any): WalkerStats => ({
@@ -62,7 +63,7 @@ interface AppContextType {
   endWalk: (walkId: string, loc: { lat: number; lng: number }) => void;
   assignWalker: (walkId: string, walkerId: string) => void;
   cancelWalk: (walkId: string) => void;
-  markPaymentPaid: (paymentId: string) => void;
+  markPaymentPaid: (paymentId: string, method?: 'cash' | 'mobile_money') => void;
   confirmPaymentReceived: (paymentId: string) => void;
   createDog: (dog: Omit<Dog, 'id'>) => Dog;
   updateDog: (id: string, updates: Partial<Dog>) => void;
@@ -371,13 +372,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const cancelWalk = (walkId: string) => updateWalk(walkId, { status: 'cancelled' });
 
   // ── Payments ─────────────────────────────────────────────
-  const markPaymentPaid = (paymentId: string) => {
+  const markPaymentPaid = (paymentId: string, method: 'cash' | 'mobile_money' = 'cash') => {
     const now = new Date().toISOString();
     setData(prev => ({
       ...prev,
-      payments: prev.payments.map(p => p.id === paymentId ? { ...p, status: 'paid', paidAt: now } : p),
+      payments: prev.payments.map(p => p.id === paymentId
+        ? { ...p, status: 'paid' as const, paidAt: now, paymentMethod: method }
+        : p),
     }));
-    supabase.from('payments').update({ status: 'paid', paid_at: now }).eq('id', paymentId)
+    supabase.from('payments').update({ status: 'paid', paid_at: now, payment_method: method }).eq('id', paymentId)
       .then(({ error }) => { if (error) console.error('markPaymentPaid:', error); });
   };
 

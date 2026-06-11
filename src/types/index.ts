@@ -56,6 +56,8 @@ export interface Walk {
   createdAt: string;
 }
 
+export type PaymentMethod = 'cash' | 'mobile_money';
+
 export interface Payment {
   id: string;
   walkerId: string;
@@ -65,6 +67,7 @@ export interface Payment {
   date: string;
   paidAt?: string;
   walkerConfirmed?: boolean;
+  paymentMethod?: PaymentMethod;
 }
 
 export type BadgeId = 'first_walk' | 'five_walks' | 'ten_walks' | 'twenty_five_walks' | 'top_walker' | 'consistent';

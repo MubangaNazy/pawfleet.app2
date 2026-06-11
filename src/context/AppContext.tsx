@@ -106,9 +106,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setTimeout(() => reject(new Error('load_timeout')), 6000)
       );
       const [u, d, w, p, s] = await Promise.race([fetchAll, timeout]);
+      const rawDogs = (d.data || []).map(toDog);
       setData({
         users:       (u.data || []).map(toUser),
-        dogs:        (d.data || []).map(toDog),
+        dogs:        mergeDogImages(rawDogs),
         walks:       (w.data || []).map(toWalk),
         payments:    (p.data || []).map(toPayment),
         walkerStats: (s.data || []).map(toWalkerStats),
@@ -390,26 +391,47 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   // ── Dogs ─────────────────────────────────────────────────
+  // Dog images are stored in localStorage (base64 too large for Supabase text column)
+  const DOG_IMAGES_KEY = 'pawfleet_dog_images';
+  const getDogImages = (): Record<string, string> => {
+    try { return JSON.parse(localStorage.getItem(DOG_IMAGES_KEY) || '{}'); } catch { return {}; }
+  };
+  const saveDogImage = (dogId: string, imageUrl: string) => {
+    const imgs = getDogImages();
+    imgs[dogId] = imageUrl;
+    localStorage.setItem(DOG_IMAGES_KEY, JSON.stringify(imgs));
+  };
+  const mergeDogImages = (dogs: Dog[]): Dog[] => {
+    const imgs = getDogImages();
+    return dogs.map(d => imgs[d.id] ? { ...d, imageUrl: imgs[d.id] } : d);
+  };
+
   const createDog = (dog: Omit<Dog, 'id'>): Dog => {
     const newDog: Dog = { ...dog, id: crypto.randomUUID(), healthLogs: [] };
+    // Save image to localStorage so it persists across refreshes without Supabase size limits
+    if (dog.imageUrl) saveDogImage(newDog.id, dog.imageUrl);
     setData(prev => ({ ...prev, dogs: [...prev.dogs, newDog] }));
+    // Store metadata only (no image_url) in Supabase
     supabase.from('dogs').insert({
       id: newDog.id, name: dog.name, breed: dog.breed ?? null, age: dog.age ?? null,
-      owner_id: dog.ownerId, image_url: dog.imageUrl ?? null, notes: dog.notes ?? null,
+      owner_id: dog.ownerId, notes: dog.notes ?? null,
     }).then(({ error }) => { if (error) console.error('createDog:', error); });
     return newDog;
   };
 
   const updateDog = (id: string, updates: Partial<Dog>) => {
+    // Save image to localStorage if updated
+    if (updates.imageUrl) saveDogImage(id, updates.imageUrl);
     setData(prev => ({ ...prev, dogs: prev.dogs.map(d => d.id === id ? { ...d, ...updates } : d) }));
     const db: Record<string, any> = {};
-    if (updates.name !== undefined)     db.name = updates.name;
-    if (updates.breed !== undefined)    db.breed = updates.breed;
-    if (updates.age !== undefined)      db.age = updates.age;
-    if (updates.imageUrl !== undefined) db.image_url = updates.imageUrl;
-    if (updates.notes !== undefined)    db.notes = updates.notes;
-    supabase.from('dogs').update(db).eq('id', id)
-      .then(({ error }) => { if (error) console.error('updateDog:', error); });
+    if (updates.name !== undefined)  db.name = updates.name;
+    if (updates.breed !== undefined) db.breed = updates.breed;
+    if (updates.age !== undefined)   db.age = updates.age;
+    if (updates.notes !== undefined) db.notes = updates.notes;
+    if (Object.keys(db).length > 0) {
+      supabase.from('dogs').update(db).eq('id', id)
+        .then(({ error }) => { if (error) console.error('updateDog:', error); });
+    }
   };
 
   const logHealth = (dogId: string, date: string, field: 'water' | 'foodMorning' | 'foodEvening', value: boolean) => {

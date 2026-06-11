@@ -112,6 +112,31 @@ export const useApp = () => {
   return ctx;
 };
 
+// ── Notification sound (Web Audio API — no external files needed) ──
+function playDogChime() {
+  try {
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    // Playful 3-note ascending chime: C5 → E5 → G5
+    const notes = [523.25, 659.25, 783.99];
+    notes.forEach((freq, i) => {
+      const osc  = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      const t = ctx.currentTime + i * 0.13;
+      gain.gain.setValueAtTime(0, t);
+      gain.gain.linearRampToValueAtTime(0.22, t + 0.025);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+      osc.start(t);
+      osc.stop(t + 0.45);
+    });
+  } catch { /* AudioContext unavailable */ }
+}
+
 // ── Provider ────────────────────────────────────────────────
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
@@ -121,6 +146,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [data, setData] = useState<AppData>({
     users: [], dogs: [], walks: [], payments: [], walkerStats: [], notifications: [],
   });
+
+  // Keep a ref so realtime callbacks can access current user without stale closure
+  const currentUserRef = React.useRef(currentUser);
+  useEffect(() => { currentUserRef.current = currentUser; }, [currentUser]);
 
   // ── Load all data ────────────────────────────────────────
   const loadData = useCallback(async () => {
@@ -196,9 +225,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             if (rows) setData(prev => ({ ...prev, payments: rows.map(toPayment) }));
           });
       })
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, (p) =>
-        setData(prev => ({ ...prev, notifications: [toNotification(p.new), ...prev.notifications] }))
-      )
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, (p) => {
+        const notif = toNotification(p.new);
+        // Play sound only for the logged-in user's own notifications
+        if (notif.userId === currentUserRef.current?.id) playDogChime();
+        setData(prev => ({ ...prev, notifications: [notif, ...prev.notifications] }));
+      })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'notifications' }, (p) =>
         setData(prev => ({ ...prev, notifications: prev.notifications.map(n => n.id === p.new.id ? toNotification(p.new) : n) }))
       )
@@ -221,6 +253,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       id: crypto.randomUUID(), userId, type, title, body,
       data, read: false, createdAt: new Date().toISOString(),
     };
+    // Play chime for the currently logged-in user's own notifications
+    if (userId === currentUserRef.current?.id) playDogChime();
     setData(prev => ({ ...prev, notifications: [notif, ...prev.notifications] }));
     supabase.from('notifications').insert({
       id: notif.id, user_id: userId, type, title, body,

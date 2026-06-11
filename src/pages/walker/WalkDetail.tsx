@@ -30,9 +30,12 @@ export default function WalkerWalkDetail() {
   const dog = data.dogs.find(d => d.id === walk?.dogId);
   const owner = data.users.find(u => u.id === walk?.ownerId);
 
+  // isAvailable: pending walk with no walker assigned yet (open pool)
   const isAvailable = walk?.status === 'pending' && !walk?.walkerId;
-  const isAssigned  = walk?.status === 'assigned' && walk?.walkerId === currentUser?.id;
-  const isActive    = walk?.status === 'active'   && walk?.walkerId === currentUser?.id;
+  // isAssigned: walk pre-assigned to THIS walker (pending or assigned status)
+  const isAssigned  = walk?.walkerId === currentUser?.id &&
+    (walk?.status === 'assigned' || walk?.status === 'pending');
+  const isActive    = walk?.status === 'active' && walk?.walkerId === currentUser?.id;
   const isCompleted = walk?.status === 'completed';
 
   const isGrooming = walk?.notes?.startsWith('GROOMING:');

@@ -12,10 +12,10 @@ import { Role } from '../types';
 type DemoRole = { label: string; sub: string; identifier: string; password: string; role: Role; emoji: string; gradient: string };
 
 const DEMOS: DemoRole[] = [
-  { label: 'Admin',      sub: 'Business owner',   identifier: '0977000001', password: 'admin123',  role: 'admin',      emoji: '👑', gradient: 'from-green-800 to-green-950' },
-  { label: 'Walker',     sub: 'Dog walker agent',  identifier: '0977000002', password: 'walker123', role: 'walker',     emoji: '🦮', gradient: 'from-emerald-500 to-green-700' },
-  { label: 'Owner',      sub: 'Dog owner',         identifier: '0977000004', password: 'owner123',  role: 'owner',      emoji: '🐾', gradient: 'from-green-400 to-emerald-600' },
-  { label: 'Shop Owner', sub: 'Pet shop seller',   identifier: '0977000006', password: 'shop123',   role: 'shopowner',  emoji: '🏪', gradient: 'from-green-600 to-green-900' },
+  { label: 'Admin',      sub: 'Business owner',   identifier: 'admin@pawfleet.zm',     password: 'admin123',  role: 'admin',      emoji: '👑', gradient: 'from-green-800 to-green-950' },
+  { label: 'Walker',     sub: 'Dog walker agent',  identifier: 'walker1@pawfleet.zm',   password: 'walker123', role: 'walker',     emoji: '🦮', gradient: 'from-emerald-500 to-green-700' },
+  { label: 'Owner',      sub: 'Dog owner',         identifier: 'owner1@pawfleet.zm',    password: 'owner123',  role: 'owner',      emoji: '🐾', gradient: 'from-green-400 to-emerald-600' },
+  { label: 'Shop Owner', sub: 'Pet shop seller',   identifier: 'shopowner@pawfleet.zm', password: 'shop123',   role: 'shopowner',  emoji: '🏪', gradient: 'from-green-600 to-green-900' },
 ];
 const ROLE_ROUTES: Record<Role, string> = { admin: '/admin', walker: '/walker', owner: '/owner', shopowner: '/shopowner' };
 
@@ -197,11 +197,18 @@ export default function Login() {
     else { setError('Invalid credentials. Try a demo account below.'); setLoading(false); }
   };
 
-  const fillDemo = (demo: DemoRole, idx: number) => {
-    setIdentifier(demo.identifier);
-    setPassword(demo.password);
-    setError('');
+  const fillDemo = async (demo: DemoRole, idx: number) => {
     setActiveDemoIdx(idx);
+    setError('');
+    setLoading(true);
+    const user = await login(demo.identifier, demo.password);
+    setLoading(false);
+    if (user) navigate(ROLE_ROUTES[user.role]);
+    else {
+      setIdentifier(demo.identifier);
+      setPassword(demo.password);
+      setError('Auto-login failed — credentials filled above, press Sign In.');
+    }
   };
 
   return (
@@ -403,6 +410,7 @@ export default function Login() {
           <div className="space-y-2.5 fade-in-up-4">
             {DEMOS.map((demo, idx) => (
               <button
+                type="button"
                 key={demo.role}
                 onClick={() => fillDemo(demo, idx)}
                 className={`w-full flex items-center gap-3 p-3.5 rounded-2xl border-2 transition-all duration-200 text-left group
@@ -417,7 +425,7 @@ export default function Login() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-ink">{demo.label}</p>
-                  <p className="text-xs text-ink-muted truncate">{demo.sub} · pw: {demo.label.toLowerCase()}123</p>
+                  <p className="text-xs text-ink-muted truncate">{demo.identifier} · {demo.password}</p>
                 </div>
                 {activeDemoIdx === idx ? (
                   <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center shrink-0">
@@ -440,7 +448,8 @@ export default function Login() {
           </div>
 
           <p className="text-center text-[11px] text-ink-muted mt-4 fade-in-up-4">
-            © 2025 PawFleet · Built for Zambia 🇿🇲
+            © 2025 PawFleet · Built for Zambia 🇿🇲<br />
+            <span className="text-ink-muted/60">Made by <span className="font-semibold">Pegasus AI</span></span>
           </p>
         </div>
       </div>

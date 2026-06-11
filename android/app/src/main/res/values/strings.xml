@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">PawFleet</string>
+    <string name="title_activity_main">PawFleet</string>
+    <string name="package_name">com.pawfleet.app</string>
+    <string name="custom_url_scheme">com.pawfleet.app</string>
+</resources>

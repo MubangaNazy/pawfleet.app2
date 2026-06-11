@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import {
   Activity, TrendingUp, Users, Dog, MapPin, ShoppingBag,
   PlusCircle, ArrowRight, AlertCircle, BarChart2, CreditCard,
-  UserCog, ListChecks, Settings, Bell
+  UserCog, ListChecks, Bell, Clock, Store, MessageSquare,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { StatusBadge } from '../../components/ui/Badge';
@@ -38,14 +38,14 @@ function BarChart({ data, height = 96 }: { data: { label: string; value: number 
 }
 
 const QUICK_ACTIONS = [
-  { to: '/admin/create-walk', icon: PlusCircle,  label: 'New Walk',    bg: '#1B4332', fg: 'white' },
-  { to: '/admin/walkers',     icon: UserCog,     label: 'Walkers',     bg: '#EBF5EF', fg: '#1B4332' },
-  { to: '/admin/map',         icon: MapPin,      label: 'Live Map',    bg: '#EBF5EF', fg: '#1B4332' },
-  { to: '/admin/shop',        icon: ShoppingBag, label: 'Shop',        bg: '#EBF5EF', fg: '#1B4332' },
-  { to: '/admin/payments',    icon: CreditCard,  label: 'Payments',    bg: '#EBF5EF', fg: '#1B4332' },
-  { to: '/admin/analytics',   icon: BarChart2,   label: 'Analytics',   bg: '#EBF5EF', fg: '#1B4332' },
-  { to: '/admin/owners',      icon: Users,       label: 'Owners',      bg: '#EBF5EF', fg: '#1B4332' },
-  { to: '/admin/walks',       icon: ListChecks,  label: 'All Walks',   bg: '#EBF5EF', fg: '#1B4332' },
+  { to: '/admin/create-walk',    icon: PlusCircle,    label: 'New Walk',    bg: '#1B4332', fg: 'white' },
+  { to: '/admin/walkers',        icon: UserCog,       label: 'Walkers',     bg: '#EBF5EF', fg: '#1B4332' },
+  { to: '/admin/map',            icon: MapPin,        label: 'Live Map',    bg: '#EBF5EF', fg: '#1B4332' },
+  { to: '/admin/shop',           icon: ShoppingBag,   label: 'Shop',        bg: '#EBF5EF', fg: '#1B4332' },
+  { to: '/admin/payments',       icon: CreditCard,    label: 'Payments',    bg: '#EBF5EF', fg: '#1B4332' },
+  { to: '/admin/analytics',      icon: BarChart2,     label: 'Analytics',   bg: '#EBF5EF', fg: '#1B4332' },
+  { to: '/admin/owners',         icon: Users,         label: 'Owners',      bg: '#EBF5EF', fg: '#1B4332' },
+  { to: '/admin/notifications',  icon: Bell,          label: 'Alerts',      bg: '#EBF5EF', fg: '#1B4332' },
 ];
 
 export default function AdminDashboard() {
@@ -56,12 +56,17 @@ export default function AdminDashboard() {
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
   const firstName = currentUser?.name.split(' ')[0] || '';
 
-  const activeWalks  = data.walks.filter(w => w.status === 'active');
-  const pendingWalks = data.walks.filter(w => w.status === 'pending').length;
-  const totalRevenue = data.walks.filter(w => w.status === 'completed').reduce((s, w) => s + w.price, 0);
-  const walkerCount  = data.users.filter(u => u.role === 'walker').length;
-  const ownerCount   = data.users.filter(u => u.role === 'owner').length;
-  const unpaidTotal  = data.payments.filter(p => p.status === 'unpaid').reduce((s, p) => s + p.amount, 0);
+  const activeWalks   = data.walks.filter(w => w.status === 'active');
+  const pendingWalks  = data.walks.filter(w => w.status === 'pending').length;
+  const totalRevenue  = data.walks.filter(w => w.status === 'completed').reduce((s, w) => s + w.price, 0);
+  const walkerCount   = data.users.filter(u => u.role === 'walker' && (!u.walkerStatus || u.walkerStatus === 'active')).length;
+  const pendingWalkers = data.users.filter(u => u.role === 'walker' && u.walkerStatus === 'pending_approval').length;
+  const ownerCount    = data.users.filter(u => u.role === 'owner').length;
+  const shopOwnerCount = data.users.filter(u => u.role === 'shopowner').length;
+  const adminCount    = data.users.filter(u => u.role === 'admin').length;
+  const totalUsers    = data.users.length;
+  const unpaidTotal   = data.payments.filter(p => p.status === 'unpaid').reduce((s, p) => s + p.amount, 0);
+  const unreadNotifs  = data.notifications.filter(n => n.userId === currentUser?.id && !n.read).length;
 
   // 7-day revenue chart
   const chartData = Array.from({ length: 7 }, (_, i) => {
@@ -101,11 +106,16 @@ export default function AdminDashboard() {
               <p className="text-white/75 text-sm mt-1">Here's your app at a glance</p>
             </div>
             <div className="flex gap-2 shrink-0">
-              <Link to="/admin/walks" className="w-9 h-9 flex items-center justify-center rounded-xl bg-white/20 backdrop-blur text-white hover:bg-white/30 transition-colors">
+              <Link to="/admin/notifications" className="relative w-9 h-9 flex items-center justify-center rounded-xl bg-white/20 backdrop-blur text-white hover:bg-white/30 transition-colors">
                 <Bell className="w-4 h-4" />
+                {unreadNotifs > 0 && (
+                  <span className="absolute top-0.5 right-0.5 w-3.5 h-3.5 bg-danger text-white text-[8px] font-bold rounded-full flex items-center justify-center">
+                    {unreadNotifs > 9 ? '9+' : unreadNotifs}
+                  </span>
+                )}
               </Link>
               <Link to="/admin/analytics" className="w-9 h-9 flex items-center justify-center rounded-xl bg-white/20 backdrop-blur text-white hover:bg-white/30 transition-colors">
-                <Settings className="w-4 h-4" />
+                <BarChart2 className="w-4 h-4" />
               </Link>
             </div>
           </div>
@@ -113,7 +123,7 @@ export default function AdminDashboard() {
           {/* Mini stats row */}
           <div className="grid grid-cols-4 gap-2 mt-6">
             {[
-              { label: 'Active', value: activeWalks.length, accent: '#52B788' },
+              { label: 'Live Now', value: activeWalks.length, accent: '#52B788' },
               { label: 'Pending', value: pendingWalks, accent: '#F59E0B' },
               { label: 'Walkers', value: walkerCount, accent: '#60A5FA' },
               { label: 'Owners', value: ownerCount, accent: '#A78BFA' },
@@ -137,6 +147,45 @@ export default function AdminDashboard() {
             </p>
             <Link to="/admin/payments" className="text-xs font-bold text-amber-700 hover:underline flex items-center gap-1">
               Pay now <ArrowRight className="w-3 h-3" />
+            </Link>
+          </div>
+        )}
+
+        {/* Platform Overview */}
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-bold text-ink">Platform Overview</h2>
+            <span className="text-[11px] text-ink-muted">{totalUsers} total users</span>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {[
+              { icon: UserCog, label: 'Active Walkers', value: walkerCount, sub: pendingWalkers > 0 ? `${pendingWalkers} pending` : 'all approved', color: '#1B4332', bg: '#EBF5EF', link: '/admin/walkers' },
+              { icon: Users, label: 'Dog Owners', value: ownerCount, sub: `${data.dogs.length} dogs`, color: '#3B82F6', bg: '#EFF6FF', link: '/admin/owners' },
+              { icon: Store, label: 'Shop Owners', value: shopOwnerCount, sub: 'active stores', color: '#7C3AED', bg: '#F5F3FF', link: '/admin/shop' },
+              { icon: Bell, label: 'Notifications', value: unreadNotifs, sub: `${data.notifications.length} total`, color: unreadNotifs > 0 ? '#EF4444' : '#6B7280', bg: unreadNotifs > 0 ? '#FEF2F2' : '#F9FAFB', link: '/admin/notifications' },
+            ].map(({ icon: Icon, label, value, sub, color, bg, link }) => (
+              <Link key={label} to={link}
+                className="bg-white border border-surface-border rounded-2xl p-4 hover:shadow-md transition-all">
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center mb-3" style={{ background: bg }}>
+                  <Icon className="w-4 h-4" style={{ color }} />
+                </div>
+                <p className="text-xl font-extrabold text-ink">{value}</p>
+                <p className="text-xs font-semibold text-ink mt-0.5">{label}</p>
+                <p className="text-[11px] text-ink-muted">{sub}</p>
+              </Link>
+            ))}
+          </div>
+        </div>
+
+        {/* Walker applications alert */}
+        {pendingWalkers > 0 && (
+          <div className="flex items-center gap-3 px-4 py-3.5 bg-amber-50 border border-amber-200 rounded-2xl">
+            <Clock className="w-5 h-5 text-amber-500 shrink-0" />
+            <p className="text-sm text-amber-800 flex-1">
+              <span className="font-bold">{pendingWalkers}</span> walker {pendingWalkers === 1 ? 'application' : 'applications'} awaiting review
+            </p>
+            <Link to="/admin/walkers" className="text-xs font-bold text-amber-700 hover:underline flex items-center gap-1">
+              Review <ArrowRight className="w-3 h-3" />
             </Link>
           </div>
         )}

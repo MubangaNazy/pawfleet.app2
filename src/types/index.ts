@@ -1,6 +1,7 @@
 export type Role = 'admin' | 'walker' | 'owner' | 'shopowner';
 export type WalkStatus = 'pending' | 'assigned' | 'active' | 'completed' | 'cancelled';
 export type PaymentStatus = 'unpaid' | 'paid';
+export type WalkerStatus = 'pending_approval' | 'active' | 'suspended';
 
 export interface User {
   id: string;
@@ -11,6 +12,21 @@ export interface User {
   role: Role;
   createdAt: string;
   imageUrl?: string;
+  nrc?: string;                        // National Registration Card (walkers)
+  walkerStatus?: WalkerStatus;         // Walker application status
+  referredByAdminId?: string;          // Which admin's referral code was used
+  referralCode?: string;               // Admin's own referral code (admins only)
+}
+
+export interface AppNotification {
+  id: string;
+  userId: string;          // recipient
+  type: 'walk_booked' | 'walk_accepted' | 'walk_started' | 'walk_completed' | 'payment_marked' | 'walker_signup' | 'shop_promo' | 'walker_approved' | 'walker_rejected';
+  title: string;
+  body: string;
+  data?: Record<string, string>;
+  read: boolean;
+  createdAt: string;
 }
 
 export interface HealthLog {
@@ -131,4 +147,5 @@ export interface AppData {
   walks: Walk[];
   payments: Payment[];
   walkerStats: WalkerStats[];
+  notifications: AppNotification[];
 }

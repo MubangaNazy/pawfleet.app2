@@ -53,6 +53,9 @@ import ShopOwnerMyProducts    from './pages/shopowner/MyProducts';
 import ShopOwnerOrders        from './pages/shopowner/Orders';
 import ShopOwnerNotifications from './pages/shopowner/Notifications';
 
+// Shared notifications page
+import NotificationsPage from './pages/Notifications';
+
 function ProtectedRoute({ children, role }: { children: React.ReactNode; role?: string | string[] }) {
   const { currentUser } = useApp();
   if (!currentUser) return <Navigate to="/login" replace />;
@@ -93,7 +96,8 @@ function AppContent() {
               style={{ animationDelay: `${i * 0.15}s` }} />
           ))}
         </div>
-        <p className="text-xs text-ink-muted">Connecting to database…</p>
+        <p className="text-xs text-ink-muted">Starting up PawFleet…</p>
+        <p className="text-[10px] text-ink-muted/50 mt-2">Made by Pegasus AI</p>
       </div>
     );
   }
@@ -119,6 +123,7 @@ function AppRoutes() {
         <Route path="payments"    element={<AdminPayments />} />
         <Route path="shop"        element={<AdminShopManager />} />
         <Route path="analytics"   element={<AdminAnalytics />} />
+        <Route path="notifications" element={<NotificationsPage />} />
         <Route path="dashboard"   element={<Navigate to="/admin" replace />} />
       </Route>
 
@@ -131,6 +136,7 @@ function AppRoutes() {
         <Route path="badges"    element={<WalkerBadges />} />
         <Route path="profile"   element={<WalkerProfile />} />
         <Route path="guide"     element={<WalkerDogGuide />} />
+        <Route path="notifications" element={<NotificationsPage />} />
         <Route path="dashboard" element={<Navigate to="/walker" replace />} />
         <Route path="my-walks"  element={<Navigate to="/walker/walks" replace />} />
       </Route>
@@ -144,7 +150,7 @@ function AppRoutes() {
         <Route index                    element={<ShopOwnerDashboard />} />
         <Route path="products"          element={<ShopOwnerMyProducts />} />
         <Route path="orders"            element={<ShopOwnerOrders />} />
-        <Route path="notifications"     element={<ShopOwnerNotifications />} />
+        <Route path="notifications"     element={<NotificationsPage />} />
         <Route path="analytics"         element={<Navigate to="/shopowner" replace />} />
       </Route>
 
@@ -161,6 +167,7 @@ function AppRoutes() {
         <Route path="cart"      element={<OwnerCart />} />
         <Route path="profile"   element={<OwnerProfile />} />
         <Route path="track/:walkId" element={<WalkTracker />} />
+        <Route path="notifications" element={<NotificationsPage />} />
         <Route path="dashboard"     element={<Navigate to="/owner" replace />} />
         <Route path="request-walk"  element={<Navigate to="/owner/request" replace />} />
       </Route>

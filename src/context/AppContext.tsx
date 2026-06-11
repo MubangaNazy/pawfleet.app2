@@ -1,12 +1,28 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
-import { User, Dog, Walk, Payment, WalkerStats, WalkerBadge, AppData, Role, BadgeId } from '../types';
+import { User, Dog, Walk, Payment, WalkerStats, WalkerBadge, AppData, Role, BadgeId, AppNotification } from '../types';
 
 // ── Type helpers ────────────────────────────────────────────
 const toUser = (r: any): User => ({
   id: r.id, name: r.name, phone: r.phone, email: r.email,
   password: r.password, role: r.role as Role, createdAt: r.created_at,
+  imageUrl: r.image_url ?? undefined,
+  nrc: r.nrc ?? undefined,
+  walkerStatus: r.walker_status ?? undefined,
+  referralCode: r.referral_code ?? undefined,
+  referredByAdminId: r.referred_by_admin_id ?? undefined,
 });
+
+const toNotification = (r: any): AppNotification => ({
+  id: r.id, userId: r.user_id, type: r.type,
+  title: r.title, body: r.body, data: r.data ?? undefined,
+  read: r.read ?? false, createdAt: r.created_at,
+});
+
+// Generate referral code for an admin from their UUID
+function adminReferralCode(adminId: string): string {
+  return 'PAW-' + adminId.replace(/-/g, '').slice(0, 8).toUpperCase();
+}
 
 const toDog = (r: any): Dog => ({
   id: r.id, name: r.name, breed: r.breed, age: r.age,
@@ -50,12 +66,17 @@ const BADGES: Record<BadgeId, Omit<WalkerBadge, 'earnedAt'>> = {
 };
 
 // ── Context type ────────────────────────────────────────────
+interface RegisterExtras {
+  photoUrl?: string;
+  nrc?: string;
+  referralCode?: string;
+}
 interface AppContextType {
   loading: boolean;
   currentUser: User | null;
   data: AppData;
   login: (id: string, pw: string) => Promise<User | null>;
-  register: (name: string, phone: string, email: string, password: string, role: 'owner' | 'walker') => Promise<{ success: boolean; error?: string; user?: User }>;
+  register: (name: string, phone: string, email: string, password: string, role: 'owner' | 'walker', extras?: RegisterExtras) => Promise<{ success: boolean; error?: string; user?: User; pendingApproval?: boolean }>;
   logout: () => void;
   createWalk: (walk: Omit<Walk, 'id' | 'createdAt'>) => Walk;
   updateWalk: (id: string, updates: Partial<Walk>) => void;
@@ -72,6 +93,12 @@ interface AppContextType {
   updateUser: (userId: string, updates: Partial<User>) => Promise<void>;
   getWalkerStats: (walkerId: string) => WalkerStats;
   refreshData: () => void;
+  approveWalker: (walkerId: string) => void;
+  rejectWalker: (walkerId: string) => void;
+  markNotificationRead: (notifId: string) => void;
+  markAllNotificationsRead: () => void;
+  sendNotification: (userId: string, type: AppNotification['type'], title: string, body: string, data?: Record<string, string>) => void;
+  getAdminReferralCode: (adminId: string) => string;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -88,7 +115,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     try { return JSON.parse(sessionStorage.getItem('pawfleet_user') || 'null'); } catch { return null; }
   });
   const [data, setData] = useState<AppData>({
-    users: [], dogs: [], walks: [], payments: [], walkerStats: [],
+    users: [], dogs: [], walks: [], payments: [], walkerStats: [], notifications: [],
   });
 
   // ── Load all data ────────────────────────────────────────
@@ -101,19 +128,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         supabase.from('walks').select('*').order('created_at', { ascending: false }),
         supabase.from('payments').select('*').order('created_at', { ascending: false }),
         supabase.from('walker_stats').select('*'),
+        supabase.from('notifications').select('*').order('created_at', { ascending: false }).limit(100),
       ]);
       // 6-second timeout — if Supabase is slow/hanging, unblock the app anyway
       const timeout = new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error('load_timeout')), 6000)
       );
-      const [u, d, w, p, s] = await Promise.race([fetchAll, timeout]);
+      const [u, d, w, p, s, n] = await Promise.race([fetchAll, timeout]);
       const rawDogs = (d.data || []).map(toDog);
       setData({
-        users:       (u.data || []).map(toUser),
-        dogs:        mergeDogImages(rawDogs),
-        walks:       (w.data || []).map(toWalk),
-        payments:    (p.data || []).map(toPayment),
-        walkerStats: (s.data || []).map(toWalkerStats),
+        users:         (u.data || []).map(toUser),
+        dogs:          mergeDogImages(rawDogs),
+        walks:         (w.data || []).map(toWalk),
+        payments:      (p.data || []).map(toPayment),
+        walkerStats:   (s.data || []).map(toWalkerStats),
+        notifications: (n.data || []).map(toNotification),
       });
     } catch (err) {
       console.error('loadData error:', err);
@@ -163,9 +192,56 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             if (rows) setData(prev => ({ ...prev, payments: rows.map(toPayment) }));
           });
       })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, (p) =>
+        setData(prev => ({ ...prev, notifications: [toNotification(p.new), ...prev.notifications] }))
+      )
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'notifications' }, (p) =>
+        setData(prev => ({ ...prev, notifications: prev.notifications.map(n => n.id === p.new.id ? toNotification(p.new) : n) }))
+      )
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'users' }, (p) =>
+        setData(prev => ({ ...prev, users: prev.users.map(u => u.id === p.new.id ? toUser(p.new) : u) }))
+      )
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, []);
+
+  // ── Notifications ────────────────────────────────────────
+  const sendNotification = useCallback((
+    userId: string,
+    type: AppNotification['type'],
+    title: string,
+    body: string,
+    data?: Record<string, string>
+  ) => {
+    const notif: AppNotification = {
+      id: crypto.randomUUID(), userId, type, title, body,
+      data, read: false, createdAt: new Date().toISOString(),
+    };
+    setData(prev => ({ ...prev, notifications: [notif, ...prev.notifications] }));
+    supabase.from('notifications').insert({
+      id: notif.id, user_id: userId, type, title, body,
+      data: data ?? null, read: false,
+    }).then(({ error }) => { if (error) console.warn('sendNotification (table may not exist):', error); });
+  }, []);
+
+  const markNotificationRead = (notifId: string) => {
+    setData(prev => ({
+      ...prev,
+      notifications: prev.notifications.map(n => n.id === notifId ? { ...n, read: true } : n),
+    }));
+    supabase.from('notifications').update({ read: true }).eq('id', notifId)
+      .then(({ error }) => { if (error) console.warn('markRead:', error); });
+  };
+
+  const markAllNotificationsRead = () => {
+    setData(prev => ({
+      ...prev,
+      notifications: prev.notifications.map(n => ({ ...n, read: true })),
+    }));
+    // Bulk update handled lazily by the UI
+  };
+
+  const getAdminReferralCode = (adminId: string) => adminReferralCode(adminId);
 
   // ── Auth ─────────────────────────────────────────────────
   // Hardcoded demo users — fully offline, no DB/Auth queries needed
@@ -237,7 +313,27 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return null;
   };
 
-  const register = async (name: string, phone: string, email: string, password: string, role: 'owner' | 'walker'): Promise<{ success: boolean; error?: string; user?: User }> => {
+  const register = async (
+    name: string, phone: string, email: string, password: string,
+    role: 'owner' | 'walker', extras?: RegisterExtras
+  ): Promise<{ success: boolean; error?: string; user?: User; pendingApproval?: boolean }> => {
+
+    // Validate referral code for walkers
+    let referredAdminId: string | undefined;
+    if (role === 'walker' && extras?.referralCode) {
+      const demoCode = adminReferralCode('11111111-1111-1111-1111-111111111111');
+      if (extras.referralCode === demoCode) {
+        referredAdminId = '11111111-1111-1111-1111-111111111111';
+      } else {
+        const admins = data.users.filter(u => u.role === 'admin');
+        const matchingAdmin = admins.find(a => adminReferralCode(a.id) === extras.referralCode);
+        if (!matchingAdmin) {
+          return { success: false, error: 'Invalid referral code. Please get the correct code from your admin.' };
+        }
+        referredAdminId = matchingAdmin.id;
+      }
+    }
+
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email, password,
       options: { data: { name, phone, role } },
@@ -247,10 +343,30 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     const userId = authData.user.id;
     const now = new Date().toISOString();
-    const newUser: User = { id: userId, name, phone, email, password: '', role, createdAt: now };
+    const walkerStatus: 'pending_approval' | undefined = role === 'walker' ? 'pending_approval' : undefined;
+
+    // Save profile photo to localStorage
+    if (extras?.photoUrl) {
+      try {
+        const imgs = JSON.parse(localStorage.getItem('pawfleet_user_images') || '{}');
+        imgs[userId] = extras.photoUrl;
+        localStorage.setItem('pawfleet_user_images', JSON.stringify(imgs));
+      } catch { /* ignore */ }
+    }
+
+    const newUser: User = {
+      id: userId, name, phone, email, password: '', role, createdAt: now,
+      imageUrl: extras?.photoUrl,
+      nrc: extras?.nrc,
+      walkerStatus,
+      referredByAdminId: referredAdminId,
+    };
 
     await supabase.from('users').upsert({
       id: userId, name, phone, email: email || null, password: '', role,
+      nrc: extras?.nrc ?? null,
+      walker_status: walkerStatus ?? null,
+      referred_by_admin_id: referredAdminId ?? null,
     }, { onConflict: 'id' }).then(({ error }) => { if (error) console.error('register insert:', error); });
 
     if (role === 'walker') {
@@ -260,6 +376,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
 
     setData(prev => ({ ...prev, users: [...prev.users.filter(u => u.id !== userId), newUser] }));
+
+    // Notify admins of new walker application
+    if (role === 'walker') {
+      data.users.filter(u => u.role === 'admin').forEach(admin => {
+        sendNotification(admin.id, 'walker_signup',
+          'New Walker Application 🦮',
+          `${name} has applied to join as a walker. Review and approve their application.`,
+          { walkerId: userId }
+        );
+      });
+      return { success: true, pendingApproval: true };
+    }
 
     if (authData.session) {
       setCurrentUser(newUser);
@@ -285,6 +413,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       scheduled_date: walk.scheduledDate, price: walk.price,
       walker_earning: walk.walkerEarning, notes: walk.notes || null,
     }).then(({ error }) => { if (error) console.error('createWalk:', error); });
+
+    // Notify walkers and admins of new walk booking
+    const dog = data.dogs.find(d => d.id === walk.dogId);
+    const owner = data.users.find(u => u.id === walk.ownerId);
+    const notifyMsg = `${owner?.name || 'An owner'} needs a walker for ${dog?.name || 'their dog'}. K${walk.walkerEarning} earning.`;
+    data.users.filter(u => u.role === 'walker' && u.walkerStatus === 'active').forEach(w => {
+      sendNotification(w.id, 'walk_booked', 'New Walk Available 🐾', notifyMsg, { walkId: newWalk.id });
+    });
+    data.users.filter(u => u.role === 'admin').forEach(admin => {
+      sendNotification(admin.id, 'walk_booked', 'New Walk Booked', notifyMsg, { walkId: newWalk.id });
+    });
+    if (walk.walkerId) {
+      sendNotification(walk.walkerId, 'walk_accepted', 'Walk Assigned to You',
+        `You have been assigned to walk ${dog?.name || 'a dog'}. K${walk.walkerEarning} earning.`,
+        { walkId: newWalk.id }
+      );
+    }
     return newWalk;
   };
 
@@ -313,6 +458,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const startWalk = (walkId: string, loc: { lat: number; lng: number }) => {
     updateWalk(walkId, { status: 'active', startTime: new Date().toISOString(), startLocation: loc });
+    const walk = data.walks.find(w => w.id === walkId);
+    const dog = walk ? data.dogs.find(d => d.id === walk.dogId) : null;
+    if (walk?.ownerId) {
+      sendNotification(walk.ownerId, 'walk_started',
+        'Walk Started 🐾',
+        `Your walker has started walking ${dog?.name || 'your dog'}. Track live on the map.`,
+        { walkId }
+      );
+    }
+    // Notify admins too
+    data.users.filter(u => u.role === 'admin').forEach(admin => {
+      sendNotification(admin.id, 'walk_started',
+        'Walk in Progress',
+        `${dog?.name || 'A dog'}'s walk has started.`,
+        { walkId }
+      );
+    });
   };
 
   const endWalk = (walkId: string, loc: { lat: number; lng: number }) => {
@@ -368,7 +530,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const assignWalker = (walkId: string, walkerId: string) => updateWalk(walkId, { walkerId, status: 'assigned' });
+  const assignWalker = (walkId: string, walkerId: string) => {
+    updateWalk(walkId, { walkerId, status: 'assigned' });
+    const walk = data.walks.find(w => w.id === walkId);
+    const dog = walk ? data.dogs.find(d => d.id === walk.dogId) : null;
+    // Notify walker
+    sendNotification(walkerId, 'walk_accepted',
+      'Walk Accepted ✅',
+      `You have been assigned to walk ${dog?.name || 'a dog'}. Check your schedule.`,
+      { walkId }
+    );
+    // Notify owner
+    if (walk?.ownerId) {
+      const walker = data.users.find(u => u.id === walkerId);
+      sendNotification(walk.ownerId, 'walk_accepted',
+        'Walker Assigned 🐾',
+        `${walker?.name || 'A walker'} has been assigned to walk ${dog?.name || 'your dog'}.`,
+        { walkId, walkerId }
+      );
+    }
+  };
   const cancelWalk = (walkId: string) => updateWalk(walkId, { status: 'cancelled' });
 
   // ── Payments ─────────────────────────────────────────────
@@ -499,6 +680,32 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const refreshData = () => { loadData(); };
 
+  const approveWalker = (walkerId: string) => {
+    setData(prev => ({
+      ...prev,
+      users: prev.users.map(u => u.id === walkerId ? { ...u, walkerStatus: 'active' as const } : u),
+    }));
+    supabase.from('users').update({ walker_status: 'active' }).eq('id', walkerId)
+      .then(({ error }) => { if (error) console.error('approveWalker:', error); });
+    sendNotification(walkerId, 'walker_approved',
+      'Application Approved! 🎉',
+      'Congratulations! Your walker application has been approved. You can now start accepting walks.',
+    );
+  };
+
+  const rejectWalker = (walkerId: string) => {
+    setData(prev => ({
+      ...prev,
+      users: prev.users.map(u => u.id === walkerId ? { ...u, walkerStatus: 'suspended' as const } : u),
+    }));
+    supabase.from('users').update({ walker_status: 'suspended' }).eq('id', walkerId)
+      .then(({ error }) => { if (error) console.error('rejectWalker:', error); });
+    sendNotification(walkerId, 'walker_rejected',
+      'Application Not Approved',
+      'Unfortunately your walker application was not approved at this time. Contact admin for more information.',
+    );
+  };
+
   return (
     <AppContext.Provider value={{
       loading, currentUser, data, login, register, logout,
@@ -506,6 +713,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       assignWalker, cancelWalk, markPaymentPaid, confirmPaymentReceived,
       createDog, updateDog, logHealth,
       addUser, updateUser, getWalkerStats, refreshData,
+      approveWalker, rejectWalker,
+      markNotificationRead, markAllNotificationsRead, sendNotification,
+      getAdminReferralCode,
     }}>
       {children}
     </AppContext.Provider>

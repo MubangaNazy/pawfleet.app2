@@ -79,11 +79,11 @@ Real users register via /register (Supabase Auth email/password).
 ---
 
 ## Pending / Known Issues
-- [ ] **RLS CRITICAL — passwords exposed**: anon key returns plain-text passwords from users table → run SQL fix below
-- [ ] **RLS HIGH — anon can INSERT walks**: no write policy on walks table → run SQL fix below
-- [ ] Walker payment confirmation needs `walker_confirmed` column in Supabase → run SQL below
-- [ ] Shopowner role needs CHECK constraint updated → already done if SQL below was run
-- [ ] Google Maps API key removed — now using Leaflet (free)
+- [x] **RLS CRITICAL — passwords exposed**: migrated all users to Supabase Auth (2026-06-08) — password column cleared to '', plain-text fallback removed from login code
+- [x] **RLS HIGH — anon can INSERT walks**: policy applied 2026-06-08
+- [x] Walker payment confirmation `walker_confirmed` column added 2026-06-08
+- [x] Shopowner role CHECK constraint updated + demo user inserted
+- [x] Google Maps replaced with Leaflet + OpenStreetMap
 - [ ] `android/` folder not committed to git (too large, build locally with Android Studio)
 - [ ] iOS not buildable on Windows — needs Mac + Xcode
 

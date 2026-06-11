@@ -58,6 +58,8 @@ import ShopOwnerNotifications from './pages/shopowner/Notifications';
 
 // Shared notifications page
 import NotificationsPage from './pages/Notifications';
+import ChatInbox from './pages/ChatInbox';
+import Community from './pages/Community';
 
 function ProtectedRoute({ children, role }: { children: React.ReactNode; role?: string | string[] }) {
   const { currentUser } = useApp();
@@ -169,6 +171,8 @@ function AppRoutes() {
         <Route path="guide"     element={<WalkerDogGuide />} />
         <Route path="history"   element={<WalkerHistory />} />
         <Route path="notifications" element={<NotificationsPage />} />
+        <Route path="chats"         element={<ChatInbox />} />
+        <Route path="community"     element={<Community />} />
         <Route path="dashboard" element={<Navigate to="/walker" replace />} />
         <Route path="my-walks"  element={<Navigate to="/walker/walks" replace />} />
       </Route>
@@ -201,6 +205,8 @@ function AppRoutes() {
         <Route path="profile"   element={<OwnerProfile />} />
         <Route path="track/:walkId" element={<WalkTracker />} />
         <Route path="notifications" element={<NotificationsPage />} />
+        <Route path="chats"         element={<ChatInbox />} />
+        <Route path="community"     element={<Community />} />
         <Route path="dashboard"     element={<Navigate to="/owner" replace />} />
         <Route path="request-walk"  element={<Navigate to="/owner/request" replace />} />
       </Route>

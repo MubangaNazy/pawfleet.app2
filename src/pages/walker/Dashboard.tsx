@@ -152,23 +152,38 @@ export default function WalkerDashboard() {
         )}
 
         {/* Quick action grid */}
-        <div className="grid grid-cols-4 gap-3">
-          {[
-            { to: '/walker/walks',    emoji: '🐾', label: 'Walks' },
-            { to: '/walker/schedule', emoji: '📅', label: 'Schedule' },
-            { to: '/walker/earnings', emoji: '💰', label: 'Earnings' },
-            { to: '/walker/badges',   emoji: '🏆', label: 'Badges' },
-          ].map(({ to, emoji, label }) => (
-            <Link key={to} to={to}
-              className="flex flex-col items-center gap-2 py-3 rounded-2xl bg-white border border-surface-border hover:shadow-md transition-all active:scale-95">
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl"
-                style={{ background: '#EBF5EF' }}>
-                {emoji}
-              </div>
-              <span className="text-[11px] font-semibold text-ink-secondary">{label}</span>
-            </Link>
-          ))}
-        </div>
+        {(() => {
+          const unreadWalkerNotifs = data.notifications.filter(
+            n => n.userId === currentUser?.id && !n.read && n.type.startsWith('walk')
+          );
+          const quickItems = [
+            { to: '/walker/walks',    emoji: '🐾', label: 'Walks',    badge: availableWalks.length > 0 ? availableWalks.length : null, badgeType: 'amber' as const },
+            { to: '/walker/schedule', emoji: '📅', label: 'Schedule', badge: null, badgeType: 'amber' as const },
+            { to: '/walker/earnings', emoji: '💰', label: 'Earnings', badge: null, badgeType: 'amber' as const },
+            { to: '/walker/chats',    emoji: '💬', label: 'Chat',     badge: unreadWalkerNotifs.length > 0 ? unreadWalkerNotifs.length : null, badgeType: 'red' as const },
+          ];
+          return (
+            <div className="grid grid-cols-4 gap-3">
+              {quickItems.map(({ to, emoji, label, badge, badgeType }) => (
+                <Link key={to} to={to}
+                  className="flex flex-col items-center gap-2 py-3 rounded-2xl bg-white border border-surface-border hover:shadow-md transition-all active:scale-95">
+                  <div className="relative">
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl"
+                      style={{ background: '#EBF5EF' }}>
+                      {emoji}
+                    </div>
+                    {badge != null && (
+                      <span className={`absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full text-white text-[10px] font-bold flex items-center justify-center border-2 border-white ${badgeType === 'amber' ? 'bg-amber-400' : 'bg-red-500'}`}>
+                        {badge > 9 ? '9+' : badge}
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-[11px] font-semibold text-ink-secondary">{label}</span>
+                </Link>
+              ))}
+            </div>
+          );
+        })()}
 
         {/* Available Walks — new walk requests */}
         {availableWalks.length > 0 && (

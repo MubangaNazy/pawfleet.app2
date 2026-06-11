@@ -75,11 +75,18 @@ export default function OwnerDashboard() {
   const greeting  = hour < 12 ? 'Good morning,' : hour < 17 ? 'Good afternoon,' : 'Good evening,';
   const firstName = currentUser?.name.split(' ')[0] || 'there';
 
+  const pendingGroomingWalks = myWalks.filter(
+    w => (w.status === 'pending' || w.status === 'assigned') && w.notes?.startsWith('GROOMING:')
+  );
+  const unreadChatNotifications = data.notifications.filter(
+    n => n.userId === currentUser?.id && !n.read && n.type.startsWith('walk')
+  );
+
   const quickActions = [
-    { label: 'Walk',  icon: '🐾', to: '/owner/request' },
-    { label: 'Groom', icon: '✂️', to: '/owner/services' },
-    { label: 'Track', icon: '📍', to: nearestWalk ? `/owner/track/${nearestWalk.id}` : '/owner/history' },
-    { label: 'Chat',  icon: '💬', to: nearestWalk ? `/owner/chat/${nearestWalk.id}` : '/owner/history' },
+    { label: 'Walk',  icon: '🐾', to: '/owner/request', badge: null as null | number | 'pulse-green' },
+    { label: 'Groom', icon: '✂️', to: '/owner/services', badge: (pendingGroomingWalks.length > 0 ? 'pulse-green' : null) as null | number | 'pulse-green' },
+    { label: 'Track', icon: '📍', to: nearestWalk ? `/owner/track/${nearestWalk.id}` : '/owner/history', badge: (activeWalk ? 'pulse-green' : null) as null | number | 'pulse-green' },
+    { label: 'Chat',  icon: '💬', to: '/owner/chats', badge: (unreadChatNotifications.length > 0 ? unreadChatNotifications.length : null) as null | number | 'pulse-green' },
   ];
 
   // Auto-rotating slideshow
@@ -152,11 +159,23 @@ export default function OwnerDashboard() {
         {/* ── Quick Actions ── */}
         <Reveal delay={50}>
           <div className="grid grid-cols-4 gap-3">
-            {quickActions.map((a, idx) => (
+            {quickActions.map((a) => (
               <Link key={a.label} to={a.to} className="flex flex-col items-center gap-2">
-                <div className="w-14 h-14 rounded-full flex items-center justify-center text-2xl shadow-sm hover:scale-105 transition-transform active:scale-95"
-                  style={{ background: '#1B4332' }}>
-                  <span>{a.icon}</span>
+                <div className="relative">
+                  <div className="w-14 h-14 rounded-full flex items-center justify-center text-2xl shadow-sm hover:scale-105 transition-transform active:scale-95"
+                    style={{ background: '#1B4332' }}>
+                    <span>{a.icon}</span>
+                  </div>
+                  {/* Badge: red number for Chat */}
+                  {typeof a.badge === 'number' && (
+                    <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center border-2 border-white">
+                      {a.badge > 9 ? '9+' : a.badge}
+                    </span>
+                  )}
+                  {/* Badge: green pulse dot for Groom / Track */}
+                  {a.badge === 'pulse-green' && (
+                    <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-green-500 border-2 border-white animate-pulse" />
+                  )}
                 </div>
                 <span className="text-xs font-semibold text-ink">{a.label}</span>
               </Link>

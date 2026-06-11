@@ -264,7 +264,7 @@ export default function WalkerWalkDetail() {
                 ) : (
                   <>
                     <CheckCircle2 className="w-5 h-5" />
-                    Accept Walk
+                    {isGrooming ? 'Accept Grooming 🛁' : 'Accept Walk'}
                   </>
                 )}
               </button>

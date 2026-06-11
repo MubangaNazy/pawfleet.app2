@@ -3,7 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Map, ListChecks, PlusCircle,
   Users, UserCog, CreditCard, Activity, DollarSign, Clock,
-  LogOut, X, Dog, ChevronRight, Scissors, ShoppingBag, User, Calendar, Bell, Package, TrendingUp, History,
+  LogOut, X, Dog, ChevronRight, Scissors, ShoppingBag, User, Calendar, Bell, Package, TrendingUp, History, Trophy,
 } from 'lucide-react';
 import { Logo } from '../Logo';
 import { useApp } from '../../context/AppContext';
@@ -24,23 +24,25 @@ const adminNav = [
 ];
 
 const walkerNav = [
-  { to: '/walker',           icon: LayoutDashboard, label: 'Dashboard',    exact: true },
-  { to: '/walker/walks',     icon: ListChecks,      label: 'My Walks' },
-  { to: '/walker/schedule',  icon: Calendar,        label: 'Schedule' },
-  { to: '/walker/earnings',  icon: DollarSign,      label: 'Earnings' },
-  { to: '/walker/history',   icon: History,         label: 'History' },
-  { to: '/walker/badges',    icon: Activity,        label: 'Achievements' },
+  { to: '/walker',             icon: LayoutDashboard, label: 'Dashboard',    exact: true },
+  { to: '/walker/walks',       icon: ListChecks,      label: 'My Walks' },
+  { to: '/walker/schedule',    icon: Calendar,        label: 'Schedule' },
+  { to: '/walker/earnings',    icon: DollarSign,      label: 'Earnings' },
+  { to: '/walker/history',     icon: History,         label: 'History' },
+  { to: '/walker/badges',      icon: Activity,        label: 'Achievements' },
+  { to: '/walker/community',   icon: Trophy,          label: 'Community' },
 ];
 
 const ownerNav = [
-  { to: '/owner',            icon: LayoutDashboard, label: 'Dashboard',  exact: true },
-  { to: '/owner/request',    icon: PlusCircle,      label: 'Book a Walk' },
-  { to: '/owner/schedule',   icon: Calendar,        label: 'Schedule' },
-  { to: '/owner/dogs',       icon: Dog,             label: 'My Dogs' },
-  { to: '/owner/history',    icon: Clock,           label: 'Walk History' },
-  { to: '/owner/services',   icon: Scissors,        label: 'Services' },
-  { to: '/owner/shop',       icon: ShoppingBag,     label: 'Shop' },
-  { to: '/owner/profile',    icon: User,            label: 'Profile' },
+  { to: '/owner',              icon: LayoutDashboard, label: 'Dashboard',  exact: true },
+  { to: '/owner/request',      icon: PlusCircle,      label: 'Book a Walk' },
+  { to: '/owner/schedule',     icon: Calendar,        label: 'Schedule' },
+  { to: '/owner/dogs',         icon: Dog,             label: 'My Dogs' },
+  { to: '/owner/history',      icon: Clock,           label: 'Walk History' },
+  { to: '/owner/services',     icon: Scissors,        label: 'Services' },
+  { to: '/owner/shop',         icon: ShoppingBag,     label: 'Shop' },
+  { to: '/owner/profile',      icon: User,            label: 'Profile' },
+  { to: '/owner/community',    icon: Trophy,          label: 'Community' },
 ];
 
 const shopownerNav = [

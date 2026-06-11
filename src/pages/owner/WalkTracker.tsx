@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { MapContainer, TileLayer, Polyline, Marker } from 'react-leaflet';
+import { MapContainer, TileLayer, Polyline, Marker, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { useEffect } from 'react';
 import { ArrowLeft, MessageCircle, Phone, Navigation } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { supabase } from '../../lib/supabase';
@@ -31,6 +32,15 @@ const endIcon = L.divIcon({
   iconSize: [0, 0],
   iconAnchor: [0, 0],
 });
+
+function MapResizer() {
+  const map = useMap();
+  useEffect(() => {
+    const t = setTimeout(() => map.invalidateSize(), 150);
+    return () => clearTimeout(t);
+  }, [map]);
+  return null;
+}
 
 export default function WalkTracker() {
   const { walkId } = useParams<{ walkId: string }>();
@@ -116,10 +126,10 @@ export default function WalkTracker() {
         )}
       </div>
 
-      {/* Map */}
-      <div className="flex-1 relative min-h-0">
+      {/* Map — absolute inner div forces Leaflet to get a real pixel height */}
+      <div className="flex-1 relative overflow-hidden" style={{ minHeight: 0 }}>
         {!startLat && !livePos ? (
-          <div className="flex flex-col items-center justify-center h-full bg-surface-secondary gap-3 p-6 text-center">
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-surface-secondary gap-3 p-6 text-center">
             <span className="text-4xl">🗺️</span>
             <p className="text-sm text-ink-secondary">
               {walk.status === 'pending' || walk.status === 'assigned'
@@ -128,24 +138,33 @@ export default function WalkTracker() {
             </p>
           </div>
         ) : (
-          <MapContainer
-            center={mapCenter}
-            zoom={15}
-            style={{ width: '100%', height: '100%' }}
-            zoomControl={false}
-            attributionControl={false}
-          >
-            <TileLayer
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              attribution="© OpenStreetMap"
-            />
-            {routePath.length > 1 && (
-              <Polyline positions={routePath} pathOptions={{ color: '#1B4332', weight: 5, opacity: 0.9 }} />
-            )}
-            {startLat && <Marker position={startLat} icon={startIcon} />}
-            {isActive && livePos && <Marker position={livePos} icon={walkerIcon} />}
-            {endLat && <Marker position={endLat} icon={endIcon} />}
-          </MapContainer>
+          <div style={{ position: 'absolute', inset: 0 }}>
+            <MapContainer
+              center={mapCenter}
+              zoom={15}
+              style={{ width: '100%', height: '100%' }}
+              zoomControl={false}
+              attributionControl={false}
+            >
+              <TileLayer
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                attribution="© OpenStreetMap"
+              />
+              <MapResizer />
+              {routePath.length > 1 && (
+                <Polyline positions={routePath} pathOptions={{ color: '#1B4332', weight: 5, opacity: 0.9 }} />
+              )}
+              {startLat && <Marker position={startLat} icon={startIcon} />}
+              {isActive && livePos && <Marker position={livePos} icon={walkerIcon} />}
+              {endLat && <Marker position={endLat} icon={endIcon} />}
+            </MapContainer>
+          </div>
+        )}
+        {isActive && !livePos && (
+          <div className="absolute top-3 left-1/2 -translate-x-1/2 bg-white/95 text-ink text-xs px-3 py-1.5 rounded-xl shadow font-semibold z-[1000] flex items-center gap-2">
+            <div className="w-3 h-3 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+            Waiting for walker's location…
+          </div>
         )}
       </div>
 

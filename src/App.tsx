@@ -20,6 +20,7 @@ import AdminOwners      from './pages/admin/Owners';
 import AdminPayments    from './pages/admin/Payments';
 import AdminShopManager from './pages/admin/ShopManager';
 import AdminAnalytics   from './pages/admin/Analytics';
+import AdminProfitMgmt  from './pages/admin/ProfitManagement';
 
 // Walker pages
 import WalkerDashboard from './pages/walker/Dashboard';
@@ -150,6 +151,7 @@ function AppRoutes() {
         <Route path="payments"    element={<AdminPayments />} />
         <Route path="shop"        element={<AdminShopManager />} />
         <Route path="analytics"   element={<AdminAnalytics />} />
+        <Route path="profit"      element={<AdminProfitMgmt />} />
         <Route path="notifications" element={<NotificationsPage />} />
         <Route path="dashboard"   element={<Navigate to="/admin" replace />} />
       </Route>

@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { MapContainer, TileLayer, Polyline, Marker, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { ArrowLeft, Phone, MessageCircle, Square, Navigation, Clock, MapPin, Zap } from 'lucide-react';
+import { ArrowLeft, Phone, MessageCircle, Square, Clock, MapPin, Zap } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { supabase } from '../../lib/supabase';
 
@@ -49,9 +49,18 @@ function MapFollower({ pos }: { pos: LatLng | null }) {
   return null;
 }
 
+function MapResizer() {
+  const map = useMap();
+  useEffect(() => {
+    const t = setTimeout(() => map.invalidateSize(), 150);
+    return () => clearTimeout(t);
+  }, [map]);
+  return null;
+}
+
 export default function WalkerLiveWalk() {
   const { walkId } = useParams<{ walkId: string }>();
-  const { data, endWalk, startWalk, currentUser } = useApp();
+  const { data, endWalk, startWalk } = useApp();
   const navigate = useNavigate();
 
   const [myPos, setMyPos]     = useState<LatLng | null>(null);
@@ -209,26 +218,30 @@ export default function WalkerLiveWalk() {
         </div>
       </div>
 
-      {/* Map */}
-      <div className="flex-1 relative" style={{ minHeight: 0 }}>
-        <MapContainer
-          center={mapCenter}
-          zoom={16}
-          style={{ width: '100%', height: '100%' }}
-          zoomControl={false}
-          attributionControl={false}
-        >
-          <TileLayer
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            attribution="© OpenStreetMap"
-          />
-          <MapFollower pos={myPos} />
-          {route.length > 1 && (
-            <Polyline positions={route} pathOptions={{ color: '#2B8A50', weight: 5, opacity: 0.9 }} />
-          )}
-          {myPos && <Marker position={myPos} icon={walkerIcon} />}
-        </MapContainer>
+      {/* Map — absolute inner div forces Leaflet to get a real pixel height */}
+      <div className="flex-1 relative overflow-hidden" style={{ minHeight: 0 }}>
+        <div style={{ position: 'absolute', inset: 0 }}>
+          <MapContainer
+            center={mapCenter}
+            zoom={16}
+            style={{ width: '100%', height: '100%' }}
+            zoomControl={false}
+            attributionControl={false}
+          >
+            <TileLayer
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              attribution="© OpenStreetMap"
+            />
+            <MapResizer />
+            <MapFollower pos={myPos} />
+            {route.length > 1 && (
+              <Polyline positions={route} pathOptions={{ color: '#2B8A50', weight: 5, opacity: 0.9 }} />
+            )}
+            {myPos && <Marker position={myPos} icon={walkerIcon} />}
+          </MapContainer>
+        </div>
 
+        {/* Overlays sit on top of the absolute map */}
         {gpsError && (
           <div className="absolute top-3 left-1/2 -translate-x-1/2 bg-amber-500 text-white text-xs px-3 py-1.5 rounded-xl shadow font-semibold z-[1000]">
             GPS unavailable — location not being shared
@@ -241,7 +254,7 @@ export default function WalkerLiveWalk() {
           </div>
         )}
 
-        {/* Estimation card (visible when active + has data) */}
+        {/* Estimation card */}
         {isActive && (distKm > 0 || estTimeLeft !== null) && (
           <div className="absolute bottom-3 left-3 right-3 bg-white/95 backdrop-blur rounded-2xl shadow-lg px-4 py-3 z-[1000]">
             <div className="grid grid-cols-3 gap-3 text-center">

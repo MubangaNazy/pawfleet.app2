@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
-import { Play, Square, MapPin, Navigation, AlertCircle, MessageCircle, CheckCircle2 } from 'lucide-react';
+import { Play, Square, MapPin, Navigation, AlertCircle, MessageCircle, CheckCircle2, XCircle } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { StatusBadge, PaymentBadge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
@@ -23,7 +23,7 @@ async function getGPS(): Promise<GeoLocation> {
 }
 
 export default function WalkerMyWalks() {
-  const { data, currentUser, startWalk, endWalk, assignWalker } = useApp();
+  const { data, currentUser, startWalk, endWalk, assignWalker, declineWalk } = useApp();
   const [filter, setFilter] = useState<Filter>('available');
   const [gpsLoading, setGpsLoading] = useState<string | null>(null);
   const [accepting, setAccepting] = useState<string | null>(null);
@@ -208,12 +208,19 @@ export default function WalkerMyWalks() {
                 )}
 
                 {walk.status === 'assigned' && (
-                  <div className="flex items-center gap-3 pt-3 border-t border-surface-border">
+                  <div className="flex items-center gap-3 pt-3 border-t border-surface-border flex-wrap">
                     <Button variant="success" size="md" icon={<Play className="w-4 h-4" />} loading={isGpsLoading} onClick={() => handleStart(walk.id)}>
                       {isGpsLoading ? 'Getting GPS...' : 'Start Walk'}
                     </Button>
+                    <button
+                      type="button"
+                      onClick={() => declineWalk(walk.id)}
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-danger border border-danger/30 bg-danger/5 hover:bg-danger/10 transition-colors"
+                    >
+                      <XCircle className="w-3.5 h-3.5" /> Decline
+                    </button>
                     <div className="flex items-center gap-1.5 text-xs text-ink-muted">
-                      <AlertCircle className="w-3 h-3" /> GPS location will be captured
+                      <AlertCircle className="w-3 h-3" /> GPS captured on start
                     </div>
                   </div>
                 )}

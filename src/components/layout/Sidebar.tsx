@@ -3,7 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Map, ListChecks, PlusCircle,
   Users, UserCog, CreditCard, Activity, DollarSign, Clock,
-  LogOut, X, Dog, ChevronRight, Scissors, ShoppingBag, User, Calendar, Bell, Package,
+  LogOut, X, Dog, ChevronRight, Scissors, ShoppingBag, User, Calendar, Bell, Package, TrendingUp,
 } from 'lucide-react';
 import { Logo } from '../Logo';
 import { useApp } from '../../context/AppContext';
@@ -20,6 +20,7 @@ const adminNav = [
   { to: '/admin/payments',    icon: CreditCard,      label: 'Payments' },
   { to: '/admin/shop',        icon: ShoppingBag,     label: 'Shop Manager' },
   { to: '/admin/analytics',   icon: Activity,        label: 'Analytics' },
+  { to: '/admin/profit',      icon: TrendingUp,      label: 'Profit Management' },
 ];
 
 const walkerNav = [

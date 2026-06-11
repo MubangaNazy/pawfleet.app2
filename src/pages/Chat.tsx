@@ -78,8 +78,13 @@ export default function Chat() {
       .channel(`chat-${walkId}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `walk_id=eq.${walkId}` },
         async (payload) => {
-          const sender = data.users.find(u => u.id === payload.new.sender_id);
-          setMessages(prev => [...prev, { ...payload.new as Message, sender_name: sender?.name }]);
+          const newMsg = payload.new as Message;
+          // Skip if already added optimistically by current user
+          setMessages(prev => {
+            if (prev.some(m => m.id === newMsg.id)) return prev;
+            const sender = data.users.find(u => u.id === newMsg.sender_id);
+            return [...prev, { ...newMsg, sender_name: sender?.name }];
+          });
         }
       )
       .subscribe();
@@ -132,8 +137,23 @@ export default function Chat() {
   const sendMessage = async () => {
     if (!text.trim() || !walkId || !currentUser) return;
     const msg = text.trim();
+    const tempId = crypto.randomUUID();
     setText('');
-    await supabase.from('messages').insert({ walk_id: walkId, sender_id: currentUser.id, text: msg });
+
+    // Optimistic update — message appears immediately for sender
+    setMessages(prev => [...prev, {
+      id: tempId,
+      walk_id: walkId,
+      sender_id: currentUser.id,
+      text: msg,
+      created_at: new Date().toISOString(),
+      sender_name: currentUser.name,
+    }]);
+
+    const { error } = await supabase.from('messages').insert({
+      id: tempId, walk_id: walkId, sender_id: currentUser.id, text: msg,
+    });
+    if (error) console.warn('Message send failed (run SQL fix):', error.message);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {

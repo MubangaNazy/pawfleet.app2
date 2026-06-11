@@ -41,6 +41,8 @@ const toWalk = (r: any): Walk => ({
   endLocation: r.end_lat != null ? { lat: r.end_lat, lng: r.end_lng, address: r.end_address } : undefined,
   duration: r.duration, price: Number(r.price), walkerEarning: Number(r.walker_earning),
   notes: r.notes, createdAt: r.created_at,
+  rating: r.rating ?? undefined,
+  ratingComment: r.rating_comment ?? undefined,
 });
 
 const toPayment = (r: any): Payment => ({
@@ -99,6 +101,8 @@ interface AppContextType {
   markAllNotificationsRead: () => void;
   sendNotification: (userId: string, type: AppNotification['type'], title: string, body: string, data?: Record<string, string>) => void;
   getAdminReferralCode: (adminId: string) => string;
+  addRating: (walkId: string, rating: number, comment?: string) => void;
+  declineWalk: (walkId: string) => void;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -552,6 +556,45 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
   const cancelWalk = (walkId: string) => updateWalk(walkId, { status: 'cancelled' });
 
+  // Walker declines an assigned walk — returns it to pending for other walkers
+  const declineWalk = (walkId: string) => {
+    const walk = data.walks.find(w => w.id === walkId);
+    setData(prev => ({
+      ...prev,
+      walks: prev.walks.map(w => w.id === walkId ? { ...w, status: 'pending' as const, walkerId: undefined } : w),
+    }));
+    supabase.from('walks').update({ status: 'pending', walker_id: null }).eq('id', walkId)
+      .then(({ error }) => { if (error) console.error('declineWalk:', error); });
+    // Notify owner that walker declined
+    if (walk?.ownerId) {
+      sendNotification(walk.ownerId, 'walk_booked',
+        'Walker Declined Walk',
+        'Your walker was unable to take the walk. It\'s back in the pool — another walker will accept soon.',
+        { walkId }
+      );
+    }
+  };
+
+  // Owner rates a completed walk
+  const addRating = (walkId: string, rating: number, comment?: string) => {
+    setData(prev => ({
+      ...prev,
+      walks: prev.walks.map(w => w.id === walkId ? { ...w, rating, ratingComment: comment } : w),
+    }));
+    supabase.from('walks').update({ rating, rating_comment: comment ?? null }).eq('id', walkId)
+      .then(({ error }) => { if (error) console.warn('addRating (column may need SQL migration):', error); });
+    // Notify walker
+    const walk = data.walks.find(w => w.id === walkId);
+    if (walk?.walkerId) {
+      const stars = '⭐'.repeat(rating);
+      sendNotification(walk.walkerId, 'walk_completed',
+        `You got a ${rating}-star review! ${stars}`,
+        comment ? `"${comment}"` : 'Keep up the great work!',
+        { walkId }
+      );
+    }
+  };
+
   // ── Payments ─────────────────────────────────────────────
   const markPaymentPaid = (paymentId: string, method: 'cash' | 'mobile_money' = 'cash') => {
     const now = new Date().toISOString();
@@ -715,7 +758,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       addUser, updateUser, getWalkerStats, refreshData,
       approveWalker, rejectWalker,
       markNotificationRead, markAllNotificationsRead, sendNotification,
-      getAdminReferralCode,
+      getAdminReferralCode, addRating, declineWalk,
     }}>
       {children}
     </AppContext.Provider>

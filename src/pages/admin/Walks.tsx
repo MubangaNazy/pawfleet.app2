@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
 import { format } from 'date-fns';
-import { ListChecks, UserCheck, X } from 'lucide-react';
+import { ListChecks, X } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { StatusBadge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
-import { Select } from '../../components/ui/Input';
 import { WalkStatus } from '../../types';
 
 type Filter = 'all' | WalkStatus;
@@ -20,25 +19,13 @@ const filterTabs: { label: string; value: Filter }[] = [
 ];
 
 export default function AdminWalks() {
-  const { data, assignWalker, cancelWalk } = useApp();
+  const { data, cancelWalk } = useApp();
   const [filter, setFilter] = useState<Filter>('all');
-  const [assignModal, setAssignModal] = useState<string | null>(null);
-  const [selectedWalkerId, setSelectedWalkerId] = useState('');
   const [cancelConfirm, setCancelConfirm] = useState<string | null>(null);
-
-  const walkers = data.users.filter(u => u.role === 'walker');
 
   const filtered = data.walks
     .filter(w => filter === 'all' ? true : w.status === filter)
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-
-  const handleAssign = () => {
-    if (assignModal && selectedWalkerId) {
-      assignWalker(assignModal, selectedWalkerId);
-      setAssignModal(null);
-      setSelectedWalkerId('');
-    }
-  };
 
   return (
     <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
@@ -77,7 +64,6 @@ export default function AdminWalks() {
             const dog = data.dogs.find(d => d.id === walk.dogId);
             const owner = data.users.find(u => u.id === walk.ownerId);
             const walker = data.users.find(u => u.id === walk.walkerId);
-            const canAssign = walk.status === 'pending' || walk.status === 'assigned';
             const canCancel = walk.status === 'pending' || walk.status === 'assigned';
 
             return (
@@ -122,18 +108,14 @@ export default function AdminWalks() {
 
                 {walk.notes && <p className="text-xs text-ink-muted italic mb-4">"{walk.notes}"</p>}
 
-                {(canAssign || canCancel) && (
+                {canCancel && (
                   <div className="flex gap-2 flex-wrap pt-3 border-t border-surface-border">
-                    {canAssign && (
-                      <Button variant="primary" size="sm" icon={<UserCheck className="w-3.5 h-3.5" />} onClick={() => { setAssignModal(walk.id); setSelectedWalkerId(walk.walkerId || ''); }}>
-                        {walk.walkerId ? 'Reassign' : 'Assign Walker'}
-                      </Button>
-                    )}
-                    {canCancel && (
-                      <Button variant="ghost" size="sm" icon={<X className="w-3.5 h-3.5" />} onClick={() => setCancelConfirm(walk.id)}>
-                        Cancel
-                      </Button>
-                    )}
+                    <p className="text-xs text-ink-muted flex-1 self-center">
+                      {walk.walkerId ? 'Waiting for walker to start' : 'Waiting for a walker to accept'}
+                    </p>
+                    <Button variant="ghost" size="sm" icon={<X className="w-3.5 h-3.5" />} onClick={() => setCancelConfirm(walk.id)}>
+                      Cancel
+                    </Button>
                   </div>
                 )}
               </div>
@@ -141,23 +123,6 @@ export default function AdminWalks() {
           })}
         </div>
       )}
-
-      <Modal isOpen={!!assignModal} onClose={() => { setAssignModal(null); setSelectedWalkerId(''); }} title="Assign Walker" size="sm">
-        <div className="space-y-4">
-          <p className="text-sm text-ink-secondary">Select a walker to assign to this walk.</p>
-          <Select
-            label="Choose Walker"
-            options={walkers.map(w => ({ value: w.id, label: w.name }))}
-            placeholder="-- Select a walker --"
-            value={selectedWalkerId}
-            onChange={e => setSelectedWalkerId(e.target.value)}
-          />
-          <div className="flex gap-2 justify-end">
-            <Button variant="secondary" size="sm" onClick={() => { setAssignModal(null); setSelectedWalkerId(''); }}>Cancel</Button>
-            <Button variant="primary" size="sm" disabled={!selectedWalkerId} onClick={handleAssign}>Assign</Button>
-          </div>
-        </div>
-      </Modal>
 
       <Modal isOpen={!!cancelConfirm} onClose={() => setCancelConfirm(null)} title="Cancel Walk" size="sm">
         <div className="space-y-4">

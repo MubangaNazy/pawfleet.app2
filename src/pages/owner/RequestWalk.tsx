@@ -83,11 +83,18 @@ export default function OwnerRequestWalk() {
   if (myDogs.length === 0) {
     return (
       <div className="bg-white min-h-screen flex flex-col items-center justify-center px-6 pb-24">
-        <span className="text-5xl mb-4">🐕</span>
-        <h2 className="text-xl font-bold text-ink mb-2">No dogs registered</h2>
-        <p className="text-ink-secondary text-sm text-center">Contact your admin to add your dogs to PawFleet.</p>
+        <div className="w-24 h-24 rounded-full bg-primary-50 flex items-center justify-center mb-5 text-5xl">🐕</div>
+        <h2 className="text-xl font-bold text-ink mb-2">Add your dog first</h2>
+        <p className="text-ink-secondary text-sm text-center mb-7 max-w-xs">
+          You need to register your dog before booking a walk. It only takes a minute!
+        </p>
+        <button onClick={() => navigate('/owner/dogs')}
+          className="px-8 py-3.5 rounded-2xl text-sm font-bold text-white shadow-sm mb-3"
+          style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)' }}>
+          + Add My Dog
+        </button>
         <button onClick={() => navigate('/owner')}
-          className="mt-6 px-6 py-3 rounded-2xl text-sm font-bold text-ink border-2 border-surface-border hover:bg-surface-hover">
+          className="px-6 py-2.5 rounded-2xl text-sm font-semibold text-ink-secondary hover:bg-surface-hover transition-colors">
           Go Back
         </button>
       </div>

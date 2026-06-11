@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
 import type { Purchase, ShopNotification } from '../types';
 
 export interface ShopProduct {
@@ -9,9 +10,10 @@ export interface ShopProduct {
   img: string;
   category: 'treats' | 'accessories' | 'meals' | 'hygiene';
   description?: string;
-  shopOwnerId?: string; // undefined = PawFleet default products
+  shopOwnerId?: string;
 }
 
+// Default products — always visible to everyone, never deleted
 const DEFAULT_PRODUCTS: ShopProduct[] = [
   { id: 'tr1', name: 'Star Biscuits',  price: 120, badge: 'Bestseller', img: 'https://images.unsplash.com/photo-1568640347023-a616a30bc3bd?w=400&q=80', category: 'treats', description: 'Oven-baked star shaped biscuits, 250g' },
   { id: 'tr2', name: 'Chicken Chews',  price: 180, badge: 'New',        img: 'https://images.unsplash.com/photo-1611501275019-9b5cda994e8d?w=400&q=80', category: 'treats', description: 'Air-dried chicken strips, 200g' },
@@ -44,15 +46,20 @@ export const useShop = () => {
   return ctx;
 };
 
-const STORAGE_KEY     = 'pawfleet_shop_products';
-const PURCHASES_KEY   = 'pawfleet_purchases';
-const NOTIF_KEY       = 'pawfleet_shop_notifs';
+const PURCHASES_KEY = 'pawfleet_purchases';
+const NOTIF_KEY     = 'pawfleet_shop_notifs';
+
+function toProduct(r: any): ShopProduct {
+  return {
+    id: r.id, name: r.name, price: Number(r.price),
+    badge: r.badge ?? null, img: r.img, category: r.category,
+    description: r.description ?? undefined, shopOwnerId: r.shop_owner_id ?? undefined,
+  };
+}
 
 export function ShopProvider({ children }: { children: React.ReactNode }) {
-  const [products, setProducts] = useState<ShopProduct[]>(() => {
-    try { const s = localStorage.getItem(STORAGE_KEY); return s ? JSON.parse(s) : DEFAULT_PRODUCTS; }
-    catch { return DEFAULT_PRODUCTS; }
-  });
+  // Custom products added by shop owners — loaded from Supabase
+  const [customProducts, setCustomProducts] = useState<ShopProduct[]>([]);
 
   const [purchases, setPurchases] = useState<Purchase[]>(() => {
     try { const s = localStorage.getItem(PURCHASES_KEY); return s ? JSON.parse(s) : []; }
@@ -64,51 +71,69 @@ export function ShopProvider({ children }: { children: React.ReactNode }) {
     catch { return []; }
   });
 
-  useEffect(() => { localStorage.setItem(STORAGE_KEY, JSON.stringify(products)); }, [products]);
   useEffect(() => { localStorage.setItem(PURCHASES_KEY, JSON.stringify(purchases)); }, [purchases]);
   useEffect(() => { localStorage.setItem(NOTIF_KEY, JSON.stringify(notifications)); }, [notifications]);
 
+  // Load custom products from Supabase on mount
+  useEffect(() => {
+    supabase.from('shop_products').select('*').order('created_at').then(({ data, error }) => {
+      if (!error && data) setCustomProducts(data.map(toProduct));
+    });
+  }, []);
+
+  // All products: defaults + shop-owner-added (from Supabase)
+  const products = [...DEFAULT_PRODUCTS, ...customProducts];
+
   const addProduct = (p: Omit<ShopProduct, 'id'>) => {
-    setProducts(prev => [...prev, { ...p, id: `prod_${Date.now()}` }]);
+    const id = `prod_${Date.now()}`;
+    const newProd: ShopProduct = { ...p, id };
+    setCustomProducts(prev => [...prev, newProd]);
+    supabase.from('shop_products').insert({
+      id, name: p.name, price: p.price, badge: p.badge ?? null,
+      img: p.img, category: p.category, description: p.description ?? null,
+      shop_owner_id: p.shopOwnerId ?? null,
+    }).then(({ error }) => { if (error) console.error('addProduct:', error); });
   };
+
   const updateProduct = (id: string, updates: Partial<Omit<ShopProduct, 'id'>>) => {
-    setProducts(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p));
+    // Only custom products can be edited
+    setCustomProducts(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p));
+    const db: Record<string, any> = {};
+    if (updates.name !== undefined)        db.name = updates.name;
+    if (updates.price !== undefined)       db.price = updates.price;
+    if (updates.badge !== undefined)       db.badge = updates.badge;
+    if (updates.img !== undefined)         db.img = updates.img;
+    if (updates.category !== undefined)    db.category = updates.category;
+    if (updates.description !== undefined) db.description = updates.description;
+    supabase.from('shop_products').update(db).eq('id', id)
+      .then(({ error }) => { if (error) console.error('updateProduct:', error); });
   };
+
   const removeProduct = (id: string) => {
-    setProducts(prev => prev.filter(p => p.id !== id));
+    setCustomProducts(prev => prev.filter(p => p.id !== id));
+    supabase.from('shop_products').delete().eq('id', id)
+      .then(({ error }) => { if (error) console.error('removeProduct:', error); });
   };
 
   const createPurchase = (items: CartItem[], buyerId: string, buyerName: string): Purchase[] => {
     const now = new Date().toISOString();
     const newPurchases: Purchase[] = items.map(({ product, qty }) => ({
       id: `pur_${Date.now()}_${Math.random().toString(36).slice(2)}`,
-      productId: product.id,
-      productName: product.name,
-      productImg: product.img,
-      quantity: qty,
-      unitPrice: product.price,
-      total: product.price * qty,
-      buyerId,
-      buyerName,
-      shopOwnerId: product.shopOwnerId || 'pawfleet',
-      purchasedAt: now,
-      status: 'pending',
+      productId: product.id, productName: product.name, productImg: product.img,
+      quantity: qty, unitPrice: product.price, total: product.price * qty,
+      buyerId, buyerName, shopOwnerId: product.shopOwnerId || 'pawfleet',
+      purchasedAt: now, status: 'pending',
     }));
     setPurchases(prev => [...prev, ...newPurchases]);
 
-    // Create notifications for shop owners
     const newNotifs: ShopNotification[] = newPurchases
       .filter(p => p.shopOwnerId !== 'pawfleet')
       .map(purchase => ({
         id: `notif_${Date.now()}_${Math.random().toString(36).slice(2)}`,
-        shopOwnerId: purchase.shopOwnerId,
-        type: 'purchase' as const,
-        purchase,
-        read: false,
-        createdAt: now,
+        shopOwnerId: purchase.shopOwnerId, type: 'purchase' as const,
+        purchase, read: false, createdAt: now,
       }));
     if (newNotifs.length > 0) setNotifications(prev => [...prev, ...newNotifs]);
-
     return newPurchases;
   };
 

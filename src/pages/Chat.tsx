@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Send, Phone } from 'lucide-react';
+import { ArrowLeft, Send, Phone, Mic, MicOff } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useApp } from '../context/AppContext';
 import { format } from 'date-fns';
@@ -14,6 +14,27 @@ interface Message {
   sender_name?: string;
 }
 
+// Web Speech API types
+interface SpeechRecognitionEvent extends Event {
+  results: SpeechRecognitionResultList;
+}
+interface SpeechRecognitionInstance extends EventTarget {
+  lang: string;
+  continuous: boolean;
+  interimResults: boolean;
+  start(): void;
+  stop(): void;
+  onresult: ((e: SpeechRecognitionEvent) => void) | null;
+  onerror: ((e: Event) => void) | null;
+  onend: (() => void) | null;
+}
+declare global {
+  interface Window {
+    SpeechRecognition?: new () => SpeechRecognitionInstance;
+    webkitSpeechRecognition?: new () => SpeechRecognitionInstance;
+  }
+}
+
 export default function Chat() {
   const { walkId } = useParams<{ walkId: string }>();
   const { data, currentUser } = useApp();
@@ -21,7 +42,9 @@ export default function Chat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(true);
+  const [listening, setListening] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
 
   const walk = data.walks.find(w => w.id === walkId);
   const walker = data.users.find(u => u.id === walk?.walkerId);
@@ -30,6 +53,9 @@ export default function Chat() {
   const isOwner = currentUser?.role === 'owner';
   const otherPerson = isOwner ? walker : owner;
   const otherName = otherPerson?.name || (isOwner ? 'Walker' : 'Owner');
+
+  const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const speechSupported = !!SpeechRecognitionAPI;
 
   useEffect(() => {
     if (!walkId) return;
@@ -64,6 +90,45 @@ export default function Chat() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // Clean up recognition on unmount
+  useEffect(() => {
+    return () => {
+      recognitionRef.current?.stop();
+    };
+  }, []);
+
+  const toggleMic = () => {
+    if (!SpeechRecognitionAPI) return;
+
+    if (listening) {
+      recognitionRef.current?.stop();
+      setListening(false);
+      return;
+    }
+
+    const recognition = new SpeechRecognitionAPI();
+    recognition.lang = 'en-ZM';
+    recognition.continuous = false;
+    recognition.interimResults = false;
+
+    recognition.onresult = (e: SpeechRecognitionEvent) => {
+      const transcript = e.results[0][0].transcript;
+      setText(prev => prev ? prev + ' ' + transcript : transcript);
+    };
+
+    recognition.onerror = () => {
+      setListening(false);
+    };
+
+    recognition.onend = () => {
+      setListening(false);
+    };
+
+    recognitionRef.current = recognition;
+    recognition.start();
+    setListening(true);
+  };
+
   const sendMessage = async () => {
     if (!text.trim() || !walkId || !currentUser) return;
     const msg = text.trim();
@@ -86,7 +151,6 @@ export default function Chat() {
           <ArrowLeft className="w-5 h-5" />
         </button>
 
-        {/* Avatar */}
         <div className="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center font-bold text-white shrink-0"
           style={{ background: '#1B4332' }}>
           {otherPerson?.imageUrl
@@ -102,7 +166,6 @@ export default function Chat() {
           </div>
         </div>
 
-        {/* Call button */}
         {otherPerson?.phone && (
           <a
             href={`tel:${otherPerson.phone}`}
@@ -160,18 +223,40 @@ export default function Chat() {
 
       {/* Input bar */}
       <div className="bg-white border-t border-surface-border px-4 py-3 shrink-0">
+        {listening && (
+          <div className="flex items-center gap-2 mb-2 px-4 py-2 bg-danger/5 border border-danger/20 rounded-2xl">
+            <span className="w-2 h-2 bg-danger rounded-full animate-pulse" />
+            <span className="text-xs font-semibold text-danger">Listening… speak now</span>
+          </div>
+        )}
         <div className="flex items-end gap-2">
           <div className="flex-1 relative">
             <textarea
               value={text}
               onChange={e => setText(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Type a message..."
+              placeholder={listening ? 'Listening…' : 'Type a message…'}
               rows={1}
               className="w-full resize-none border border-surface-border rounded-3xl px-4 py-3 text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-primary bg-surface-secondary max-h-28 overflow-y-auto"
               style={{ lineHeight: '1.5' }}
             />
           </div>
+
+          {/* Mic button — only shown if browser supports speech */}
+          {speechSupported && (
+            <button
+              onClick={toggleMic}
+              title={listening ? 'Stop listening' : 'Speak to type'}
+              className={`w-11 h-11 flex items-center justify-center rounded-full shrink-0 transition-all active:scale-95 ${
+                listening
+                  ? 'bg-danger text-white animate-pulse'
+                  : 'bg-surface-secondary text-ink-secondary hover:bg-surface-hover border border-surface-border'
+              }`}
+            >
+              {listening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+            </button>
+          )}
+
           <button
             onClick={sendMessage}
             disabled={!text.trim()}

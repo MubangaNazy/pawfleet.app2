@@ -212,6 +212,13 @@ export default function WalkerMyWalks() {
                     <Button variant="success" size="md" icon={<Play className="w-4 h-4" />} loading={isGpsLoading} onClick={() => handleStart(walk.id)}>
                       {isGpsLoading ? 'Getting GPS...' : 'Start Walk'}
                     </Button>
+                    <Link
+                      to={`/walker/chat/${walk.id}`}
+                      className="flex items-center gap-2 bg-surface-secondary text-ink text-sm font-semibold px-4 py-2 rounded-xl hover:bg-surface-hover border border-surface-border transition-colors"
+                    >
+                      <MessageCircle className="w-4 h-4" />
+                      Chat
+                    </Link>
                     <button
                       type="button"
                       onClick={() => declineWalk(walk.id)}

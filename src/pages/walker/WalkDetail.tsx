@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import {
   ArrowLeft, Calendar, Clock, DollarSign, User, Phone,
-  CheckCircle2, XCircle, Play, Navigation, Scissors, Star, AlertCircle, MapPin
+  CheckCircle2, XCircle, Play, Navigation, Scissors, Star, AlertCircle, MapPin, MessageCircle
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
@@ -26,6 +26,9 @@ export default function WalkerWalkDetail() {
   const [accepting, setAccepting] = useState(false);
   const [starting, setStarting] = useState(false);
   const [ending, setEnding] = useState(false);
+  const [showPayModal, setShowPayModal] = useState(false);
+  const [payMade, setPayMade] = useState<boolean | null>(null);
+  const [payMethod, setPayMethod] = useState('');
 
   const walk = data.walks.find(w => w.id === walkId);
   const dog = data.dogs.find(d => d.id === walk?.dogId);
@@ -80,6 +83,10 @@ export default function WalkerWalkDetail() {
   };
 
   const handleEnd = async () => {
+    if (isGrooming) {
+      setShowPayModal(true);
+      return;
+    }
     setEnding(true);
     try {
       const loc = await getGPS();
@@ -88,6 +95,26 @@ export default function WalkerWalkDetail() {
       navigate('/walker/walks');
     } finally {
       setEnding(false);
+    }
+  };
+
+  const confirmGroomingPayment = async () => {
+    setEnding(true);
+    try {
+      const loc = await getGPS();
+      if (payMade && payMethod) {
+        const { supabase } = await import('../../lib/supabase');
+        const payment = data.payments?.find((p: any) => p.walkId === walkId);
+        if (payment) {
+          await supabase.from('payments').update({ payment_method: payMethod, walker_confirmed: true, status: 'paid' }).eq('id', payment.id);
+        }
+      }
+      endWalk(walkId!, loc);
+      await new Promise(r => setTimeout(r, 400));
+      navigate('/walker/walks');
+    } finally {
+      setEnding(false);
+      setShowPayModal(false);
     }
   };
 
@@ -309,6 +336,13 @@ export default function WalkerWalkDetail() {
                   Decline Walk
                 </span>
               </button>
+              <Link
+                to={`/walker/chat/${walkId}`}
+                className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl font-semibold text-sm border-2 border-primary/30 text-primary bg-primary/5 hover:bg-primary/10 transition-all"
+              >
+                <MessageCircle className="w-4 h-4" />
+                Chat with Owner
+              </Link>
             </>
           )}
 
@@ -343,18 +377,62 @@ export default function WalkerWalkDetail() {
                     </>
                   )}
                 </button>
+                <Link
+                  to={`/walker/chat/${walkId}`}
+                  className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl font-semibold text-sm border-2 border-primary/30 text-primary bg-primary/5 hover:bg-primary/10 transition-all"
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  Chat with Owner
+                </Link>
               </>
             ) : (
-              <Link
-                to={`/walker/live/${walkId}`}
-                className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl text-white font-bold text-base transition-all"
-                style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)' }}
-              >
-                <Navigation className="w-5 h-5" />
-                Go Live
-              </Link>
+              <>
+                <Link
+                  to={`/walker/live/${walkId}`}
+                  className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl text-white font-bold text-base transition-all"
+                  style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)' }}
+                >
+                  <Navigation className="w-5 h-5" />
+                  Go Live
+                </Link>
+                <Link
+                  to={`/walker/chat/${walkId}`}
+                  className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl font-semibold text-sm border-2 border-primary/30 text-primary bg-primary/5 hover:bg-primary/10 transition-all"
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  Chat with Owner
+                </Link>
+              </>
             )
           )}
+        </div>
+      )}
+
+      {showPayModal && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
+          <div className="bg-white w-full max-w-lg rounded-t-3xl px-5 pt-5 pb-10 shadow-2xl space-y-4">
+            <div className="w-10 h-1 rounded-full bg-surface-border mx-auto" />
+            <h2 className="text-lg font-extrabold text-ink text-center">Grooming Complete 🛁</h2>
+            <p className="text-sm text-ink-secondary text-center">Was payment received?</p>
+            <div className="flex gap-3">
+              <button onClick={() => setPayMade(true)} className={`flex-1 py-3 rounded-2xl font-bold text-sm border-2 transition-all ${payMade === true ? 'border-primary bg-primary text-white' : 'border-surface-border text-ink'}`}>✅ Yes, paid</button>
+              <button onClick={() => setPayMade(false)} className={`flex-1 py-3 rounded-2xl font-bold text-sm border-2 transition-all ${payMade === false ? 'border-danger bg-danger text-white' : 'border-surface-border text-ink'}`}>❌ Not yet</button>
+            </div>
+            {payMade && (
+              <div className="grid grid-cols-3 gap-2">
+                {['mobile_money', 'cash', 'bank'].map(m => (
+                  <button key={m} onClick={() => setPayMethod(m)} className={`py-3 rounded-2xl text-xs font-bold border-2 transition-all ${payMethod === m ? 'border-primary bg-primary/10 text-primary' : 'border-surface-border text-ink'}`}>
+                    {m === 'mobile_money' ? '📱 Mobile' : m === 'cash' ? '💵 Cash' : '🏦 Bank'}
+                  </button>
+                ))}
+              </div>
+            )}
+            <button onClick={confirmGroomingPayment} disabled={payMade === null || (payMade && !payMethod) || ending}
+              className="w-full py-4 rounded-2xl font-bold text-white text-sm disabled:opacity-40"
+              style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)' }}>
+              {ending ? 'Completing…' : 'Confirm & Complete'}
+            </button>
+          </div>
         </div>
       )}
     </div>

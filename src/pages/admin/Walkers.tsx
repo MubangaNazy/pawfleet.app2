@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Phone, Activity, Flame, Plus, X, UserPlus, Eye, EyeOff, CheckCircle, XCircle, Clock, CreditCard, Copy, Check } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Phone, Activity, Flame, Plus, X, UserPlus, Eye, EyeOff, CheckCircle, XCircle, Clock, CreditCard, Copy, Check, ChevronDown, ChevronUp } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
 interface NewWalkerForm {
@@ -17,6 +18,7 @@ export default function AdminWalkers() {
 
   const [tab, setTab]         = useState<Tab>('active');
   const [showAdd, setShowAdd] = useState(false);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [form, setForm]       = useState<NewWalkerForm>(BLANK);
   const [showPw, setShowPw]   = useState(false);
   const [error, setError]     = useState('');
@@ -160,6 +162,12 @@ export default function AdminWalkers() {
               const pctPaid = stats.totalEarned > 0 ? (stats.paid / stats.totalEarned) * 100 : 0;
               const isPending = walker.walkerStatus === 'pending_approval';
 
+              const isExpanded = expandedId === walker.id;
+              const last5Walks = data.walks
+                .filter(w => w.walkerId === walker.id)
+                .sort((a, b) => new Date(b.scheduledDate).getTime() - new Date(a.scheduledDate).getTime())
+                .slice(0, 5);
+
               return (
                 <div key={walker.id} className={`bg-white border rounded-2xl overflow-hidden ${isPending ? 'border-amber-200' : 'border-surface-border'}`}>
                   {isPending && (
@@ -169,7 +177,10 @@ export default function AdminWalkers() {
                     </div>
                   )}
 
-                  <div className="px-5 pt-4 pb-3 border-b border-surface-border">
+                  <div
+                    className="px-5 pt-4 pb-3 border-b border-surface-border cursor-pointer hover:bg-surface-secondary/50 transition-colors"
+                    onClick={() => setExpandedId(isExpanded ? null : walker.id)}
+                  >
                     <div className="flex items-center gap-3">
                       <div className="w-12 h-12 rounded-2xl overflow-hidden shrink-0">
                         {walker.imageUrl
@@ -184,8 +195,8 @@ export default function AdminWalkers() {
                         <div className="flex items-center gap-2 flex-wrap">
                           <h3 className="font-bold text-ink text-sm">{walker.name}</h3>
                           {stats.activeWalk && (
-                            <span className="flex items-center gap-1 text-[10px] text-success bg-success/10 border border-success/20 px-2 py-0.5 rounded-full font-semibold">
-                              <span className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" /> On Walk
+                            <span className="flex items-center gap-1 text-[10px] text-success bg-success/10 border border-success/20 px-2 py-0.5 rounded-full font-semibold animate-pulse">
+                              <span className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" /> ON WALK NOW
                             </span>
                           )}
                         </div>
@@ -197,6 +208,18 @@ export default function AdminWalkers() {
                             <CreditCard className="w-3 h-3" /> NRC: {walker.nrc}
                           </div>
                         )}
+                      </div>
+                      <div className="flex flex-col items-end gap-1.5 shrink-0">
+                        {stats.activeWalk && (
+                          <Link
+                            to="/admin/walks"
+                            onClick={e => e.stopPropagation()}
+                            className="text-[10px] font-bold text-primary border border-primary/30 bg-primary/5 px-2 py-1 rounded-lg hover:bg-primary/10 transition-colors"
+                          >
+                            View Walk
+                          </Link>
+                        )}
+                        {isExpanded ? <ChevronUp className="w-4 h-4 text-ink-muted" /> : <ChevronDown className="w-4 h-4 text-ink-muted" />}
                       </div>
                     </div>
                   </div>
@@ -252,6 +275,48 @@ export default function AdminWalkers() {
                           <p className="text-xs text-ink-muted italic">No badges yet</p>
                         )}
                       </div>
+
+                      {isExpanded && (
+                        <div className="border-t border-surface-border px-5 py-4 space-y-3">
+                          <h4 className="text-xs font-bold text-ink-muted uppercase tracking-wider">Recent Walks (last 5)</h4>
+                          {last5Walks.length === 0 ? (
+                            <p className="text-xs text-ink-muted italic">No walks yet</p>
+                          ) : (
+                            <div className="space-y-2">
+                              {last5Walks.map(w => {
+                                const dog = data.dogs.find(d => d.id === w.dogId);
+                                const statusColor = w.status === 'completed' ? 'text-success' : w.status === 'active' ? 'text-primary' : 'text-amber-600';
+                                return (
+                                  <div key={w.id} className="flex items-center justify-between text-xs py-1.5 border-b border-surface-border last:border-0">
+                                    <div>
+                                      <span className="font-semibold text-ink">{dog?.name || 'Unknown Dog'}</span>
+                                      <span className="text-ink-muted ml-1.5">{new Date(w.scheduledDate).toLocaleDateString()}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <span className={`font-semibold ${statusColor} capitalize`}>{w.status}</span>
+                                      {w.walkerEarning ? <span className="text-ink-muted">K{w.walkerEarning}</span> : null}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                          <div className="pt-2 border-t border-surface-border grid grid-cols-3 gap-2 text-center">
+                            <div>
+                              <p className="text-sm font-extrabold text-ink">{stats.completedWalks}</p>
+                              <p className="text-[10px] text-ink-muted">Completed</p>
+                            </div>
+                            <div>
+                              <p className="text-sm font-extrabold text-success">K{stats.paid}</p>
+                              <p className="text-[10px] text-ink-muted">Paid Out</p>
+                            </div>
+                            <div>
+                              <p className="text-sm font-extrabold text-amber-600">K{stats.unpaid}</p>
+                              <p className="text-[10px] text-ink-muted">Owed</p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </>
                   )}
 

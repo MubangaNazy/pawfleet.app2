@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CheckCircle, PlusCircle, Search, Star, MapPin, Zap, Calendar } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
@@ -14,6 +14,11 @@ export default function OwnerRequestWalk() {
   const walkers = data.users.filter(u => u.role === 'walker');
 
   const [dogId, setDogId] = useState(myDogs.length === 1 ? myDogs[0].id : '');
+
+  // Auto-select if data loads after component mounts
+  useEffect(() => {
+    if (!dogId && myDogs.length === 1) setDogId(myDogs[0].id);
+  }, [myDogs.length]);
   const [schedDate, setSchedDate] = useState(todayStr());
   const [schedTime, setSchedTime] = useState('09:00');
   const [duration, setDuration] = useState(30);
@@ -24,7 +29,7 @@ export default function OwnerRequestWalk() {
 
   const selectedDog = myDogs.find(d => d.id === dogId);
 
-  const handleSubmit = () => {
+  const handleSubmit = (walkerId?: string) => {
     if (!dogId) return;
     const scheduledDate = isInstant
       ? new Date().toISOString()
@@ -32,7 +37,7 @@ export default function OwnerRequestWalk() {
     createWalk({
       dogId,
       ownerId: currentUser!.id,
-      walkerId: selectedWalkerId || undefined,
+      walkerId: walkerId || selectedWalkerId || undefined,
       status: 'pending',
       scheduledDate,
       price: 150,
@@ -229,8 +234,8 @@ export default function OwnerRequestWalk() {
           🐕 Find a walker nearby
         </button>
 
-        {/* Available walkers */}
-        {(step === 'walkers' || true) && walkers.length > 0 && (
+        {/* Available walkers — shown after clicking Find */}
+        {step === 'walkers' && walkers.length > 0 && (
           <div>
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-base font-bold text-ink">Available walkers</h2>
@@ -274,7 +279,7 @@ export default function OwnerRequestWalk() {
                     <button
                       onClick={() => {
                         setSelectedWalkerId(walker.id);
-                        handleSubmit();
+                        handleSubmit(walker.id);
                       }}
                       disabled={!dogId}
                       className="px-4 py-2 rounded-xl text-xs font-bold text-white transition-colors disabled:opacity-40"

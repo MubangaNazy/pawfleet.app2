@@ -1,127 +1,156 @@
 import { useNavigate } from 'react-router-dom';
-import { MapPin, MessageCircle, Star, Shield, Clock, ChevronRight } from 'lucide-react';
 import PawFleetLogo from '../components/ui/PawFleetLogo';
-
-const HERO_IMG = 'https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=900&q=80';
-const DOG1 = 'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=400&q=80';
-const DOG2 = 'https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=400&q=80';
-const WALKER1 = 'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?w=200&q=80';
-const WALKER2 = 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&q=80';
-const WALKER3 = 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&q=80';
-
-const FEATURES = [
-  { icon: MapPin, title: 'Live GPS Tracking', desc: 'Watch every step of your dog\'s walk in real time on an interactive map.' },
-  { icon: MessageCircle, title: 'In-Walk Chat', desc: 'Message your walker directly during any walk — photos, updates, anything.' },
-  { icon: Star, title: 'Verified Walkers', desc: 'Every PawFleet walker is background-checked and rated by real owners.' },
-  { icon: Shield, title: 'Walk Insurance', desc: 'All walks are covered. Your dog is in safe, protected hands every time.' },
-  { icon: Clock, title: 'Instant Booking', desc: 'Book a same-day walk in under 60 seconds — no phone calls needed.' },
-  { icon: ChevronRight, title: 'ZMW Pricing', desc: 'Fair local pricing in Zambian Kwacha with transparent, no-hidden-fee rates.' },
-];
-
-const STEPS = [
-  { n: '01', title: 'Create your profile', desc: 'Add your dog\'s name, breed, age, and any special care instructions in minutes.' },
-  { n: '02', title: 'Pick a walker', desc: 'Browse walkers near you. Check their ratings, bio, and price per walk.' },
-  { n: '03', title: 'Track & relax', desc: 'Watch the live map while your dog gets a great walk. Rate when done.' },
-];
-
-const WALKERS = [
-  { name: 'Chanda M.', rating: 4.9, walks: 142, img: WALKER1 },
-  { name: 'Mwape K.', rating: 4.8, walks: 98, img: WALKER2 },
-  { name: 'Bupe N.', rating: 5.0, walks: 73, img: WALKER3 },
-];
 
 export default function Landing() {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-white overflow-x-hidden">
-      {/* Nav */}
-      <nav className="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-surface-border">
+    <div className="min-h-screen bg-white overflow-x-hidden font-sans">
+
+      {/* ── Nav ─────────────────────────────────────────────── */}
+      <nav className="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-gray-100 shadow-sm">
         <div className="max-w-5xl mx-auto flex items-center justify-between px-5 py-3">
           <div className="flex items-center gap-2">
             <PawFleetLogo size={32} />
-            <span className="text-base font-bold text-ink">PawFleet</span>
+            <span className="text-base font-bold" style={{ color: '#1B4332' }}>PawFleet</span>
           </div>
           <div className="flex items-center gap-3">
             <button
               onClick={() => navigate('/login')}
-              className="text-sm font-semibold text-ink-secondary hover:text-ink transition-colors"
+              className="text-sm font-semibold transition-colors"
+              style={{ color: '#2B8A50' }}
             >
-              Sign in
+              Sign In
             </button>
             <button
-              onClick={() => navigate('/login')}
-              className="text-sm font-bold text-white px-4 py-2 rounded-xl transition-colors"
-              style={{ background: '#1B4332' }}
+              onClick={() => navigate('/register')}
+              className="text-sm font-bold text-white px-4 py-2 rounded-xl transition-all active:scale-95 shadow-sm"
+              style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)' }}
             >
-              Get started
+              Get Started →
             </button>
           </div>
         </div>
       </nav>
 
-      {/* Hero */}
-      <section className="relative overflow-hidden" style={{ background: 'linear-gradient(160deg, #1B4332 0%, #2B8A50 50%, #52B788 100%)' }}>
-        <div className="max-w-5xl mx-auto px-5 pt-16 pb-0 flex flex-col lg:flex-row items-center gap-10">
-          <div className="flex-1 text-white text-center lg:text-left pb-10 lg:pb-16">
-            <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur rounded-full px-4 py-1.5 text-sm font-semibold mb-6">
-              <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
-              Now live in Lusaka 🇿🇲
+      {/* ── Hero ────────────────────────────────────────────── */}
+      <section
+        className="relative overflow-hidden"
+        style={{ background: 'linear-gradient(135deg, #0D2818 0%, #1B4332 50%, #2B8A50 100%)', minHeight: '92vh' }}
+      >
+        {/* Floating decorative paw prints */}
+        <div style={{ position: 'absolute', top: 40, right: 60, fontSize: 80, opacity: 0.07, transform: 'rotate(20deg)', userSelect: 'none' }}>🐾</div>
+        <div style={{ position: 'absolute', bottom: 80, left: 30, fontSize: 60, opacity: 0.06, transform: 'rotate(-15deg)', userSelect: 'none' }}>🐾</div>
+        <div style={{ position: 'absolute', top: '40%', left: '8%', fontSize: 40, opacity: 0.05, userSelect: 'none' }}>🐾</div>
+
+        <div className="max-w-5xl mx-auto px-5 pt-20 pb-16 flex flex-col lg:flex-row items-center gap-12">
+          {/* Left: headline + CTAs */}
+          <div className="flex-1 text-white text-center lg:text-left">
+            <div
+              className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-bold mb-6 border"
+              style={{ background: 'rgba(255,255,255,0.12)', borderColor: 'rgba(255,255,255,0.25)', color: '#fff' }}
+            >
+              <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+              Now live in Lusaka, Zambia 🇿🇲
             </div>
-            <h1 className="text-4xl lg:text-5xl font-extrabold leading-tight mb-5">
-              Dog walking you<br />can actually trust
+
+            <h1 className="text-4xl lg:text-6xl font-extrabold leading-tight mb-5" style={{ letterSpacing: '-0.02em' }}>
+              Walk your dog<br />
+              <span style={{ color: '#52B788' }}>with confidence</span>
             </h1>
-            <p className="text-white/85 text-lg leading-relaxed mb-8 max-w-md mx-auto lg:mx-0">
-              Book vetted walkers, track every step live, and chat in real time — all in one app built for Zambia.
+
+            <p className="text-lg leading-relaxed mb-8 max-w-md mx-auto lg:mx-0" style={{ color: 'rgba(255,255,255,0.8)' }}>
+              PawFleet connects trusted walkers with Lusaka's pet owners. Live GPS tracking, instant booking, and professional grooming — all in one app.
             </p>
-            <div className="flex flex-col sm:flex-row gap-3 justify-center lg:justify-start">
+
+            <div className="flex flex-col sm:flex-row gap-3 justify-center lg:justify-start mb-10">
               <button
-                onClick={() => navigate('/login')}
-                className="flex items-center justify-center gap-2 bg-white font-bold px-6 py-3.5 rounded-2xl text-sm transition-all active:scale-95 shadow-lg"
-                style={{ color: '#1B4332' }}
+                onClick={() => navigate('/register')}
+                className="flex items-center justify-center gap-2 font-bold px-7 py-4 rounded-2xl text-base transition-all active:scale-95 shadow-xl"
+                style={{ background: '#fff', color: '#1B4332' }}
               >
-                🐾 Get started free
+                Get Started →
               </button>
               <button
                 onClick={() => navigate('/login')}
-                className="flex items-center justify-center gap-2 bg-white/15 backdrop-blur text-white font-semibold px-6 py-3.5 rounded-2xl text-sm border border-white/30 hover:bg-white/25 transition-all"
+                className="flex items-center justify-center gap-2 font-semibold px-7 py-4 rounded-2xl text-base border transition-all hover:bg-white/10"
+                style={{ background: 'rgba(255,255,255,0.1)', borderColor: 'rgba(255,255,255,0.3)', color: '#fff' }}
               >
-                Sign in to your account
+                Sign In
               </button>
             </div>
-            {/* Social proof */}
-            <div className="flex items-center gap-4 mt-8 justify-center lg:justify-start">
+
+            {/* Social proof row */}
+            <div className="flex items-center gap-4 justify-center lg:justify-start">
               <div className="flex -space-x-2">
-                {[DOG1, DOG2, WALKER1].map((img, i) => (
-                  <img key={i} src={img} alt="" className="w-9 h-9 rounded-full border-2 border-white object-cover" />
+                {['🐕', '🐩', '🦮'].map((emoji, i) => (
+                  <div key={i} className="w-9 h-9 rounded-full border-2 border-white flex items-center justify-center text-sm" style={{ background: '#2B8A50' }}>
+                    {emoji}
+                  </div>
                 ))}
               </div>
-              <div className="text-sm text-white/90">
-                <span className="font-bold">500+</span> happy dogs walked
-              </div>
+              <p className="text-sm" style={{ color: 'rgba(255,255,255,0.85)' }}>
+                <span className="font-bold text-white">500+ walks</span> completed by happy dogs
+              </p>
             </div>
           </div>
 
-          {/* Hero phone mockup */}
-          <div className="flex-shrink-0 w-64 lg:w-72 lg:self-end">
-            <div className="rounded-t-3xl overflow-hidden shadow-2xl border-4 border-white/30">
-              <img src={HERO_IMG} alt="Dog walking" className="w-full h-80 object-cover" />
-              <div className="bg-white p-4">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="w-10 h-10 rounded-full overflow-hidden shrink-0">
-                    <img src={WALKER1} alt="" className="w-full h-full object-cover" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-xs font-bold text-ink">Chanda is walking Max</p>
-                    <p className="text-[10px] text-ink-muted">2.1 km · 28 mins</p>
-                  </div>
-                  <span className="flex items-center gap-1 text-[10px] font-bold text-white bg-success px-2 py-0.5 rounded-full">
-                    <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-                    LIVE
-                  </span>
+          {/* Right: App mockup card */}
+          <div className="flex-shrink-0 w-72 lg:w-80">
+            <div
+              className="rounded-3xl shadow-2xl overflow-hidden"
+              style={{ background: '#fff', border: '4px solid rgba(255,255,255,0.25)' }}
+            >
+              {/* Mock status bar */}
+              <div style={{ background: '#1B4332', padding: '12px 16px' }} className="flex items-center justify-between">
+                <span className="text-white text-xs font-bold">PawFleet</span>
+                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full" style={{ background: 'rgba(255,255,255,0.2)' }}>
+                  <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+                  <span className="text-white text-[10px] font-bold">LIVE</span>
                 </div>
-                <div className="h-24 rounded-xl overflow-hidden bg-surface-secondary flex items-center justify-center">
-                  <span className="text-2xl">🗺️</span>
+              </div>
+              {/* Mock map area */}
+              <div style={{ height: 180, background: '#EBF5EF', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}>
+                {/* Fake map grid lines */}
+                <div style={{ position: 'absolute', inset: 0, opacity: 0.15 }}>
+                  {[0, 1, 2, 3].map(i => (
+                    <div key={i} style={{ position: 'absolute', left: `${i * 33}%`, top: 0, bottom: 0, width: 1, background: '#2B8A50' }} />
+                  ))}
+                  {[0, 1, 2, 3].map(i => (
+                    <div key={i} style={{ position: 'absolute', top: `${i * 33}%`, left: 0, right: 0, height: 1, background: '#2B8A50' }} />
+                  ))}
+                </div>
+                {/* Route line */}
+                <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
+                  <path d="M 30 150 Q 80 80 140 100 T 240 60" stroke="#2B8A50" strokeWidth="3" fill="none" strokeLinecap="round" />
+                </svg>
+                {/* Walker marker */}
+                <div style={{ position: 'absolute', top: '35%', left: '55%', transform: 'translate(-50%, -50%)', width: 36, height: 36, borderRadius: '50%', background: '#2B8A50', border: '3px solid white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, boxShadow: '0 3px 12px rgba(0,0,0,0.25)' }}>
+                  🐾
+                </div>
+              </div>
+              {/* Mock walk card */}
+              <div style={{ padding: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                  <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#EBF5EF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>🐕</div>
+                  <div style={{ flex: 1 }}>
+                    <p style={{ fontWeight: 700, fontSize: 13, color: '#1B4332' }}>Max is on a walk</p>
+                    <p style={{ fontSize: 11, color: '#666' }}>with Chanda M. · 1.2km so far</p>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <div style={{ flex: 1, background: '#EBF5EF', borderRadius: 12, padding: '8px 0', textAlign: 'center' }}>
+                    <p style={{ fontSize: 14, fontWeight: 800, color: '#1B4332' }}>22:14</p>
+                    <p style={{ fontSize: 10, color: '#666' }}>Elapsed</p>
+                  </div>
+                  <div style={{ flex: 1, background: '#EBF5EF', borderRadius: 12, padding: '8px 0', textAlign: 'center' }}>
+                    <p style={{ fontSize: 14, fontWeight: 800, color: '#1B4332' }}>1.2km</p>
+                    <p style={{ fontSize: 10, color: '#666' }}>Distance</p>
+                  </div>
+                  <div style={{ flex: 1, background: '#EBF5EF', borderRadius: 12, padding: '8px 0', textAlign: 'center' }}>
+                    <p style={{ fontSize: 14, fontWeight: 800, color: '#2B8A50' }}>⭐ 4.9</p>
+                    <p style={{ fontSize: 10, color: '#666' }}>Rating</p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -129,114 +158,163 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Stats banner */}
-      <section className="bg-surface-secondary border-b border-surface-border">
-        <div className="max-w-5xl mx-auto grid grid-cols-3 divide-x divide-surface-border px-5">
+      {/* ── Stats bar ───────────────────────────────────────── */}
+      <section className="px-5 py-0 -mt-6 relative z-10">
+        <div
+          className="max-w-3xl mx-auto rounded-2xl shadow-xl grid grid-cols-3 divide-x"
+          style={{ background: '#fff', border: '1px solid #e5e7eb', divideColor: '#e5e7eb' }}
+        >
           {[
-            { n: '500+', label: 'Walks completed' },
-            { n: '4.9★', label: 'Average rating' },
-            { n: '25+', label: 'Verified walkers' },
-          ].map(s => (
-            <div key={s.label} className="flex flex-col items-center py-6 gap-1">
-              <span className="text-2xl font-extrabold" style={{ color: '#1B4332' }}>{s.n}</span>
-              <span className="text-xs text-ink-muted">{s.label}</span>
+            { value: '500+', label: 'Walks Completed' },
+            { value: '50+',  label: 'Trusted Walkers' },
+            { value: '4.9★', label: 'Average Rating'  },
+          ].map(({ value, label }) => (
+            <div key={label} className="flex flex-col items-center py-5 gap-1">
+              <span className="text-2xl font-extrabold" style={{ color: '#1B4332' }}>{value}</span>
+              <span className="text-xs font-medium" style={{ color: '#666' }}>{label}</span>
             </div>
           ))}
         </div>
       </section>
 
-      {/* Features */}
-      <section className="max-w-5xl mx-auto px-5 py-16">
-        <div className="text-center mb-10">
-          <h2 className="text-2xl font-extrabold text-ink mb-3">Everything you need in one app</h2>
-          <p className="text-ink-muted max-w-md mx-auto text-sm">From booking to tracking to chatting — PawFleet covers it all, designed for Zambian dog owners.</p>
+      {/* ── Features ────────────────────────────────────────── */}
+      <section className="max-w-5xl mx-auto px-5 py-20">
+        <div className="text-center mb-12">
+          <h2 className="text-3xl font-extrabold mb-3" style={{ color: '#1B4332' }}>Everything your dog deserves</h2>
+          <p className="text-sm max-w-md mx-auto" style={{ color: '#666' }}>
+            From live GPS tracking to professional grooming — PawFleet is built for Zambia's pet owners.
+          </p>
         </div>
-        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-          {FEATURES.map(({ icon: Icon, title, desc }) => (
-            <div key={title} className="bg-white border border-surface-border rounded-2xl p-5">
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-3" style={{ background: '#EBF5EF' }}>
-                <Icon className="w-5 h-5" style={{ color: '#2B8A50' }} />
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+          {[
+            {
+              icon: '🗺️',
+              title: 'Live GPS Tracking',
+              desc: 'Watch your dog\'s walk in real-time on the map. Know exactly where they are, every step of the way.',
+            },
+            {
+              icon: '🛁',
+              title: 'Professional Grooming',
+              desc: 'Book bath, trim and full grooming sessions with certified groomers. Add-ons available with walks.',
+            },
+            {
+              icon: '💳',
+              title: 'Easy Payments',
+              desc: 'Pay securely via Mobile Money, Cash or Bank Transfer. All pricing in Zambian Kwacha — no surprises.',
+            },
+          ].map(({ icon, title, desc }) => (
+            <div
+              key={title}
+              className="rounded-2xl p-6 border transition-all hover:shadow-md"
+              style={{ background: '#fff', borderColor: '#e5e7eb' }}
+            >
+              <div
+                className="w-14 h-14 rounded-2xl flex items-center justify-center text-3xl mb-4"
+                style={{ background: '#EBF5EF' }}
+              >
+                {icon}
               </div>
-              <p className="text-sm font-bold text-ink mb-1">{title}</p>
-              <p className="text-xs text-ink-muted leading-relaxed">{desc}</p>
+              <h3 className="font-bold text-base mb-2" style={{ color: '#1B4332' }}>{title}</h3>
+              <p className="text-sm leading-relaxed" style={{ color: '#555' }}>{desc}</p>
             </div>
           ))}
         </div>
       </section>
 
-      {/* How it works */}
-      <section className="py-16" style={{ background: '#EBF5EF' }}>
-        <div className="max-w-5xl mx-auto px-5">
-          <div className="text-center mb-10">
-            <h2 className="text-2xl font-extrabold text-ink mb-3">How PawFleet works</h2>
-            <p className="text-ink-muted text-sm max-w-sm mx-auto">Get your dog walking in three easy steps</p>
+      {/* ── How it works ────────────────────────────────────── */}
+      <section className="py-20" style={{ background: '#EBF5EF' }}>
+        <div className="max-w-4xl mx-auto px-5">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-extrabold mb-3" style={{ color: '#1B4332' }}>How it works</h2>
+            <p className="text-sm" style={{ color: '#555' }}>Get your dog walking in three easy steps</p>
           </div>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {STEPS.map(step => (
-              <div key={step.n} className="flex gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {[
+              {
+                step: '1',
+                title: 'Book a walk',
+                desc: 'Choose instant or scheduled. Pick your dog, set duration, and select from available walkers in your area.',
+                icon: '📅',
+              },
+              {
+                step: '2',
+                title: 'Walker accepts',
+                desc: 'Your walker confirms the booking and heads to your location. You\'ll get a notification the moment they accept.',
+                icon: '✅',
+              },
+              {
+                step: '3',
+                title: 'Track live',
+                desc: 'Watch every step on the real-time map. Chat with your walker and rate the experience when complete.',
+                icon: '📍',
+              },
+            ].map(({ step, title, desc, icon }) => (
+              <div key={step} className="flex flex-col items-center text-center">
                 <div
-                  className="w-12 h-12 rounded-2xl flex items-center justify-center text-white font-extrabold text-lg shrink-0"
+                  className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl mb-4 shadow-md"
                   style={{ background: '#1B4332' }}
                 >
-                  {step.n}
+                  {icon}
                 </div>
-                <div>
-                  <p className="font-bold text-ink mb-1">{step.title}</p>
-                  <p className="text-sm text-ink-muted leading-relaxed">{step.desc}</p>
+                <div
+                  className="text-xs font-extrabold px-3 py-1 rounded-full mb-3"
+                  style={{ background: '#2B8A50', color: '#fff', letterSpacing: '0.08em' }}
+                >
+                  STEP {step}
                 </div>
+                <h3 className="font-extrabold text-base mb-2" style={{ color: '#1B4332' }}>{title}</h3>
+                <p className="text-sm leading-relaxed max-w-xs" style={{ color: '#555' }}>{desc}</p>
               </div>
             ))}
           </div>
+
+          {/* Connector arrows (desktop only) */}
+          <div className="hidden lg:flex justify-center gap-0 mt-2 -translate-y-24 pointer-events-none select-none">
+            <span style={{ flex: 1, textAlign: 'center', fontSize: 28, color: '#52B788', opacity: 0.5 }}>→</span>
+            <span style={{ flex: 1, textAlign: 'center', fontSize: 28, color: '#52B788', opacity: 0.5 }}>→</span>
+          </div>
         </div>
       </section>
 
-      {/* Walkers */}
-      <section className="max-w-5xl mx-auto px-5 py-16">
-        <div className="text-center mb-8">
-          <h2 className="text-2xl font-extrabold text-ink mb-3">Meet our top walkers</h2>
-          <p className="text-ink-muted text-sm">Background-checked, trained, and loved by hundreds of dogs</p>
-        </div>
-        <div className="grid grid-cols-3 gap-4">
-          {WALKERS.map(w => (
-            <div key={w.name} className="bg-white border border-surface-border rounded-2xl p-4 flex flex-col items-center text-center">
-              <img src={w.img} alt={w.name} className="w-16 h-16 rounded-full object-cover mb-3 border-2 border-surface-border" />
-              <p className="font-bold text-ink text-sm">{w.name}</p>
-              <div className="flex items-center gap-1 mt-1">
-                <span className="text-amber-400 text-xs">★</span>
-                <span className="text-xs font-semibold text-ink">{w.rating}</span>
-              </div>
-              <p className="text-[11px] text-ink-muted mt-0.5">{w.walks} walks</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* CTA Banner */}
-      <section className="mx-5 mb-16 rounded-3xl overflow-hidden" style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)' }}>
-        <div className="px-8 py-12 text-center text-white">
-          <p className="text-3xl font-extrabold mb-3">Ready to try PawFleet?</p>
-          <p className="text-white/80 mb-8 max-w-sm mx-auto text-sm">
-            Join hundreds of Zambian dog owners who trust PawFleet for safe, trackable dog walks.
+      {/* ── CTA footer ──────────────────────────────────────── */}
+      <section
+        className="py-20 px-5 text-center"
+        style={{ background: 'linear-gradient(135deg, #0D2818 0%, #1B4332 60%, #2B8A50 100%)' }}
+      >
+        <div className="max-w-lg mx-auto">
+          <div className="text-5xl mb-5">🐾</div>
+          <h2 className="text-3xl font-extrabold text-white mb-3">Ready to get started?</h2>
+          <p className="mb-8 text-base" style={{ color: 'rgba(255,255,255,0.75)' }}>
+            Join Lusaka's growing community of dog owners and trusted walkers on PawFleet.
           </p>
-          <button
-            onClick={() => navigate('/login')}
-            className="bg-white font-bold px-8 py-4 rounded-2xl text-base shadow-lg active:scale-95 transition-transform"
-            style={{ color: '#1B4332' }}
-          >
-            🐾 Start for free
-          </button>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <button
+              onClick={() => navigate('/register')}
+              className="font-bold px-8 py-4 rounded-2xl text-base shadow-xl active:scale-95 transition-all"
+              style={{ background: '#fff', color: '#1B4332' }}
+            >
+              Get Started →
+            </button>
+            <button
+              onClick={() => navigate('/login')}
+              className="font-semibold px-8 py-4 rounded-2xl text-base border transition-all hover:bg-white/10"
+              style={{ background: 'rgba(255,255,255,0.1)', borderColor: 'rgba(255,255,255,0.3)', color: '#fff' }}
+            >
+              Sign In
+            </button>
+          </div>
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="border-t border-surface-border">
+      {/* ── Footer ──────────────────────────────────────────── */}
+      <footer className="border-t" style={{ borderColor: '#e5e7eb' }}>
         <div className="max-w-5xl mx-auto px-5 py-8 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <PawFleetLogo size={24} />
-            <span className="text-sm font-bold text-ink">PawFleet</span>
-            <span className="text-xs text-ink-muted">· Lusaka, Zambia</span>
+            <span className="text-sm font-bold" style={{ color: '#1B4332' }}>PawFleet</span>
+            <span className="text-xs" style={{ color: '#999' }}>· Lusaka, Zambia</span>
           </div>
-          <p className="text-xs text-ink-muted">© 2026 PawFleet. All rights reserved.</p>
+          <p className="text-xs" style={{ color: '#999' }}>© 2026 PawFleet. All rights reserved.</p>
         </div>
       </footer>
     </div>

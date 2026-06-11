@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import {
   ArrowLeft, Calendar, Clock, DollarSign, User, Phone,
-  CheckCircle2, XCircle, Play, Navigation, Scissors, Star, AlertCircle
+  CheckCircle2, XCircle, Play, Navigation, Scissors, Star, AlertCircle, MapPin
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
@@ -21,10 +21,11 @@ async function getGPS(): Promise<{ lat: number; lng: number }> {
 export default function WalkerWalkDetail() {
   const { walkId } = useParams<{ walkId: string }>();
   const navigate = useNavigate();
-  const { data, currentUser, assignWalker, declineWalk, startWalk } = useApp();
+  const { data, currentUser, assignWalker, declineWalk, startWalk, endWalk } = useApp();
 
   const [accepting, setAccepting] = useState(false);
   const [starting, setStarting] = useState(false);
+  const [ending, setEnding] = useState(false);
 
   const walk = data.walks.find(w => w.id === walkId);
   const dog = data.dogs.find(d => d.id === walk?.dogId);
@@ -78,6 +79,18 @@ export default function WalkerWalkDetail() {
     navigate(-1);
   };
 
+  const handleEnd = async () => {
+    setEnding(true);
+    try {
+      const loc = await getGPS();
+      endWalk(walkId!, loc);
+      await new Promise(r => setTimeout(r, 400));
+      navigate('/walker/walks');
+    } finally {
+      setEnding(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col max-w-lg mx-auto">
       {/* Header */}
@@ -91,7 +104,7 @@ export default function WalkerWalkDetail() {
         <div className="flex-1">
           <h1 className="text-base font-bold text-ink">Walk Details</h1>
           <p className="text-xs text-ink-muted">
-            {isAvailable ? 'Available to accept' : isAssigned ? 'Assigned to you' : isActive ? 'Active walk' : 'Completed'}
+            {isAvailable ? 'Available to accept' : isAssigned ? (isGrooming ? 'Grooming job assigned to you' : 'Assigned to you') : isActive ? 'Active walk' : 'Completed'}
           </p>
         </div>
         {isGrooming && (
@@ -283,7 +296,7 @@ export default function WalkerWalkDetail() {
                 ) : (
                   <>
                     <Play className="w-5 h-5" />
-                    Start Walk
+                    {isGrooming ? 'Start Grooming 🛁' : 'Start Walk'}
                   </>
                 )}
               </button>
@@ -300,14 +313,47 @@ export default function WalkerWalkDetail() {
           )}
 
           {isActive && (
-            <Link
-              to={`/walker/live/${walkId}`}
-              className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl text-white font-bold text-base transition-all"
-              style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)' }}
-            >
-              <Navigation className="w-5 h-5" />
-              Go Live
-            </Link>
+            isGrooming ? (
+              <>
+                <div
+                  className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl font-bold text-base"
+                  style={{ background: '#EBF5EF', color: '#1B4332', border: '2px solid #52B788' }}
+                >
+                  <MapPin className="w-5 h-5" />
+                  You're at the grooming location
+                </div>
+                <button
+                  onClick={handleEnd}
+                  disabled={ending}
+                  className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl text-white font-bold text-base transition-all disabled:opacity-60"
+                  style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)' }}
+                >
+                  {ending ? (
+                    <>
+                      <svg className="animate-spin w-5 h-5" viewBox="0 0 24 24" fill="none">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                      </svg>
+                      Completing…
+                    </>
+                  ) : (
+                    <>
+                      <Scissors className="w-5 h-5" />
+                      Complete Grooming ✂️
+                    </>
+                  )}
+                </button>
+              </>
+            ) : (
+              <Link
+                to={`/walker/live/${walkId}`}
+                className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl text-white font-bold text-base transition-all"
+                style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)' }}
+              >
+                <Navigation className="w-5 h-5" />
+                Go Live
+              </Link>
+            )
           )}
         </div>
       )}

@@ -1,8 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { MapContainer, TileLayer, Polyline, Marker, useMap } from 'react-leaflet';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
 import { ArrowLeft, Phone, MessageCircle, Square, Clock, MapPin, Zap } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { supabase } from '../../lib/supabase';
@@ -25,37 +22,6 @@ function totalDistance(pts: LatLng[]): number {
   let d = 0;
   for (let i = 1; i < pts.length; i++) d += haversine(pts[i - 1], pts[i]);
   return d;
-}
-
-const walkerIcon = L.divIcon({
-  html: `<div style="width:44px;height:44px;background:#2B8A50;border-radius:50%;display:flex;align-items:center;justify-content:center;border:3px solid white;box-shadow:0 3px 12px rgba(0,0,0,0.35);font-size:20px;line-height:1;transform:translate(-50%,-50%);position:relative">🐾</div>`,
-  className: '',
-  iconSize: [0, 0],
-  iconAnchor: [0, 0],
-});
-
-function MapFollower({ pos }: { pos: LatLng | null }) {
-  const map = useMap();
-  const firstRef = useRef(true);
-  useEffect(() => {
-    if (!pos) return;
-    if (firstRef.current) {
-      map.setView(pos, 17);
-      firstRef.current = false;
-    } else {
-      map.panTo(pos);
-    }
-  }, [pos, map]);
-  return null;
-}
-
-function MapResizer() {
-  const map = useMap();
-  useEffect(() => {
-    const t = setTimeout(() => map.invalidateSize(), 150);
-    return () => clearTimeout(t);
-  }, [map]);
-  return null;
 }
 
 export default function WalkerLiveWalk() {
@@ -190,9 +156,11 @@ export default function WalkerLiveWalk() {
     );
   }
 
-  const mapCenter = myPos ?? (walk.startLocation
-    ? [walk.startLocation.lat, walk.startLocation.lng] as LatLng
-    : LUSAKA);
+  const currentPos = myPos
+    ? { lat: myPos[0], lng: myPos[1] }
+    : walk.startLocation
+    ? { lat: walk.startLocation.lat, lng: walk.startLocation.lng }
+    : null;
 
   return (
     <div className="flex flex-col h-screen bg-ink">
@@ -218,30 +186,25 @@ export default function WalkerLiveWalk() {
         </div>
       </div>
 
-      {/* Map — absolute inner div forces Leaflet to get a real pixel height */}
+      {/* Map — iframe embed replaces Leaflet for reliability */}
       <div className="flex-1 relative overflow-hidden" style={{ minHeight: 0 }}>
         <div style={{ position: 'absolute', inset: 0 }}>
-          <MapContainer
-            center={mapCenter}
-            zoom={16}
-            style={{ width: '100%', height: '100%' }}
-            zoomControl={false}
-            attributionControl={false}
-          >
-            <TileLayer
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              attribution="© OpenStreetMap"
+          {currentPos ? (
+            <iframe
+              key={`${currentPos.lat.toFixed(4)},${currentPos.lng.toFixed(4)}`}
+              src={`https://www.openstreetmap.org/export/embed.html?bbox=${currentPos.lng - 0.008},${currentPos.lat - 0.008},${currentPos.lng + 0.008},${currentPos.lat + 0.008}&layer=mapnik&marker=${currentPos.lat},${currentPos.lng}`}
+              style={{ width: '100%', height: '100%', border: 'none' }}
+              title="Live location"
             />
-            <MapResizer />
-            <MapFollower pos={myPos} />
-            {route.length > 1 && (
-              <Polyline positions={route} pathOptions={{ color: '#2B8A50', weight: 5, opacity: 0.9 }} />
-            )}
-            {myPos && <Marker position={myPos} icon={walkerIcon} />}
-          </MapContainer>
+          ) : (
+            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#EBF5EF', flexDirection: 'column', gap: 12 }}>
+              <div style={{ fontSize: 40 }}>📍</div>
+              <p style={{ color: '#2B8A50', fontWeight: 600 }}>Getting GPS…</p>
+            </div>
+          )}
         </div>
 
-        {/* Overlays sit on top of the absolute map */}
+        {/* Overlays sit on top of the map */}
         {gpsError && (
           <div className="absolute top-3 left-1/2 -translate-x-1/2 bg-amber-500 text-white text-xs px-3 py-1.5 rounded-xl shadow font-semibold z-[1000]">
             GPS unavailable — location not being shared

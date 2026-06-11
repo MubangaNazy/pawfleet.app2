@@ -455,18 +455,39 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     // Notify walkers and admins of new walk booking
     const dog = data.dogs.find(d => d.id === walk.dogId);
     const owner = data.users.find(u => u.id === walk.ownerId);
-    const notifyMsg = `${owner?.name || 'An owner'} needs a walker for ${dog?.name || 'their dog'}. K${walk.walkerEarning} earning.`;
+
+    const isGroomingJob = walk.notes?.startsWith('GROOMING:');
+    const isGroomingAddon = walk.notes?.includes('Add-on: Grooming');
+
+    let notifyTitle: string;
+    let notifyMsg: string;
+    if (isGroomingJob && !walk.walkerId) {
+      notifyTitle = 'New Grooming Job 🛁';
+      notifyMsg = `${owner?.name || 'An owner'} needs a groomer for ${dog?.name || 'their dog'}. Full grooming session. K${walk.walkerEarning} earning.`;
+    } else if (isGroomingAddon) {
+      notifyTitle = 'New Walk + Grooming 🐾✂️';
+      notifyMsg = `${owner?.name || 'An owner'} has booked a Walk + Grooming add-on for ${dog?.name || 'their dog'}. K${walk.walkerEarning} earning.`;
+    } else {
+      notifyTitle = 'New Walk Available 🐾';
+      notifyMsg = `${owner?.name || 'An owner'} needs a walker for ${dog?.name || 'their dog'}. K${walk.walkerEarning} earning.`;
+    }
+
     data.users.filter(u => u.role === 'walker' && u.walkerStatus === 'active').forEach(w => {
-      sendNotification(w.id, 'walk_booked', 'New Walk Available 🐾', notifyMsg, { walkId: newWalk.id });
+      sendNotification(w.id, 'walk_booked', notifyTitle, notifyMsg, { walkId: newWalk.id });
     });
     data.users.filter(u => u.role === 'admin').forEach(admin => {
       sendNotification(admin.id, 'walk_booked', 'New Walk Booked', notifyMsg, { walkId: newWalk.id });
     });
     if (walk.walkerId) {
-      sendNotification(walk.walkerId, 'walk_accepted', 'Walk Assigned to You',
-        `You have been assigned to walk ${dog?.name || 'a dog'}. K${walk.walkerEarning} earning.`,
-        { walkId: newWalk.id }
-      );
+      const assignedTitle = isGroomingJob || isGroomingAddon
+        ? 'Grooming Session Assigned to You 🛁'
+        : 'Walk Assigned to You';
+      const assignedMsg = isGroomingJob
+        ? `You have been assigned a grooming session for ${dog?.name || 'a dog'}. K${walk.walkerEarning} earning.`
+        : isGroomingAddon
+        ? `You have been assigned a Walk + Grooming add-on for ${dog?.name || 'a dog'}. K${walk.walkerEarning} earning.`
+        : `You have been assigned to walk ${dog?.name || 'a dog'}. K${walk.walkerEarning} earning.`;
+      sendNotification(walk.walkerId, 'walk_accepted', assignedTitle, assignedMsg, { walkId: newWalk.id });
     }
     return newWalk;
   };
@@ -593,6 +614,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // Walker declines an assigned walk — returns it to pending for other walkers
   const declineWalk = (walkId: string) => {
     const walk = data.walks.find(w => w.id === walkId);
+    const decliningWalkerId = walk?.walkerId;
     setData(prev => ({
       ...prev,
       walks: prev.walks.map(w => w.id === walkId ? { ...w, status: 'pending' as const, walkerId: undefined } : w),
@@ -607,6 +629,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         { walkId }
       );
     }
+    // Notify other active walkers about the re-opened walk
+    data.users
+      .filter(u => u.role === 'walker' && u.walkerStatus === 'active' && u.id !== decliningWalkerId)
+      .forEach(w => {
+        sendNotification(
+          w.id,
+          'walk_booked',
+          'Walk Re-opened 🐾',
+          'A walk has been re-opened — be the first to accept!',
+          { walkId }
+        );
+      });
   };
 
   // Owner rates a completed walk

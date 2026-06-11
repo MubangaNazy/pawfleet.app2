@@ -1,9 +1,5 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { MapContainer, TileLayer, Polyline, Marker, useMap } from 'react-leaflet';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
-import { useEffect } from 'react';
 import { ArrowLeft, MessageCircle, Phone, Navigation } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { supabase } from '../../lib/supabase';
@@ -11,36 +7,6 @@ import { format } from 'date-fns';
 
 type LatLng = [number, number];
 const LUSAKA: LatLng = [-15.4167, 28.2833];
-
-const walkerIcon = L.divIcon({
-  html: `<div style="width:48px;height:48px;background:#1B4332;border-radius:50%;display:flex;align-items:center;justify-content:center;border:3px solid white;box-shadow:0 3px 14px rgba(0,0,0,0.4);font-size:22px;line-height:1;transform:translate(-50%,-50%)">🐾</div>`,
-  className: '',
-  iconSize: [0, 0],
-  iconAnchor: [0, 0],
-});
-
-const startIcon = L.divIcon({
-  html: `<div style="width:14px;height:14px;background:#10b981;border-radius:50%;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.35);transform:translate(-50%,-50%)"></div>`,
-  className: '',
-  iconSize: [0, 0],
-  iconAnchor: [0, 0],
-});
-
-const endIcon = L.divIcon({
-  html: `<div style="width:14px;height:14px;background:#EF4444;border-radius:50%;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.35);transform:translate(-50%,-50%)"></div>`,
-  className: '',
-  iconSize: [0, 0],
-  iconAnchor: [0, 0],
-});
-
-function MapResizer() {
-  const map = useMap();
-  useEffect(() => {
-    const t = setTimeout(() => map.invalidateSize(), 150);
-    return () => clearTimeout(t);
-  }, [map]);
-  return null;
-}
 
 export default function WalkTracker() {
   const { walkId } = useParams<{ walkId: string }>();
@@ -90,19 +56,18 @@ export default function WalkTracker() {
   const isActive    = walk.status === 'active';
   const isCompleted = walk.status === 'completed';
 
-  const mapCenter = livePos ?? startLat ?? LUSAKA;
-
-  const routePath: LatLng[] = [
-    ...(startLat ? [startLat] : []),
-    ...(livePos  ? [livePos]  : []),
-    ...(endLat && !isActive ? [endLat] : []),
-  ];
-
   const elapsedMin = Math.floor(elapsed / 60);
   const elapsedSec = (elapsed % 60).toString().padStart(2, '0');
   const durationDisplay = elapsed > 0
     ? `${elapsedMin}:${elapsedSec}`
     : walk.duration ? `${walk.duration} min` : '—';
+
+  // Determine display position: prefer live position, fall back to start location
+  const displayPos = livePos
+    ? { lat: livePos[0], lng: livePos[1] }
+    : startLat
+    ? { lat: startLat[0], lng: startLat[1] }
+    : null;
 
   return (
     <div className="flex flex-col h-screen bg-white">
@@ -126,9 +91,9 @@ export default function WalkTracker() {
         )}
       </div>
 
-      {/* Map — absolute inner div forces Leaflet to get a real pixel height */}
+      {/* Map — iframe embed replaces Leaflet for reliability */}
       <div className="flex-1 relative overflow-hidden" style={{ minHeight: 0 }}>
-        {!startLat && !livePos ? (
+        {!displayPos ? (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-surface-secondary gap-3 p-6 text-center">
             <span className="text-4xl">🗺️</span>
             <p className="text-sm text-ink-secondary">
@@ -139,28 +104,22 @@ export default function WalkTracker() {
           </div>
         ) : (
           <div style={{ position: 'absolute', inset: 0 }}>
-            <MapContainer
-              center={mapCenter}
-              zoom={15}
-              style={{ width: '100%', height: '100%' }}
-              zoomControl={false}
-              attributionControl={false}
-            >
-              <TileLayer
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                attribution="© OpenStreetMap"
+            {livePos ? (
+              <iframe
+                key={`${livePos[0].toFixed(4)},${livePos[1].toFixed(4)}`}
+                src={`https://www.openstreetmap.org/export/embed.html?bbox=${livePos[1] - 0.008},${livePos[0] - 0.008},${livePos[1] + 0.008},${livePos[0] + 0.008}&layer=mapnik&marker=${livePos[0]},${livePos[1]}`}
+                style={{ width: '100%', height: '100%', border: 'none' }}
+                title="Walker location"
               />
-              <MapResizer />
-              {routePath.length > 1 && (
-                <Polyline positions={routePath} pathOptions={{ color: '#1B4332', weight: 5, opacity: 0.9 }} />
-              )}
-              {startLat && <Marker position={startLat} icon={startIcon} />}
-              {isActive && livePos && <Marker position={livePos} icon={walkerIcon} />}
-              {endLat && <Marker position={endLat} icon={endIcon} />}
-            </MapContainer>
+            ) : (
+              <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#EBF5EF', flexDirection: 'column', gap: 12 }}>
+                <div style={{ fontSize: 40 }}>🐕</div>
+                <p style={{ color: '#2B8A50', fontWeight: 600 }}>Waiting for walker's location…</p>
+              </div>
+            )}
           </div>
         )}
-        {isActive && !livePos && (
+        {isActive && !livePos && displayPos && (
           <div className="absolute top-3 left-1/2 -translate-x-1/2 bg-white/95 text-ink text-xs px-3 py-1.5 rounded-xl shadow font-semibold z-[1000] flex items-center gap-2">
             <div className="w-3 h-3 rounded-full border-2 border-primary border-t-transparent animate-spin" />
             Waiting for walker's location…

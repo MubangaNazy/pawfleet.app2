@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom';
-import { Home, ShoppingBag, User, Calendar, Navigation, DollarSign, MapPin, BookOpen } from 'lucide-react';
+import { Home, ShoppingBag, User, Calendar, Navigation, DollarSign, MapPin, BarChart2 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useCart } from '../../context/CartContext';
 
@@ -14,7 +14,7 @@ const ownerNav = [
 const walkerNav = [
   { to: '/walker',           icon: Home,       label: 'Home',     exact: true },
   { to: '/walker/walks',     icon: MapPin,     label: 'Walks' },
-  { to: '/walker/guide',     icon: BookOpen,   label: 'Guide' },
+  { to: '/walker/history',   icon: BarChart2,  label: 'History' },
   { to: '/walker/earnings',  icon: DollarSign, label: 'Earnings' },
   { to: '/walker/profile',   icon: User,       label: 'Profile' },
 ];

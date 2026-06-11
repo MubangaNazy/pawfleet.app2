@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { Bell, CheckCheck, ArrowLeft, Megaphone, MapPin, CreditCard, UserPlus, CheckCircle, XCircle, ShoppingBag } from 'lucide-react';
+import { Bell, CheckCheck, ArrowLeft, Megaphone, MapPin, CreditCard, UserPlus, CheckCircle, XCircle, ShoppingBag, ChevronRight } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { AppNotification } from '../types';
 import { format } from 'date-fns';
@@ -28,6 +28,30 @@ export default function NotificationsPage() {
 
   const handleClick = (notif: AppNotification) => {
     if (!notif.read) markNotificationRead(notif.id);
+    const walkId = notif.data?.walkId;
+    const role = currentUser?.role;
+    if (walkId) {
+      if (role === 'walker' && (notif.type === 'walk_booked' || notif.type === 'walk_accepted')) {
+        navigate(`/walker/walk/${walkId}`);
+      } else if (role === 'owner' && notif.type === 'walk_started') {
+        navigate(`/owner/track/${walkId}`);
+      } else if (role === 'owner' && notif.type === 'walk_accepted') {
+        navigate(`/owner/track/${walkId}`);
+      } else if (role === 'owner' && notif.type === 'walk_completed') {
+        navigate('/owner/history');
+      }
+    } else if (notif.data?.walkerId && role === 'admin') {
+      navigate('/admin/walkers');
+    }
+  };
+
+  const isNavigable = (notif: AppNotification) => {
+    const walkId = notif.data?.walkId;
+    const role = currentUser?.role;
+    if (walkId && role === 'walker' && (notif.type === 'walk_booked' || notif.type === 'walk_accepted')) return true;
+    if (walkId && role === 'owner' && (notif.type === 'walk_started' || notif.type === 'walk_accepted' || notif.type === 'walk_completed')) return true;
+    if (notif.data?.walkerId && role === 'admin') return true;
+    return false;
   };
 
   return (
@@ -80,9 +104,14 @@ export default function NotificationsPage() {
                     <p className={`text-sm font-semibold ${notif.read ? 'text-ink' : 'text-ink'}`}>
                       {notif.title}
                     </p>
-                    {!notif.read && (
-                      <span className="w-2 h-2 bg-primary rounded-full shrink-0 mt-1.5" />
-                    )}
+                    <div className="flex items-center gap-1 shrink-0">
+                      {!notif.read && (
+                        <span className="w-2 h-2 bg-primary rounded-full mt-1.5" />
+                      )}
+                      {isNavigable(notif) && (
+                        <ChevronRight className="w-4 h-4 text-ink-muted mt-0.5" />
+                      )}
+                    </div>
                   </div>
                   <p className="text-xs text-ink-muted mt-0.5 leading-relaxed">{notif.body}</p>
                   <p className="text-[11px] text-ink-muted/60 mt-1.5">

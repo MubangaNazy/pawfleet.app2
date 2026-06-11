@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { format, isToday } from 'date-fns';
-import { CheckCircle, DollarSign, Clock, ArrowRight, Flame, Star, TrendingUp } from 'lucide-react';
+import { CheckCircle, DollarSign, Clock, ArrowRight, Flame, Star, TrendingUp, ChevronRight } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { StatusBadge } from '../../components/ui/Badge';
 
@@ -30,6 +30,11 @@ export default function WalkerDashboard() {
     .filter(w => w.status === 'assigned' || w.status === 'pending')
     .sort((a, b) => new Date(a.scheduledDate).getTime() - new Date(b.scheduledDate).getTime())
     .slice(0, 5);
+
+  const availableWalks = data.walks
+    .filter(w => w.status === 'pending' && !w.walkerId)
+    .sort((a, b) => new Date(a.scheduledDate).getTime() - new Date(b.scheduledDate).getTime())
+    .slice(0, 3);
 
   const gamStats = getWalkerStats(currentUser?.id || '');
 
@@ -165,6 +170,47 @@ export default function WalkerDashboard() {
           ))}
         </div>
 
+        {/* Available Walks — new walk requests */}
+        {availableWalks.length > 0 && (
+          <div className="rounded-2xl overflow-hidden border border-amber-200" style={{ background: '#FFFBEB' }}>
+            <div className="flex items-center justify-between px-5 py-4 border-b border-amber-200">
+              <div className="flex items-center gap-2.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse shrink-0" />
+                <h2 className="font-bold text-amber-900 text-sm">New Walks Available</h2>
+                <span className="text-[11px] font-bold bg-amber-400 text-white px-2 py-0.5 rounded-full">{availableWalks.length}</span>
+              </div>
+              <Link to="/walker/walks" className="text-xs font-semibold text-amber-700 flex items-center gap-1 hover:underline">
+                View all <ArrowRight className="w-3 h-3" />
+              </Link>
+            </div>
+            <div className="divide-y divide-amber-100">
+              {availableWalks.map(walk => {
+                const dog   = data.dogs.find(d => d.id === walk.dogId);
+                const owner = data.users.find(u => u.id === walk.ownerId);
+                return (
+                  <Link key={walk.id} to={`/walker/walk/${walk.id}`}
+                    className="flex items-center gap-3 px-4 py-3.5 hover:bg-amber-100/60 transition-colors">
+                    <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center shrink-0 overflow-hidden">
+                      {dog?.imageUrl
+                        ? <img src={dog.imageUrl} alt={dog.name} className="w-10 h-10 object-cover" />
+                        : <span className="text-lg">🐕</span>
+                      }
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-ink">{dog?.name || 'Unknown Dog'}</p>
+                      <p className="text-xs text-ink-muted">{owner?.name} · {format(new Date(walk.scheduledDate), 'MMM d, h:mm a')}</p>
+                    </div>
+                    <div className="flex flex-col items-end gap-1 shrink-0">
+                      <span className="text-xs font-bold" style={{ color: '#1B4332' }}>K{walk.walkerEarning}</span>
+                      <span className="text-[10px] text-amber-600 font-medium">Tap to accept →</span>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Today's Walks */}
         <div className="bg-white border border-surface-border rounded-2xl overflow-hidden">
           <div className="flex items-center justify-between px-5 py-4 border-b border-surface-border">
@@ -183,7 +229,7 @@ export default function WalkerDashboard() {
               const dog = data.dogs.find(d => d.id === walk.dogId);
               const owner = data.users.find(u => u.id === walk.ownerId);
               return (
-                <Link key={walk.id} to="/walker/walks"
+                <Link key={walk.id} to={`/walker/walk/${walk.id}`}
                   className="flex items-center gap-3 px-4 py-3.5 hover:bg-surface-secondary transition-colors">
                   <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 overflow-hidden">
                     {dog?.imageUrl ? <img src={dog.imageUrl} alt={dog.name} className="w-10 h-10 object-cover" /> : '🐕'}
@@ -210,14 +256,19 @@ export default function WalkerDashboard() {
               {upcomingWalks.map(walk => {
                 const dog = data.dogs.find(d => d.id === walk.dogId);
                 return (
-                  <div key={walk.id} className="flex items-center gap-3 px-4 py-3.5">
-                    <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 text-lg">🐕</div>
+                  <Link key={walk.id} to={`/walker/walk/${walk.id}`} className="flex items-center gap-3 px-4 py-3.5 hover:bg-surface-secondary transition-colors">
+                    <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 text-lg overflow-hidden">
+                      {dog?.imageUrl ? <img src={dog.imageUrl} alt={dog.name} className="w-10 h-10 object-cover" /> : '🐕'}
+                    </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-ink">{dog?.name}</p>
                       <p className="text-xs text-ink-muted">{format(new Date(walk.scheduledDate), 'MMM d, h:mm a')}</p>
                     </div>
-                    <StatusBadge status={walk.status} />
-                  </div>
+                    <div className="flex items-center gap-2">
+                      <StatusBadge status={walk.status} />
+                      <ChevronRight className="w-4 h-4 text-ink-muted" />
+                    </div>
+                  </Link>
                 );
               })}
             </div>

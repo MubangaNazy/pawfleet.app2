@@ -3,7 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Map, ListChecks, PlusCircle,
   Users, UserCog, CreditCard, Activity, DollarSign, Clock,
-  LogOut, X, Dog, ChevronRight, Scissors, ShoppingBag, User, Calendar, Bell, Package, TrendingUp,
+  LogOut, X, Dog, ChevronRight, Scissors, ShoppingBag, User, Calendar, Bell, Package, TrendingUp, History,
 } from 'lucide-react';
 import { Logo } from '../Logo';
 import { useApp } from '../../context/AppContext';
@@ -28,6 +28,7 @@ const walkerNav = [
   { to: '/walker/walks',     icon: ListChecks,      label: 'My Walks' },
   { to: '/walker/schedule',  icon: Calendar,        label: 'Schedule' },
   { to: '/walker/earnings',  icon: DollarSign,      label: 'Earnings' },
+  { to: '/walker/history',   icon: History,         label: 'History' },
   { to: '/walker/badges',    icon: Activity,        label: 'Achievements' },
 ];
 

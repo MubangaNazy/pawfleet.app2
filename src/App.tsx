@@ -23,10 +23,12 @@ import AdminAnalytics   from './pages/admin/Analytics';
 import AdminProfitMgmt  from './pages/admin/ProfitManagement';
 
 // Walker pages
-import WalkerDashboard from './pages/walker/Dashboard';
-import WalkerMyWalks   from './pages/walker/MyWalks';
-import WalkerEarnings  from './pages/walker/Earnings';
-import WalkerBadges    from './pages/walker/Badges';
+import WalkerDashboard   from './pages/walker/Dashboard';
+import WalkerMyWalks     from './pages/walker/MyWalks';
+import WalkerEarnings    from './pages/walker/Earnings';
+import WalkerBadges      from './pages/walker/Badges';
+import WalkerWalkDetail  from './pages/walker/WalkDetail';
+import WalkerHistory     from './pages/walker/WalkHistory';
 
 // Owner pages
 import OwnerDashboard  from './pages/owner/Dashboard';
@@ -165,6 +167,7 @@ function AppRoutes() {
         <Route path="badges"    element={<WalkerBadges />} />
         <Route path="profile"   element={<WalkerProfile />} />
         <Route path="guide"     element={<WalkerDogGuide />} />
+        <Route path="history"   element={<WalkerHistory />} />
         <Route path="notifications" element={<NotificationsPage />} />
         <Route path="dashboard" element={<Navigate to="/walker" replace />} />
         <Route path="my-walks"  element={<Navigate to="/walker/walks" replace />} />
@@ -173,6 +176,7 @@ function AppRoutes() {
       {/* Walker full-screen (outside Layout) */}
       <Route path="/walker/live/:walkId"  element={<ProtectedRoute role="walker"><WalkerLiveWalk /></ProtectedRoute>} />
       <Route path="/walker/chat/:walkId"  element={<ProtectedRoute role="walker"><Chat /></ProtectedRoute>} />
+      <Route path="/walker/walk/:walkId"  element={<ProtectedRoute role="walker"><WalkerWalkDetail /></ProtectedRoute>} />
 
       {/* ── Shop Owner ── */}
       <Route path="/shopowner" element={<ProtectedRoute role="shopowner"><Layout /></ProtectedRoute>}>

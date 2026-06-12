@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CheckCircle, Search, Star, MapPin, Zap, Calendar, Scissors } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import PaymentModal from '../../components/ui/PaymentModal';
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
 const DURATIONS = [15, 30, 45, 60];
@@ -23,6 +24,8 @@ export default function OwnerRequestWalk() {
   const [selectedWalkerId, setSelectedWalkerId] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [showWalkers, setShowWalkers] = useState(false);
+  const [showPayment, setShowPayment] = useState(false);
+  const [pendingWalkerId, setPendingWalkerId] = useState<string | undefined>(undefined);
 
   const selectedDog = myDogs.find(d => d.id === dogId);
 
@@ -41,20 +44,28 @@ export default function OwnerRequestWalk() {
 
   const handleSubmit = (walkerId?: string) => {
     if (!dogId) return;
+    setPendingWalkerId(walkerId);
+    setShowPayment(true);
+  };
+
+  const confirmBooking = (paymentMethod: string, reference?: string) => {
     const scheduledDate = isInstant
       ? new Date().toISOString()
       : new Date(`${schedDate}T${schedTime}:00`).toISOString();
-    const notes = addGrooming ? 'Add-on: Grooming requested' : undefined;
+    const notes = addGrooming
+      ? `Add-on: Grooming requested | Payment: ${paymentMethod}${reference ? ` | Ref: ${reference}` : ''}`
+      : `Payment: ${paymentMethod}${reference ? ` | Ref: ${reference}` : ''}`;
     createWalk({
       dogId,
       ownerId: currentUser!.id,
-      walkerId: walkerId || undefined,
+      walkerId: pendingWalkerId || undefined,
       status: 'pending',
       scheduledDate,
       price: addGrooming ? 399 : 150,
       walkerEarning: addGrooming ? 280 : 100,
       notes,
     });
+    setShowPayment(false);
     setSubmitted(true);
   };
 
@@ -313,6 +324,17 @@ export default function OwnerRequestWalk() {
         )}
 
       </div>
+
+      {showPayment && (
+        <PaymentModal
+          amount={addGrooming ? 399 : 150}
+          description={`Dog walk${addGrooming ? ' + grooming' : ''} for ${selectedDog?.name || 'your dog'}`}
+          customerName={currentUser?.name || ''}
+          customerPhone={currentUser?.phone}
+          onConfirm={confirmBooking}
+          onClose={() => setShowPayment(false)}
+        />
+      )}
     </div>
   );
 }

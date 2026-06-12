@@ -273,20 +273,25 @@ export default function Profile() {
         </div>
 
         {/* Menu items */}
-        <div className="bg-white border border-surface-border rounded-3xl overflow-hidden divide-y divide-surface-border">
-          {[
-            { icon: CreditCard, label: 'Payment methods' },
-            { icon: Bell,       label: 'Notifications' },
-            { icon: Heart,      label: 'Favourite walkers' },
-            { icon: Shield,     label: 'Privacy & safety' },
-          ].map(item => (
-            <button key={item.label} className="w-full flex items-center gap-4 px-5 py-4 hover:bg-surface-hover transition-colors text-left">
-              <item.icon className="w-5 h-5 text-ink-secondary shrink-0" />
-              <span className="flex-1 text-sm font-semibold text-ink">{item.label}</span>
-              <ChevronRight className="w-4 h-4 text-ink-muted" />
-            </button>
-          ))}
-        </div>
+        {(() => {
+          const menuItems = [
+            { icon: CreditCard, label: 'Payment methods',  onClick: () => navigate('/owner/profile/payment') },
+            { icon: Bell,       label: 'Notifications',     onClick: () => navigate('/owner/notifications') },
+            { icon: Heart,      label: 'Favourite walkers', onClick: () => navigate('/owner/favourites') },
+            { icon: Shield,     label: 'Privacy & safety',  onClick: () => navigate('/owner/privacy') },
+          ];
+          return (
+            <div className="bg-white border border-surface-border rounded-3xl overflow-hidden divide-y divide-surface-border">
+              {menuItems.map(item => (
+                <button key={item.label} onClick={item.onClick} className="w-full flex items-center gap-4 px-5 py-4 hover:bg-surface-hover transition-colors text-left">
+                  <item.icon className="w-5 h-5 text-ink-secondary shrink-0" />
+                  <span className="flex-1 text-sm font-semibold text-ink">{item.label}</span>
+                  <ChevronRight className="w-4 h-4 text-ink-muted" />
+                </button>
+              ))}
+            </div>
+          );
+        })()}
 
         {/* Sign out */}
         {showLogoutConfirm ? (

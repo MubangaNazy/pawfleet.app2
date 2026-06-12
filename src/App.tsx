@@ -42,6 +42,8 @@ import OwnerProfile    from './pages/owner/Profile';
 import WalkTracker     from './pages/owner/WalkTracker';
 import OwnerSchedule   from './pages/owner/Schedule';
 import OwnerCart       from './pages/owner/Cart';
+import FavouriteWalkers from './pages/owner/FavouriteWalkers';
+import PrivacySafety    from './pages/owner/PrivacySafety';
 
 // Shared / full-screen
 import WalkerSchedule  from './pages/walker/Schedule';
@@ -209,6 +211,8 @@ function AppRoutes() {
         <Route path="community"     element={<Community />} />
         <Route path="dashboard"     element={<Navigate to="/owner" replace />} />
         <Route path="request-walk"  element={<Navigate to="/owner/request" replace />} />
+        <Route path="favourites"    element={<FavouriteWalkers />} />
+        <Route path="privacy"       element={<PrivacySafety />} />
       </Route>
 
       {/* Owner full-screen (outside Layout) */}

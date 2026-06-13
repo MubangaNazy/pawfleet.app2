@@ -44,6 +44,7 @@ import OwnerSchedule   from './pages/owner/Schedule';
 import OwnerCart       from './pages/owner/Cart';
 import FavouriteWalkers from './pages/owner/FavouriteWalkers';
 import PrivacySafety    from './pages/owner/PrivacySafety';
+import PaymentMethods   from './pages/owner/PaymentMethods';
 
 // Shared / full-screen
 import WalkerSchedule  from './pages/walker/Schedule';
@@ -213,6 +214,7 @@ function AppRoutes() {
         <Route path="request-walk"  element={<Navigate to="/owner/request" replace />} />
         <Route path="favourites"    element={<FavouriteWalkers />} />
         <Route path="privacy"       element={<PrivacySafety />} />
+        <Route path="profile/payment" element={<PaymentMethods />} />
       </Route>
 
       {/* Owner full-screen (outside Layout) */}

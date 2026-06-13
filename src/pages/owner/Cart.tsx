@@ -2,12 +2,14 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, ShoppingCart, Minus, Plus, Trash2, CheckCircle, Package, Truck } from 'lucide-react';
 import { useCart } from '../../context/CartContext';
+import { useShop } from '../../context/ShopContext';
 import PaymentModal from '../../components/ui/PaymentModal';
 import { useApp } from '../../context/AppContext';
 
 export default function Cart() {
   const { items, updateQty, removeItem, clearCart, total, count } = useCart();
   const { currentUser } = useApp();
+  const { products, createPurchase } = useShop();
   const navigate = useNavigate();
   const [ordered, setOrdered] = useState(false);
   const [address, setAddress] = useState('');
@@ -20,6 +22,16 @@ export default function Cart() {
   };
 
   const confirmOrder = (_method: string) => {
+    // Map cart items to shop products so shop owners get order notifications
+    if (currentUser) {
+      const purchaseItems = items.flatMap(cartItem => {
+        const product = products.find(p => p.id === cartItem.id);
+        return product ? [{ product, qty: cartItem.qty }] : [];
+      });
+      if (purchaseItems.length > 0) {
+        createPurchase(purchaseItems, currentUser.id, currentUser.name);
+      }
+    }
     clearCart();
     setShowPayment(false);
     setOrdered(true);

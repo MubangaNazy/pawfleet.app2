@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import {
   ArrowLeft, Calendar, Clock, DollarSign, User, Phone,
-  CheckCircle2, XCircle, Play, Navigation, Scissors, Star, AlertCircle, MapPin, MessageCircle
+  CheckCircle2, XCircle, Play, Navigation, Scissors, Star, AlertCircle, MapPin, MessageCircle, ExternalLink
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
@@ -29,6 +29,16 @@ export default function WalkerWalkDetail() {
   const [showPayModal, setShowPayModal] = useState(false);
   const [payMade, setPayMade] = useState<boolean | null>(null);
   const [payMethod, setPayMethod] = useState('');
+  // Pickup phase: false = navigate to pickup; true = dog picked up, ready to start
+  const [dogPickedUp, setDogPickedUp] = useState(() => {
+    return localStorage.getItem(`pickup_done_${walkId}`) === 'true';
+  });
+
+  useEffect(() => {
+    // Reset pickup state if walk changes
+    const stored = localStorage.getItem(`pickup_done_${walkId}`) === 'true';
+    setDogPickedUp(stored);
+  }, [walkId]);
 
   const walk = data.walks.find(w => w.id === walkId);
   const dog = data.dogs.find(d => d.id === walk?.dogId);
@@ -80,6 +90,11 @@ export default function WalkerWalkDetail() {
   const handleDeclineAssigned = () => {
     declineWalk(walkId!);
     navigate(-1);
+  };
+
+  const handleConfirmPickup = () => {
+    localStorage.setItem(`pickup_done_${walkId}`, 'true');
+    setDogPickedUp(true);
   };
 
   const handleEnd = async () => {
@@ -306,43 +321,110 @@ export default function WalkerWalkDetail() {
 
           {isAssigned && (
             <>
-              <button
-                onClick={handleStart}
-                disabled={starting}
-                className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl text-white font-bold text-base transition-all disabled:opacity-60"
-                style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)' }}
-              >
-                {starting ? (
-                  <>
-                    <svg className="animate-spin w-5 h-5" viewBox="0 0 24 24" fill="none">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-                    </svg>
-                    Getting GPS…
-                  </>
-                ) : (
-                  <>
-                    <Play className="w-5 h-5" />
-                    {isGrooming ? 'Start Grooming 🛁' : 'Start Walk'}
-                  </>
-                )}
-              </button>
-              <button
-                onClick={handleDeclineAssigned}
-                className="w-full py-3.5 rounded-2xl font-bold text-base border-2 border-red-300 text-red-600 bg-red-50 hover:bg-red-100 transition-all"
-              >
-                <span className="flex items-center justify-center gap-2">
-                  <XCircle className="w-5 h-5" />
-                  Decline Walk
-                </span>
-              </button>
-              <Link
-                to={`/walker/chat/${walkId}`}
-                className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl font-semibold text-sm border-2 border-primary/30 text-primary bg-primary/5 hover:bg-primary/10 transition-all"
-              >
-                <MessageCircle className="w-4 h-4" />
-                Chat with Owner
-              </Link>
+              {!dogPickedUp ? (
+                /* ── Pickup phase ── */
+                <>
+                  {/* Pickup instructions banner */}
+                  <div className="bg-amber-50 border-2 border-amber-300 rounded-2xl px-4 py-3 flex items-start gap-3">
+                    <MapPin className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-bold text-amber-800 text-sm">Step 1: Go pick up the dog</p>
+                      <p className="text-xs text-amber-700 mt-0.5">
+                        {walk.startLocation?.address
+                          ? walk.startLocation.address
+                          : owner?.phone
+                            ? `Call owner: ${owner.phone}`
+                            : 'Contact the owner for the exact address'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Navigate button (opens Google Maps) */}
+                  {walk.startLocation?.address && (
+                    <a
+                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(walk.startLocation.address)}`}
+                      target="_blank" rel="noopener noreferrer"
+                      className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl text-white font-bold text-base transition-all"
+                      style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)' }}
+                    >
+                      <Navigation className="w-5 h-5" />
+                      Navigate to Pickup
+                    </a>
+                  )}
+                  {walk.startLocation?.lat && walk.startLocation?.lng && !walk.startLocation?.address && (
+                    <a
+                      href={`https://www.google.com/maps?q=${walk.startLocation.lat},${walk.startLocation.lng}`}
+                      target="_blank" rel="noopener noreferrer"
+                      className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl text-white font-bold text-base transition-all"
+                      style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)' }}
+                    >
+                      <Navigation className="w-5 h-5" />
+                      Navigate to Pickup
+                    </a>
+                  )}
+
+                  <button
+                    onClick={handleConfirmPickup}
+                    className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl font-bold text-base border-2 border-primary text-primary bg-primary/5 hover:bg-primary/10 transition-all"
+                  >
+                    <CheckCircle2 className="w-5 h-5" />
+                    I've Picked Up the Dog ✅
+                  </button>
+
+                  <div className="flex gap-3">
+                    <Link
+                      to={`/walker/chat/${walkId}`}
+                      className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl font-semibold text-sm border-2 border-primary/30 text-primary bg-primary/5 hover:bg-primary/10 transition-all"
+                    >
+                      <MessageCircle className="w-4 h-4" />
+                      Chat with Owner
+                    </Link>
+                    <button
+                      onClick={handleDeclineAssigned}
+                      className="flex-1 py-3 rounded-2xl font-bold text-sm border-2 border-red-300 text-red-600 bg-red-50 hover:bg-red-100 transition-all flex items-center justify-center gap-2"
+                    >
+                      <XCircle className="w-4 h-4" />
+                      Cancel
+                    </button>
+                  </div>
+                </>
+              ) : (
+                /* ── Ready to start ── */
+                <>
+                  <div className="bg-[#EBF5EF] border-2 border-primary/30 rounded-2xl px-4 py-3 flex items-center gap-3">
+                    <CheckCircle2 className="w-5 h-5 shrink-0" style={{ color: '#1B4332' }} />
+                    <p className="font-bold text-sm" style={{ color: '#1B4332' }}>Dog picked up! Ready to {isGrooming ? 'start grooming' : 'start walk'}.</p>
+                  </div>
+                  <button
+                    onClick={handleStart}
+                    disabled={starting}
+                    className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl text-white font-bold text-base transition-all disabled:opacity-60"
+                    style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)' }}
+                  >
+                    {starting ? (
+                      <>
+                        <svg className="animate-spin w-5 h-5" viewBox="0 0 24 24" fill="none">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                        </svg>
+                        Getting GPS…
+                      </>
+                    ) : (
+                      <>
+                        <Play className="w-5 h-5" />
+                        {isGrooming ? 'Start Grooming 🛁' : 'Start Walk'}
+                      </>
+                    )}
+                  </button>
+                  <Link
+                    to={`/walker/chat/${walkId}`}
+                    className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl font-semibold text-sm border-2 border-primary/30 text-primary bg-primary/5 hover:bg-primary/10 transition-all"
+                  >
+                    <MessageCircle className="w-4 h-4" />
+                    Chat with Owner
+                  </Link>
+                </>
+              )}
             </>
           )}
 

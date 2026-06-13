@@ -2,17 +2,26 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, ShoppingCart, Minus, Plus, Trash2, CheckCircle, Package, Truck } from 'lucide-react';
 import { useCart } from '../../context/CartContext';
+import PaymentModal from '../../components/ui/PaymentModal';
+import { useApp } from '../../context/AppContext';
 
 export default function Cart() {
   const { items, updateQty, removeItem, clearCart, total, count } = useCart();
+  const { currentUser } = useApp();
   const navigate = useNavigate();
   const [ordered, setOrdered] = useState(false);
   const [address, setAddress] = useState('');
   const [phone, setPhone] = useState('');
+  const [showPayment, setShowPayment] = useState(false);
 
   const handleCheckout = () => {
     if (!address.trim()) return;
+    setShowPayment(true);
+  };
+
+  const confirmOrder = (_method: string) => {
     clearCart();
+    setShowPayment(false);
     setOrdered(true);
   };
 
@@ -189,6 +198,17 @@ export default function Cart() {
           <span className="font-bold">ZMW {total.toLocaleString()} →</span>
         </button>
       </div>
+
+      {showPayment && (
+        <PaymentModal
+          amount={total}
+          description={`Shop order (${count} item${count !== 1 ? 's' : ''})`}
+          customerName={currentUser?.name || ''}
+          customerPhone={phone || currentUser?.phone}
+          onConfirm={confirmOrder}
+          onClose={() => setShowPayment(false)}
+        />
+      )}
     </div>
   );
 }

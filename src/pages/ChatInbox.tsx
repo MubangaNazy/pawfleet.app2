@@ -12,12 +12,18 @@ export default function ChatInbox() {
   const isOwner = currentUser.role === 'owner';
 
   // All walks this user is part of with relevant statuses
+  const statusOrder: Record<string, number> = { active: 0, assigned: 1, completed: 2 };
+
   const myWalks = data.walks
     .filter(w =>
       (w.ownerId === currentUser.id || w.walkerId === currentUser.id) &&
       (w.status === 'active' || w.status === 'assigned' || w.status === 'completed')
     )
-    .sort((a, b) => new Date(b.scheduledDate).getTime() - new Date(a.scheduledDate).getTime());
+    .sort((a, b) => {
+      const orderDiff = (statusOrder[a.status] ?? 3) - (statusOrder[b.status] ?? 3);
+      if (orderDiff !== 0) return orderDiff;
+      return new Date(b.scheduledDate).getTime() - new Date(a.scheduledDate).getTime();
+    });
 
   // Determine if there are any messages for a given walkId
   const walkIdsWithMessages = new Set(
@@ -121,6 +127,13 @@ export default function ChatInbox() {
                     {walk.status.charAt(0).toUpperCase() + walk.status.slice(1)}
                   </span>
                 </div>
+
+                {/* LIVE badge */}
+                {walk.status === 'active' && (
+                  <span className="flex items-center gap-1 text-[10px] font-bold text-success px-2 py-0.5 rounded-full bg-success/10 shrink-0 mr-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" />LIVE
+                  </span>
+                )}
 
                 {/* Arrow / Chat button */}
                 <div

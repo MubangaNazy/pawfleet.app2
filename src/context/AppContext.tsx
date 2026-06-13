@@ -86,7 +86,7 @@ interface AppContextType {
   endWalk: (walkId: string, loc: { lat: number; lng: number }) => void;
   assignWalker: (walkId: string, walkerId: string) => void;
   cancelWalk: (walkId: string) => void;
-  markPaymentPaid: (paymentId: string, method?: 'cash' | 'mobile_money') => void;
+  markPaymentPaid: (paymentId: string, method?: 'cash' | 'mobile_money' | 'bank' | 'online') => void;
   confirmPaymentReceived: (paymentId: string) => void;
   createDog: (dog: Omit<Dog, 'id'>) => Dog;
   updateDog: (id: string, updates: Partial<Dog>) => void;
@@ -545,11 +545,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       : 45;
     updateWalk(walkId, { status: 'completed', endTime: now, endLocation: loc, duration });
 
+    // Notify owner: walk ended, please confirm payment and rate
+    if (walk.ownerId) {
+      const walkerUser = data.users.find(u => u.id === walk.walkerId);
+      sendNotification(
+        walk.ownerId,
+        'walk_completed',
+        'Walk Complete — Please Confirm 🐾',
+        `${walkerUser?.name || 'Your walker'} has finished the walk. Please confirm payment and leave a rating.`,
+        { walkId }
+      );
+    }
+
     if (walk.walkerId) {
       // Payment
       const payment: Payment = {
         id: crypto.randomUUID(), walkerId: walk.walkerId, walkId,
-        amount: walk.walkerEarning, status: 'unpaid', date: now,
+        amount: walk.walkerEarning, status: 'held', date: now,
       };
       setData(prev => ({ ...prev, payments: [payment, ...prev.payments] }));
       supabase.from('payments').insert({
@@ -664,7 +676,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   // ── Payments ─────────────────────────────────────────────
-  const markPaymentPaid = (paymentId: string, method: 'cash' | 'mobile_money' = 'cash') => {
+  const markPaymentPaid = (paymentId: string, method: 'cash' | 'mobile_money' | 'bank' | 'online' = 'cash') => {
     const now = new Date().toISOString();
     setData(prev => ({
       ...prev,

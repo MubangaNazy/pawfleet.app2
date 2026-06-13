@@ -1,6 +1,6 @@
 export type Role = 'admin' | 'walker' | 'owner' | 'shopowner';
 export type WalkStatus = 'pending' | 'assigned' | 'active' | 'completed' | 'cancelled';
-export type PaymentStatus = 'unpaid' | 'paid';
+export type PaymentStatus = 'unpaid' | 'held' | 'paid' | 'released';
 export type WalkerStatus = 'pending_approval' | 'active' | 'suspended';
 
 export interface User {
@@ -74,7 +74,7 @@ export interface Walk {
   ratingComment?: string;   // Optional written review
 }
 
-export type PaymentMethod = 'cash' | 'mobile_money';
+export type PaymentMethod = 'cash' | 'mobile_money' | 'bank' | 'online';
 
 export interface Payment {
   id: string;

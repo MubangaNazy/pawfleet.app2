@@ -1,9 +1,10 @@
 import { Link } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { format, isToday } from 'date-fns';
 import { CheckCircle, DollarSign, Clock, ArrowRight, Flame, Star, TrendingUp, ChevronRight } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { StatusBadge } from '../../components/ui/Badge';
+import WalkRequestPopup from '../../components/ui/WalkRequestPopup';
 
 const WALK_SLIDES = [
   'https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=1200&q=85',
@@ -13,6 +14,25 @@ const WALK_SLIDES = [
 
 export default function WalkerDashboard() {
   const { data, currentUser, getWalkerStats } = useApp();
+
+  const [popupWalkId, setPopupWalkId] = useState<string | null>(null);
+  const shownPopupsRef = React.useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (!currentUser || currentUser.role !== 'walker') return;
+    const myUnread = data.notifications.filter(
+      n => n.userId === currentUser.id &&
+      !n.read &&
+      n.type === 'walk_booked' &&
+      n.data?.walkId &&
+      !shownPopupsRef.current.has(n.id)
+    );
+    if (myUnread.length > 0) {
+      const latest = myUnread[0];
+      shownPopupsRef.current.add(latest.id);
+      setPopupWalkId(latest.data!.walkId);
+    }
+  }, [data.notifications, currentUser]);
 
   const myWalks    = data.walks.filter(w => w.walkerId === currentUser?.id);
   const myPayments = data.payments.filter(p => p.walkerId === currentUser?.id);
@@ -347,6 +367,10 @@ export default function WalkerDashboard() {
           </div>
         </div>
       </div>
+
+      {popupWalkId && (
+        <WalkRequestPopup walkId={popupWalkId} onDismiss={() => setPopupWalkId(null)} />
+      )}
     </div>
   );
 }

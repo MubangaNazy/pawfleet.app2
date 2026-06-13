@@ -4,6 +4,7 @@ import { Clock, MapPin, History, Star, X } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { StatusBadge } from '../../components/ui/Badge';
 import { WalkStatus } from '../../types';
+import PaymentModal from '../../components/ui/PaymentModal';
 
 type Filter = 'all' | WalkStatus;
 
@@ -96,9 +97,10 @@ function RatingModal({ walkId, walkerName, onClose }: { walkId: string; walkerNa
 }
 
 export default function OwnerHistory() {
-  const { data, currentUser } = useApp();
+  const { data, currentUser, markPaymentPaid } = useApp();
   const [filter, setFilter] = useState<Filter>('all');
   const [ratingWalkId, setRatingWalkId] = useState<string | null>(null);
+  const [confirmWalkId, setConfirmWalkId] = useState<string | null>(null);
 
   const myWalks = data.walks
     .filter(w => w.ownerId === currentUser?.id)
@@ -186,6 +188,24 @@ export default function OwnerHistory() {
                     )}
                     {walk.notes && <p className="mt-2 text-xs text-ink-muted italic">"{walk.notes}"</p>}
 
+                    {/* Payment confirm CTA */}
+                    {walk.status === 'completed' && (() => {
+                      const payment = data.payments.find(p => p.walkId === walk.id);
+                      if (payment && (payment.status === 'held' || payment.status === 'unpaid')) {
+                        return (
+                          <button
+                            type="button"
+                            onClick={() => setConfirmWalkId(walk.id)}
+                            className="mt-2 flex items-center gap-1.5 text-xs font-bold text-white px-3 py-1.5 rounded-xl transition-colors"
+                            style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)' }}
+                          >
+                            ✅ Confirm & Pay Walker
+                          </button>
+                        );
+                      }
+                      return null;
+                    })()}
+
                     {/* Rating display / prompt */}
                     {walk.status === 'completed' && (
                       walk.rating ? (
@@ -221,6 +241,25 @@ export default function OwnerHistory() {
             walkId={ratingWalkId}
             walkerName={walkerUser?.name || 'Your walker'}
             onClose={() => setRatingWalkId(null)}
+          />
+        );
+      })()}
+
+      {confirmWalkId && (() => {
+        const w = data.walks.find(w => w.id === confirmWalkId);
+        const walker = data.users.find(u => u.id === w?.walkerId);
+        const payment = data.payments.find(p => p.walkId === confirmWalkId);
+        return (
+          <PaymentModal
+            amount={w?.walkerEarning || 0}
+            description={`Payment to ${walker?.name || 'walker'} for walk`}
+            customerName={currentUser?.name || ''}
+            customerPhone={currentUser?.phone}
+            onConfirm={(method) => {
+              if (payment) markPaymentPaid(payment.id, method as any);
+              setConfirmWalkId(null);
+            }}
+            onClose={() => setConfirmWalkId(null)}
           />
         );
       })()}

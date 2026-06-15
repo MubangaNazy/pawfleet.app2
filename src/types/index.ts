@@ -48,8 +48,8 @@ export interface Dog {
 }
 
 export interface GeoLocation {
-  lat: number;
-  lng: number;
+  lat?: number;   // undefined for manually-typed addresses (no GPS)
+  lng?: number;
   address?: string;
 }
 

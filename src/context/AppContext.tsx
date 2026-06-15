@@ -37,7 +37,9 @@ const toWalk = (r: any): Walk => ({
   id: r.id, dogId: r.dog_id, ownerId: r.owner_id, walkerId: r.walker_id,
   status: r.status, scheduledDate: r.scheduled_date,
   startTime: r.start_time, endTime: r.end_time,
-  startLocation: r.start_lat != null ? { lat: r.start_lat, lng: r.start_lng, address: r.start_address } : undefined,
+  startLocation: (r.start_lat != null || r.start_address != null)
+    ? { lat: r.start_lat ?? undefined, lng: r.start_lng ?? undefined, address: r.start_address ?? undefined }
+    : undefined,
   endLocation: r.end_lat != null ? { lat: r.end_lat, lng: r.end_lng, address: r.end_address } : undefined,
   duration: r.duration, price: Number(r.price), walkerEarning: Number(r.walker_earning),
   notes: r.notes, createdAt: r.created_at,
@@ -450,6 +452,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       walker_id: walk.walkerId || null, status: walk.status,
       scheduled_date: walk.scheduledDate, price: walk.price,
       walker_earning: walk.walkerEarning, notes: walk.notes || null,
+      start_lat: walk.startLocation?.lat ?? null,
+      start_lng: walk.startLocation?.lng ?? null,
+      start_address: walk.startLocation?.address ?? null,
     }).then(({ error }) => { if (error) console.error('createWalk:', error); });
 
     // Notify walkers and admins of new walk booking
@@ -502,8 +507,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (updates.duration !== undefined)  db.duration = updates.duration;
     if (updates.notes !== undefined)     db.notes = updates.notes;
     if (updates.startLocation) {
-      db.start_lat = updates.startLocation.lat;
-      db.start_lng = updates.startLocation.lng;
+      db.start_lat = updates.startLocation.lat ?? null;
+      db.start_lng = updates.startLocation.lng ?? null;
       db.start_address = updates.startLocation.address ?? null;
     }
     if (updates.endLocation) {

@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import {
   ArrowLeft, Calendar, Clock, DollarSign, User, Phone,
-  CheckCircle2, XCircle, Play, Navigation, Scissors, Star, AlertCircle, MapPin, MessageCircle, ExternalLink
+  CheckCircle2, XCircle, Play, Navigation, Scissors, Star, AlertCircle, MapPin, MessageCircle
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { supabase } from '../../lib/supabase';
 import { addDeclinedWalk } from '../../components/ui/WalkRequestPopup';
 
 async function getGPS(): Promise<{ lat: number; lng: number }> {
@@ -34,11 +35,32 @@ export default function WalkerWalkDetail() {
   const [dogPickedUp, setDogPickedUp] = useState(() => {
     return localStorage.getItem(`pickup_done_${walkId}`) === 'true';
   });
+  // Live owner position from pickup-live channel
+  const [liveOwnerPos, setLiveOwnerPos] = useState<{ lat: number; lng: number } | null>(null);
+  const [isLiveTracking, setIsLiveTracking] = useState(false);
+  const pickupChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   useEffect(() => {
     // Reset pickup state if walk changes
     const stored = localStorage.getItem(`pickup_done_${walkId}`) === 'true';
     setDogPickedUp(stored);
+  }, [walkId]);
+
+  // Subscribe to owner's live location channel during pickup phase
+  useEffect(() => {
+    if (!walkId) return;
+    const channel = supabase.channel(`pickup-live-${walkId}`);
+    pickupChannelRef.current = channel;
+    channel.on('broadcast', { event: 'owner-position' }, ({ payload }) => {
+      if (payload?.lat && payload?.lng) {
+        setLiveOwnerPos({ lat: payload.lat, lng: payload.lng });
+        setIsLiveTracking(true);
+      }
+    }).subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+      pickupChannelRef.current = null;
+    };
   }, [walkId]);
 
   const walk = data.walks.find(w => w.id === walkId);
@@ -326,69 +348,105 @@ export default function WalkerWalkDetail() {
               {!dogPickedUp ? (
                 /* ── Pickup phase ── */
                 <>
-                  {/* Pickup instructions banner */}
-                  <div className="bg-amber-50 border-2 border-amber-300 rounded-2xl px-4 py-3 flex items-start gap-3">
-                    <MapPin className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-                    <div>
-                      <p className="font-bold text-amber-800 text-sm">Step 1: Go pick up the dog</p>
-                      <p className="text-xs text-amber-700 mt-0.5">
-                        {walk.startLocation?.address
-                          ? walk.startLocation.address
-                          : owner?.phone
-                            ? `Call owner: ${owner.phone}`
-                            : 'Contact the owner for the exact address'}
-                      </p>
-                    </div>
-                  </div>
+                  {(() => {
+                    const isLivePickup = walk.notes?.includes('PICKUP:live');
+                    const displayLat  = liveOwnerPos?.lat ?? walk.startLocation?.lat;
+                    const displayLng  = liveOwnerPos?.lng ?? walk.startLocation?.lng;
+                    const displayAddr = walk.startLocation?.address;
+                    const hasCoords   = displayLat != null && displayLng != null;
 
-                  {/* Navigate button (opens Google Maps) */}
-                  {walk.startLocation?.address && (
-                    <a
-                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(walk.startLocation.address)}`}
-                      target="_blank" rel="noopener noreferrer"
-                      className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl text-white font-bold text-base transition-all"
-                      style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)' }}
-                    >
-                      <Navigation className="w-5 h-5" />
-                      Navigate to Pickup
-                    </a>
-                  )}
-                  {walk.startLocation?.lat && walk.startLocation?.lng && !walk.startLocation?.address && (
-                    <a
-                      href={`https://www.google.com/maps?q=${walk.startLocation.lat},${walk.startLocation.lng}`}
-                      target="_blank" rel="noopener noreferrer"
-                      className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl text-white font-bold text-base transition-all"
-                      style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)' }}
-                    >
-                      <Navigation className="w-5 h-5" />
-                      Navigate to Pickup
-                    </a>
-                  )}
+                    return (
+                      <>
+                        {/* Pickup instructions banner */}
+                        <div className={`border-2 rounded-2xl px-4 py-3 flex items-start gap-3 ${
+                          isLiveTracking ? 'bg-green-50 border-green-300' : 'bg-amber-50 border-amber-300'
+                        }`}>
+                          <MapPin className={`w-5 h-5 shrink-0 mt-0.5 ${isLiveTracking ? 'text-green-600' : 'text-amber-600'}`} />
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <p className={`font-bold text-sm ${isLiveTracking ? 'text-green-800' : 'text-amber-800'}`}>
+                                Step 1: Go pick up the dog
+                              </p>
+                              {(isLivePickup || isLiveTracking) && (
+                                <span className="flex items-center gap-1 text-[10px] font-bold text-green-700 bg-green-100 px-1.5 py-0.5 rounded-full">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                                  LIVE
+                                </span>
+                              )}
+                            </div>
+                            <p className={`text-xs mt-0.5 ${isLiveTracking ? 'text-green-700' : 'text-amber-700'}`}>
+                              {displayAddr
+                                ? displayAddr
+                                : owner?.phone
+                                  ? `Call owner: ${owner.phone}`
+                                  : 'Contact the owner for the exact address'}
+                            </p>
+                            {isLiveTracking && liveOwnerPos && (
+                              <p className="text-[10px] text-green-600 mt-1 font-semibold">
+                                📡 Owner position updating in real-time
+                              </p>
+                            )}
+                          </div>
+                        </div>
 
-                  <button
-                    onClick={handleConfirmPickup}
-                    className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl font-bold text-base border-2 border-primary text-primary bg-primary/5 hover:bg-primary/10 transition-all"
-                  >
-                    <CheckCircle2 className="w-5 h-5" />
-                    I've Picked Up the Dog ✅
-                  </button>
+                        {/* Live map embed — shown when coordinates are available */}
+                        {hasCoords && (
+                          <div className="rounded-2xl overflow-hidden border border-surface-border shadow-sm">
+                            <iframe
+                              key={`map-${displayLat?.toFixed(4)}-${displayLng?.toFixed(4)}`}
+                              src={`https://www.openstreetmap.org/export/embed.html?bbox=${(displayLng! - 0.007).toFixed(6)},${(displayLat! - 0.007).toFixed(6)},${(displayLng! + 0.007).toFixed(6)},${(displayLat! + 0.007).toFixed(6)}&layer=mapnik&marker=${displayLat!.toFixed(6)},${displayLng!.toFixed(6)}`}
+                              className="w-full h-44"
+                              title="Pickup location"
+                              style={{ border: 0 }}
+                              loading="lazy"
+                            />
+                          </div>
+                        )}
 
-                  <div className="flex gap-3">
-                    <Link
-                      to={`/walker/chat/${walkId}`}
-                      className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl font-semibold text-sm border-2 border-primary/30 text-primary bg-primary/5 hover:bg-primary/10 transition-all"
-                    >
-                      <MessageCircle className="w-4 h-4" />
-                      Chat with Owner
-                    </Link>
-                    <button
-                      onClick={handleDeclineAssigned}
-                      className="flex-1 py-3 rounded-2xl font-bold text-sm border-2 border-red-300 text-red-600 bg-red-50 hover:bg-red-100 transition-all flex items-center justify-center gap-2"
-                    >
-                      <XCircle className="w-4 h-4" />
-                      {isGrooming ? 'Decline Grooming' : 'Decline Walk'}
-                    </button>
-                  </div>
+                        {/* Navigate button */}
+                        {(displayAddr || hasCoords) && (
+                          <a
+                            href={
+                              hasCoords
+                                ? `https://www.google.com/maps?q=${displayLat},${displayLng}`
+                                : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(displayAddr!)}`
+                            }
+                            target="_blank" rel="noopener noreferrer"
+                            className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl text-white font-bold text-base transition-all"
+                            style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)' }}
+                          >
+                            <Navigation className="w-5 h-5" />
+                            Navigate to Pickup
+                          </a>
+                        )}
+
+                        <button
+                          onClick={handleConfirmPickup}
+                          className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl font-bold text-base border-2 border-primary text-primary bg-primary/5 hover:bg-primary/10 transition-all"
+                        >
+                          <CheckCircle2 className="w-5 h-5" />
+                          I've Picked Up the Dog ✅
+                        </button>
+
+                        <div className="flex gap-3">
+                          <Link
+                            to={`/walker/chat/${walkId}`}
+                            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl font-semibold text-sm border-2 border-primary/30 text-primary bg-primary/5 hover:bg-primary/10 transition-all"
+                          >
+                            <MessageCircle className="w-4 h-4" />
+                            Chat with Owner
+                          </Link>
+                          <button
+                            onClick={handleDeclineAssigned}
+                            className="flex-1 py-3 rounded-2xl font-bold text-sm border-2 border-red-300 text-red-600 bg-red-50 hover:bg-red-100 transition-all flex items-center justify-center gap-2"
+                          >
+                            <XCircle className="w-4 h-4" />
+                            {isGrooming ? 'Decline Grooming' : 'Decline Walk'}
+                          </button>
+                        </div>
+                      </>
+                    );
+                  })()}
                 </>
               ) : (
                 /* ── Ready to start ── */

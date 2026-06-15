@@ -8,7 +8,7 @@ import { useApp } from '../../context/AppContext';
 
 export default function Cart() {
   const { items, updateQty, removeItem, clearCart, total, count } = useCart();
-  const { currentUser } = useApp();
+  const { currentUser, sendNotification } = useApp();
   const { products, createPurchase } = useShop();
   const navigate = useNavigate();
   const [ordered, setOrdered] = useState(false);
@@ -22,7 +22,6 @@ export default function Cart() {
   };
 
   const confirmOrder = (_method: string) => {
-    // Map cart items to shop products so shop owners get order notifications
     if (currentUser) {
       const purchaseItems = items.flatMap(cartItem => {
         const product = products.find(p => p.id === cartItem.id);
@@ -30,6 +29,26 @@ export default function Cart() {
       });
       if (purchaseItems.length > 0) {
         createPurchase(purchaseItems, currentUser.id, currentUser.name);
+        // Group by shop owner and send Supabase-backed notifications so they appear cross-session
+        const byOwner: Record<string, typeof purchaseItems> = {};
+        purchaseItems.forEach(pi => {
+          const ownerId = pi.product.shopOwnerId || 'pawfleet';
+          if (ownerId !== 'pawfleet') {
+            if (!byOwner[ownerId]) byOwner[ownerId] = [];
+            byOwner[ownerId].push(pi);
+          }
+        });
+        Object.entries(byOwner).forEach(([ownerId, shopItems]) => {
+          const itemSummary = shopItems.map(si => `${si.product.name} ×${si.qty}`).join(', ');
+          const earned = shopItems.reduce((s, si) => s + si.product.price * si.qty, 0);
+          sendNotification(
+            ownerId,
+            'shop_order',
+            `New Order! 🎉 K${earned} earned`,
+            `${currentUser.name} ordered: ${itemSummary}. Deliver to: ${address}`,
+            { buyerId: currentUser.id, buyerName: currentUser.name, earned: String(earned), address, itemSummary }
+          );
+        });
       }
     }
     clearCart();

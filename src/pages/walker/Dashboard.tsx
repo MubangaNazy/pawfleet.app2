@@ -4,7 +4,7 @@ import { format, isToday } from 'date-fns';
 import { CheckCircle, DollarSign, Clock, ArrowRight, Flame, Star, TrendingUp, ChevronRight } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { StatusBadge } from '../../components/ui/Badge';
-import WalkRequestPopup from '../../components/ui/WalkRequestPopup';
+import WalkRequestPopup, { getDeclinedWalks, addDeclinedWalk } from '../../components/ui/WalkRequestPopup';
 
 const WALK_SLIDES = [
   'https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=1200&q=85',
@@ -17,6 +17,10 @@ export default function WalkerDashboard() {
 
   const [popupWalkId, setPopupWalkId] = useState<string | null>(null);
   const shownPopupsRef = React.useRef<Set<string>>(new Set());
+  // Walks this walker has already declined — hidden from their available list
+  const [declinedIds, setDeclinedIds] = React.useState<Set<string>>(
+    () => currentUser ? getDeclinedWalks(currentUser.id) : new Set()
+  );
 
   useEffect(() => {
     if (!currentUser || currentUser.role !== 'walker') return;
@@ -52,9 +56,18 @@ export default function WalkerDashboard() {
     .slice(0, 5);
 
   const availableWalks = data.walks
-    .filter(w => w.status === 'pending' && !w.walkerId)
+    .filter(w => w.status === 'pending' && !w.walkerId && !declinedIds.has(w.id))
     .sort((a, b) => new Date(a.scheduledDate).getTime() - new Date(b.scheduledDate).getTime())
     .slice(0, 3);
+
+  const handlePopupDismiss = () => setPopupWalkId(null);
+  const handlePopupDecline = (walkId: string) => {
+    if (currentUser) {
+      addDeclinedWalk(currentUser.id, walkId);
+      setDeclinedIds(getDeclinedWalks(currentUser.id));
+    }
+    setPopupWalkId(null);
+  };
 
   const gamStats = getWalkerStats(currentUser?.id || '');
 
@@ -369,7 +382,11 @@ export default function WalkerDashboard() {
       </div>
 
       {popupWalkId && (
-        <WalkRequestPopup walkId={popupWalkId} onDismiss={() => setPopupWalkId(null)} />
+        <WalkRequestPopup
+          walkId={popupWalkId}
+          onDismiss={handlePopupDismiss}
+          onDecline={() => handlePopupDecline(popupWalkId)}
+        />
       )}
     </div>
   );

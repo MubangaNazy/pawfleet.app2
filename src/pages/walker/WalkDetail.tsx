@@ -6,6 +6,7 @@ import {
   CheckCircle2, XCircle, Play, Navigation, Scissors, Star, AlertCircle, MapPin, MessageCircle, ExternalLink
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { addDeclinedWalk } from '../../components/ui/WalkRequestPopup';
 
 async function getGPS(): Promise<{ lat: number; lng: number }> {
   return new Promise(resolve => {
@@ -88,8 +89,9 @@ export default function WalkerWalkDetail() {
   };
 
   const handleDeclineAssigned = () => {
+    if (currentUser) addDeclinedWalk(currentUser.id, walkId!);
     declineWalk(walkId!);
-    navigate(-1);
+    navigate('/walker');
   };
 
   const handleConfirmPickup = () => {
@@ -384,7 +386,7 @@ export default function WalkerWalkDetail() {
                       className="flex-1 py-3 rounded-2xl font-bold text-sm border-2 border-red-300 text-red-600 bg-red-50 hover:bg-red-100 transition-all flex items-center justify-center gap-2"
                     >
                       <XCircle className="w-4 h-4" />
-                      Cancel
+                      {isGrooming ? 'Decline Grooming' : 'Decline Walk'}
                     </button>
                   </div>
                 </>

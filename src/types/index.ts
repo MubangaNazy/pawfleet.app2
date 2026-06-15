@@ -21,7 +21,7 @@ export interface User {
 export interface AppNotification {
   id: string;
   userId: string;          // recipient
-  type: 'walk_booked' | 'walk_accepted' | 'walk_started' | 'walk_completed' | 'payment_marked' | 'walker_signup' | 'shop_promo' | 'walker_approved' | 'walker_rejected';
+  type: 'walk_booked' | 'walk_accepted' | 'walk_started' | 'walk_completed' | 'payment_marked' | 'walker_signup' | 'shop_promo' | 'walker_approved' | 'walker_rejected' | 'shop_order';
   title: string;
   body: string;
   data?: Record<string, string>;

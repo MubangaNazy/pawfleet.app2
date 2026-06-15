@@ -1,16 +1,42 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Outlet, Link } from 'react-router-dom';
 import { Menu, Bell } from 'lucide-react';
 import PawFleetLogo from '../ui/PawFleetLogo';
 import { Sidebar } from './Sidebar';
 import { BottomNav } from './BottomNav';
+import RatingModal from '../ui/RatingModal';
 import { useApp } from '../../context/AppContext';
 
 export function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { currentUser, data } = useApp();
+  const { currentUser, data, markNotificationRead } = useApp();
   const isOwner  = currentUser?.role === 'owner';
   const isWalker = currentUser?.role === 'walker';
+
+  // Auto rating popup for owners — fires when a walk_completed notification arrives
+  const [ratingInfo, setRatingInfo] = useState<{ walkId: string; walkerName: string } | null>(null);
+  const shownRatingsRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (!isOwner || !currentUser) return;
+    const unreadCompleted = data.notifications.filter(
+      n => n.userId === currentUser.id &&
+        n.type === 'walk_completed' &&
+        !n.read &&
+        n.data?.walkId &&
+        !shownRatingsRef.current.has(n.id)
+    );
+    if (unreadCompleted.length === 0) return;
+    const latest = unreadCompleted[0];
+    const walkId = latest.data!.walkId;
+    const walk = data.walks.find(w => w.id === walkId);
+    // Only prompt if walk is completed and not yet rated
+    if (!walk || walk.status !== 'completed' || walk.rating) return;
+    const walker = data.users.find(u => u.id === walk.walkerId);
+    shownRatingsRef.current.add(latest.id);
+    markNotificationRead(latest.id);
+    setRatingInfo({ walkId, walkerName: walker?.name || 'Your walker' });
+  }, [data.notifications, data.walks, data.users, isOwner, currentUser]);
 
   const unreadCount = data.notifications.filter(
     n => n.userId === currentUser?.id && !n.read
@@ -55,7 +81,7 @@ export function Layout() {
           </div>
         </header>
 
-        {/* Content — add bottom padding on mobile for owners and walkers to clear bottom nav */}
+        {/* Content */}
         <main className={`flex-1 overflow-y-auto overflow-x-hidden ${(isOwner || isWalker) ? 'pb-16 lg:pb-0' : ''}`}>
           <Outlet />
           <div className="hidden lg:block text-center py-3 border-t border-surface-border">
@@ -66,6 +92,15 @@ export function Layout() {
 
       {/* Mobile bottom nav (owners + walkers) */}
       <BottomNav />
+
+      {/* Auto rating popup for owners after walk completes */}
+      {ratingInfo && (
+        <RatingModal
+          walkId={ratingInfo.walkId}
+          walkerName={ratingInfo.walkerName}
+          onClose={() => setRatingInfo(null)}
+        />
+      )}
     </div>
   );
 }

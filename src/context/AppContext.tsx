@@ -105,6 +105,7 @@ interface AppContextType {
   getAdminReferralCode: (adminId: string) => string;
   addRating: (walkId: string, rating: number, comment?: string) => void;
   declineWalk: (walkId: string) => void;
+  updateOrderStatus: (notifId: string, status: 'pending' | 'confirmed' | 'delivered') => void;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -279,6 +280,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       notifications: prev.notifications.map(n => ({ ...n, read: true })),
     }));
     // Bulk update handled lazily by the UI
+  };
+
+  const updateOrderStatus = (notifId: string, status: 'pending' | 'confirmed' | 'delivered') => {
+    const notif = data.notifications.find(n => n.id === notifId);
+    if (!notif) return;
+    const newData = { ...(notif.data || {}), deliveryStatus: status };
+    setData(prev => ({
+      ...prev,
+      notifications: prev.notifications.map(n => n.id === notifId ? { ...n, data: newData } : n),
+    }));
+    supabase.from('notifications').update({ data: newData }).eq('id', notifId)
+      .then(({ error }) => { if (error) console.error('updateOrderStatus:', error); });
   };
 
   const getAdminReferralCode = (adminId: string) => adminReferralCode(adminId);
@@ -843,7 +856,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       addUser, updateUser, getWalkerStats, refreshData,
       approveWalker, rejectWalker,
       markNotificationRead, markAllNotificationsRead, sendNotification,
-      getAdminReferralCode, addRating, declineWalk,
+      getAdminReferralCode, addRating, declineWalk, updateOrderStatus,
     }}>
       {children}
     </AppContext.Provider>

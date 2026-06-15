@@ -1,27 +1,67 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, ShoppingCart, Minus, Plus, Trash2, CheckCircle, Package, Truck } from 'lucide-react';
+import { ArrowLeft, ShoppingCart, Minus, Plus, Trash2, CheckCircle, Package, Truck, MapPin, Loader2 } from 'lucide-react';
 import { useCart } from '../../context/CartContext';
 import { useShop } from '../../context/ShopContext';
 import PaymentModal from '../../components/ui/PaymentModal';
 import { useApp } from '../../context/AppContext';
+
+async function reverseGeocode(lat: number, lng: number): Promise<string> {
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`,
+      { headers: { 'Accept-Language': 'en' } }
+    );
+    const json = await res.json();
+    return json.display_name || `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+  } catch {
+    return `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+  }
+}
 
 export default function Cart() {
   const { items, updateQty, removeItem, clearCart, total, count } = useCart();
   const { currentUser, sendNotification } = useApp();
   const { products, createPurchase } = useShop();
   const navigate = useNavigate();
+
   const [ordered, setOrdered] = useState(false);
   const [address, setAddress] = useState('');
   const [phone, setPhone] = useState('');
+  const [payOnDelivery, setPayOnDelivery] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
+  const [gpsLoading, setGpsLoading] = useState(false);
+  const [gpsError, setGpsError] = useState('');
+  const addressInputRef = useRef<HTMLInputElement>(null);
+
+  const handleUseMyLocation = async () => {
+    setGpsLoading(true);
+    setGpsError('');
+    try {
+      const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+        if (!navigator.geolocation) { reject(new Error('no_geo')); return; }
+        navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 12000, enableHighAccuracy: true });
+      });
+      const addr = await reverseGeocode(pos.coords.latitude, pos.coords.longitude);
+      setAddress(addr);
+      addressInputRef.current?.focus();
+    } catch {
+      setGpsError('Could not get location. Please type your address.');
+    } finally {
+      setGpsLoading(false);
+    }
+  };
 
   const handleCheckout = () => {
     if (!address.trim()) return;
-    setShowPayment(true);
+    if (payOnDelivery) {
+      confirmOrder('pay_on_delivery');
+    } else {
+      setShowPayment(true);
+    }
   };
 
-  const confirmOrder = (_method: string) => {
+  const confirmOrder = (method: string) => {
     if (currentUser) {
       const purchaseItems = items.flatMap(cartItem => {
         const product = products.find(p => p.id === cartItem.id);
@@ -29,7 +69,8 @@ export default function Cart() {
       });
       if (purchaseItems.length > 0) {
         createPurchase(purchaseItems, currentUser.id, currentUser.name);
-        // Group by shop owner and send Supabase-backed notifications so they appear cross-session
+
+        // Group by shop owner and send Supabase-backed notifications
         const byOwner: Record<string, typeof purchaseItems> = {};
         purchaseItems.forEach(pi => {
           const ownerId = pi.product.shopOwnerId || 'pawfleet';
@@ -41,12 +82,24 @@ export default function Cart() {
         Object.entries(byOwner).forEach(([ownerId, shopItems]) => {
           const itemSummary = shopItems.map(si => `${si.product.name} ×${si.qty}`).join(', ');
           const earned = shopItems.reduce((s, si) => s + si.product.price * si.qty, 0);
+          const qty = shopItems.reduce((s, si) => s + si.qty, 0);
           sendNotification(
             ownerId,
             'shop_order',
             `New Order! 🎉 K${earned} earned`,
             `${currentUser.name} ordered: ${itemSummary}. Deliver to: ${address}`,
-            { buyerId: currentUser.id, buyerName: currentUser.name, earned: String(earned), address, itemSummary }
+            {
+              buyerId: currentUser.id,
+              buyerName: currentUser.name,
+              earned: String(earned),
+              address,
+              itemSummary,
+              phone: phone || currentUser.phone || '',
+              paymentMethod: method,
+              payOnDelivery: method === 'pay_on_delivery' ? 'true' : 'false',
+              totalQty: String(qty),
+              deliveryStatus: 'pending',
+            }
           );
         });
       }
@@ -65,12 +118,12 @@ export default function Cart() {
         <div>
           <h2 className="text-2xl font-bold text-ink mb-2">Order Placed!</h2>
           <p className="text-ink-secondary text-sm leading-relaxed">
-            Your order has been received. We'll prepare it fresh and deliver to your address.
+            Your order has been received. We'll prepare it and deliver to your address.
           </p>
         </div>
         <div className="w-full bg-primary-50 rounded-2xl p-4 space-y-2">
           {[
-            { icon: Package, label: 'Order Received', done: true },
+            { icon: Package, label: 'Order Received',     done: true  },
             { icon: Package, label: 'Preparing your order', done: false },
             { icon: Truck,   label: 'Out for delivery',   done: false },
           ].map(({ icon: Icon, label, done }) => (
@@ -113,7 +166,7 @@ export default function Cart() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto pb-36 lg:pb-12">
+    <div className="max-w-2xl mx-auto pb-40 lg:pb-12">
       {/* Header */}
       <div className="sticky top-0 bg-white/95 backdrop-blur z-10 border-b border-surface-border px-4 py-3 flex items-center gap-3">
         <button
@@ -140,30 +193,21 @@ export default function Cart() {
               <p className="text-xs text-ink-muted">{item.subtitle}</p>
               <p className="text-sm font-bold text-primary mt-1">
                 ZMW {(item.price * item.qty).toLocaleString()}
-                <span className="text-xs font-normal text-ink-muted ml-1">
-                  (ZMW {item.price.toLocaleString()} each)
-                </span>
+                <span className="text-xs font-normal text-ink-muted ml-1">(ZMW {item.price.toLocaleString()} each)</span>
               </p>
             </div>
             <div className="flex flex-col items-end gap-2 shrink-0">
-              <button
-                onClick={() => removeItem(item.id)}
-                className="text-red-400 hover:text-red-600 transition-colors"
-              >
+              <button onClick={() => removeItem(item.id)} className="text-red-400 hover:text-red-600 transition-colors">
                 <Trash2 className="w-4 h-4" />
               </button>
               <div className="flex items-center gap-2">
-                <button
-                  onClick={() => updateQty(item.id, item.qty - 1)}
-                  className="w-7 h-7 rounded-lg bg-surface-secondary text-ink flex items-center justify-center hover:bg-surface-hover"
-                >
+                <button onClick={() => updateQty(item.id, item.qty - 1)}
+                  className="w-7 h-7 rounded-lg bg-surface-secondary text-ink flex items-center justify-center hover:bg-surface-hover">
                   <Minus className="w-3 h-3" />
                 </button>
                 <span className="text-sm font-bold w-4 text-center">{item.qty}</span>
-                <button
-                  onClick={() => updateQty(item.id, item.qty + 1)}
-                  className="w-7 h-7 rounded-lg bg-primary text-white flex items-center justify-center hover:bg-primary/90"
-                >
+                <button onClick={() => updateQty(item.id, item.qty + 1)}
+                  className="w-7 h-7 rounded-lg bg-primary text-white flex items-center justify-center hover:bg-primary/90">
                   <Plus className="w-3 h-3" />
                 </button>
               </div>
@@ -171,12 +215,29 @@ export default function Cart() {
           </div>
         ))}
 
-        {/* Delivery address */}
+        {/* Delivery Details */}
         <div className="bg-white border border-surface-border rounded-2xl p-4 space-y-3">
           <p className="text-sm font-bold text-ink">Delivery Details</p>
+
+          {/* Address */}
           <div>
-            <label className="text-xs text-ink-muted mb-1 block">Delivery Address *</label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-xs text-ink-muted">Delivery Address *</label>
+              <button
+                type="button"
+                onClick={handleUseMyLocation}
+                disabled={gpsLoading}
+                className="flex items-center gap-1.5 text-[11px] font-semibold text-primary hover:text-primary/80 disabled:opacity-50 transition-colors"
+              >
+                {gpsLoading
+                  ? <Loader2 className="w-3 h-3 animate-spin" />
+                  : <MapPin className="w-3 h-3" />}
+                {gpsLoading ? 'Getting location…' : 'Use my location'}
+              </button>
+            </div>
+            {gpsError && <p className="text-[11px] text-danger mb-1">{gpsError}</p>}
             <input
+              ref={addressInputRef}
               type="text"
               value={address}
               onChange={e => setAddress(e.target.value)}
@@ -184,19 +245,47 @@ export default function Cart() {
               className="w-full border border-surface-border rounded-xl px-3 py-2.5 text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20"
             />
           </div>
+
+          {/* Phone */}
           <div>
             <label className="text-xs text-ink-muted mb-1 block">Phone Number</label>
             <input
               type="tel"
               value={phone}
               onChange={e => setPhone(e.target.value)}
-              placeholder="+260 97 000 0000"
+              placeholder={currentUser?.phone || '+260 97 000 0000'}
               className="w-full border border-surface-border rounded-xl px-3 py-2.5 text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20"
             />
           </div>
+
+          {/* Pay on Delivery toggle */}
+          <button
+            type="button"
+            onClick={() => setPayOnDelivery(p => !p)}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border-2 transition-all text-left ${
+              payOnDelivery
+                ? 'border-primary bg-primary-50/60'
+                : 'border-surface-border bg-white hover:border-primary/30'
+            }`}
+          >
+            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all ${
+              payOnDelivery ? 'border-primary bg-primary' : 'border-surface-border'
+            }`}>
+              {payOnDelivery && <CheckCircle className="w-3.5 h-3.5 text-white" />}
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-ink">Pay on Delivery</p>
+              <p className="text-xs text-ink-muted">Pay cash when your order arrives</p>
+            </div>
+            {payOnDelivery && (
+              <span className="ml-auto text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
+                Selected
+              </span>
+            )}
+          </button>
         </div>
 
-        {/* Order summary */}
+        {/* Order Summary */}
         <div className="bg-white border border-surface-border rounded-2xl p-4 space-y-3">
           <p className="text-sm font-bold text-ink">Order Summary</p>
           <div className="space-y-2 text-sm">
@@ -211,6 +300,12 @@ export default function Cart() {
             <span>Delivery</span>
             <span className="text-primary font-semibold">Free</span>
           </div>
+          <div className="flex justify-between text-sm text-ink-secondary border-t border-surface-border pt-3">
+            <span>Payment</span>
+            <span className={`font-semibold ${payOnDelivery ? 'text-amber-600' : 'text-ink'}`}>
+              {payOnDelivery ? '💵 Pay on Delivery' : '📱 Online / Card'}
+            </span>
+          </div>
           <div className="flex justify-between font-bold text-ink border-t border-surface-border pt-3">
             <span>Total</span>
             <span className="text-xl">ZMW {total.toLocaleString()}</span>
@@ -223,9 +318,12 @@ export default function Cart() {
         <button
           onClick={handleCheckout}
           disabled={!address.trim()}
-          className="w-full max-w-2xl mx-auto flex items-center justify-between bg-primary text-white rounded-2xl px-5 py-4 shadow-xl hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full max-w-2xl mx-auto flex items-center justify-between rounded-2xl px-5 py-4 shadow-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-white"
+          style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)', display: 'flex' }}
         >
-          <span className="font-semibold">Place Order</span>
+          <span className="font-semibold">
+            {payOnDelivery ? 'Place Order (Pay on Delivery)' : 'Place Order & Pay'}
+          </span>
           <span className="font-bold">ZMW {total.toLocaleString()} →</span>
         </button>
       </div>

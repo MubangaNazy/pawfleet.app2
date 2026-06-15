@@ -5,7 +5,7 @@ import {
   Users, UserCog, CreditCard, Activity, DollarSign, Clock,
   LogOut, X, Dog, ChevronRight, Scissors, ShoppingBag, User, Calendar, Bell, Package, TrendingUp, History, Trophy,
 } from 'lucide-react';
-import { Logo } from '../Logo';
+import PawFleetLogo from '../ui/PawFleetLogo';
 import { useApp } from '../../context/AppContext';
 
 interface SidebarProps { isOpen: boolean; onClose: () => void; }
@@ -84,7 +84,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
       {/* ── Logo ── */}
       <div className="px-4 pt-5 pb-4 flex items-center gap-3">
-        <Logo size={36} showText textColor="#1B4332" className="flex-1 min-w-0" />
+        <PawFleetLogo size={36} showText className="flex-1 min-w-0" />
         <button type="button" title="Close menu" className="lg:hidden w-7 h-7 flex items-center justify-center rounded-lg text-ink-muted hover:bg-surface-hover hover:text-ink transition-colors" onClick={onClose}>
           <X className="w-4 h-4" />
         </button>

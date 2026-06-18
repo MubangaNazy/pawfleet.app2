@@ -51,6 +51,7 @@ const shopownerNav = [
   { to: '/shopowner/orders',        icon: ShoppingBag,     label: 'Orders' },
   { to: '/shopowner/analytics',     icon: TrendingUp,      label: 'Analytics' },
   { to: '/shopowner/notifications', icon: Bell,            label: 'Notifications' },
+  { to: '/shopowner/community',     icon: Users,           label: 'Community' },
   { to: '/shopowner/profile',       icon: User,            label: 'Shop Profile' },
 ];
 

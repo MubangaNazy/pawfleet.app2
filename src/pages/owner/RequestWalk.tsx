@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { CheckCircle, Star, MapPin, Zap, Calendar, Scissors, Loader2 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { supabase } from '../../lib/supabase';
-import PaymentModal from '../../components/ui/PaymentModal';
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
 const DURATIONS = [15, 30, 45, 60];
@@ -41,8 +40,6 @@ export default function OwnerRequestWalk() {
   const [selectedWalkerId, setSelectedWalkerId] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [showWalkers, setShowWalkers] = useState(false);
-  const [showPayment, setShowPayment] = useState(false);
-  const [pendingWalkerId, setPendingWalkerId] = useState<string | undefined>(undefined);
 
   // Pickup location state
   const [pickupMode, setPickupMode] = useState<'live' | 'manual' | null>(null);
@@ -143,24 +140,23 @@ export default function OwnerRequestWalk() {
 
   const handleSubmit = (walkerId?: string) => {
     if (!dogId || !pickupReady) return;
-    setPendingWalkerId(walkerId);
-    setShowPayment(true);
+    confirmBooking(walkerId);
   };
 
-  const confirmBooking = (paymentMethod: string, reference?: string) => {
+  const confirmBooking = (walkerId?: string) => {
     const scheduledDate = isInstant
       ? new Date().toISOString()
       : new Date(`${schedDate}T${schedTime}:00`).toISOString();
 
     const pickupTag = pickupMode === 'live' ? 'PICKUP:live|' : 'PICKUP:manual|';
     const notes = addGrooming
-      ? `${pickupTag}Add-on: Grooming requested | Payment: ${paymentMethod}${reference ? ` | Ref: ${reference}` : ''}`
-      : `${pickupTag}Payment: ${paymentMethod}${reference ? ` | Ref: ${reference}` : ''}`;
+      ? `${pickupTag}Add-on: Grooming requested | Payment: after_service`
+      : `${pickupTag}Payment: after_service`;
 
     const newWalk = createWalk({
       dogId,
       ownerId: currentUser!.id,
-      walkerId: pendingWalkerId || undefined,
+      walkerId: walkerId || undefined,
       status: 'pending',
       scheduledDate,
       price: addGrooming ? 399 : 150,
@@ -178,7 +174,6 @@ export default function OwnerRequestWalk() {
       startLiveBroadcast(newWalk.id);
     }
 
-    setShowPayment(false);
     setSubmitted(true);
   };
 
@@ -524,6 +519,21 @@ export default function OwnerRequestWalk() {
                       <div className="flex items-center gap-1 text-xs text-ink-secondary">
                         <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
                         <span>{walkerRatings[i] || '4.8'} · 0.{i + 4} mi</span>
+                        {(() => {
+                          const BADGE_DEFS = [
+                            { id: 'first_walk', icon: '🐾', minWalks: 1 },
+                            { id: 'five_walks', icon: '⭐', minWalks: 5 },
+                            { id: 'ten_walks', icon: '🏆', minWalks: 10 },
+                            { id: 'twenty_five_walks', icon: '🥇', minWalks: 25 },
+                          ];
+                          const count = data.walks.filter(w => w.walkerId === walker.id && w.status === 'completed').length;
+                          const earned = BADGE_DEFS.filter(b => count >= b.minWalks);
+                          return earned.length > 0 ? (
+                            <span className="flex items-center gap-0.5">
+                              {earned.map(b => <span key={b.id} title={b.id} className="text-sm leading-none">{b.icon}</span>)}
+                            </span>
+                          ) : null;
+                        })()}
                       </div>
                       <p className="text-xs text-ink-muted mt-0.5 truncate">{walkerBios[i] || 'Experienced dog walker.'}</p>
                     </div>
@@ -551,16 +561,6 @@ export default function OwnerRequestWalk() {
 
       </div>
 
-      {showPayment && (
-        <PaymentModal
-          amount={addGrooming ? 399 : 150}
-          description={`Dog walk${addGrooming ? ' + grooming' : ''} for ${selectedDog?.name || 'your dog'}`}
-          customerName={currentUser?.name || ''}
-          customerPhone={currentUser?.phone}
-          onConfirm={confirmBooking}
-          onClose={() => setShowPayment(false)}
-        />
-      )}
     </div>
   );
 }

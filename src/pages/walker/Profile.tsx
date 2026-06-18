@@ -182,17 +182,28 @@ export default function WalkerProfile() {
         </div>
 
         {/* Badges preview */}
-        {gamStats.badges.length > 0 && (
-          <div className="mt-4 mb-4">
-            <div className="flex gap-2 flex-wrap justify-center">
-              {gamStats.badges.slice(0, 4).map(badge => (
-                <span key={badge.id} className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-white/15 text-white text-[11px] font-medium">
-                  {badge.icon} {badge.label}
-                </span>
-              ))}
+        {(() => {
+          const WALK_BADGE_DEFS = [
+            { id: 'first_walk',        label: 'First Steps', icon: '🐾', minWalks: 1  },
+            { id: 'five_walks',        label: '5 Walker',    icon: '⭐', minWalks: 5  },
+            { id: 'ten_walks',         label: 'Pro Walker',  icon: '🏆', minWalks: 10 },
+            { id: 'twenty_five_walks', label: 'Walk Master', icon: '🥇', minWalks: 25 },
+          ];
+          const claimedIds: string[] = JSON.parse(localStorage.getItem(`pawfleet_walker_claimed_${currentUser?.id}`) || '[]');
+          const badges = WALK_BADGE_DEFS.filter(b => myWalks.length >= b.minWalks && claimedIds.includes(b.id));
+          const allBadges = [...badges, ...gamStats.badges.filter(b => !badges.find(x => x.id === b.id))];
+          return allBadges.length > 0 ? (
+            <div className="mt-3 mb-2">
+              <div className="flex gap-1.5 flex-wrap justify-center">
+                {allBadges.slice(0, 5).map(badge => (
+                  <span key={badge.id} className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-white/20 text-white text-[11px] font-semibold">
+                    {badge.icon} {badge.label}
+                  </span>
+                ))}
+              </div>
             </div>
-          </div>
-        )}
+          ) : null;
+        })()}
         <div className="h-6" />
       </div>
 

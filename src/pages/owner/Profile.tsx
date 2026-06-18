@@ -190,6 +190,17 @@ export default function Profile() {
   const initials    = currentUser?.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || '?';
   const handleLogout = () => { logout(); navigate('/login'); };
 
+  const claimKey = `pawfleet_achiev_claimed_${currentUser?.id}`;
+  const [claimed, setClaimed] = useState<string[]>(() =>
+    JSON.parse(localStorage.getItem(claimKey) || '[]')
+  );
+  const handleClaim = (id: string) => {
+    const next = [...claimed, id];
+    setClaimed(next);
+    localStorage.setItem(claimKey, JSON.stringify(next));
+  };
+  const claimedAchievements = achievementProgress.filter(a => a.earned && claimed.includes(a.id));
+
   return (
     <div className="bg-white min-h-screen pb-28">
       <div className="max-w-lg mx-auto px-4 pt-5 space-y-5">
@@ -206,6 +217,17 @@ export default function Profile() {
             <p className="text-sm text-ink-secondary truncate">{currentUser?.email || currentUser?.phone}</p>
             {streak > 0 && (
               <p className="text-xs font-bold mt-0.5" style={{ color: '#E67E22' }}>🔥 {streak}-day streak</p>
+            )}
+            {claimedAchievements.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-1.5">
+                {claimedAchievements.map(a => (
+                  <span key={a.id} title={a.label}
+                    className="w-7 h-7 rounded-full flex items-center justify-center text-base border-2 border-white shadow-sm"
+                    style={{ background: '#EBF5EF' }}>
+                    {a.icon}
+                  </span>
+                ))}
+              </div>
             )}
           </div>
           <button type="button" onClick={() => setShowEdit(true)}
@@ -264,10 +286,17 @@ export default function Profile() {
                         }} />
                     </div>
                   </div>
-                  {a.earned && (
-                    <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0"
-                      style={{ background: '#2B8A50' }}>
-                      <Check className="w-3.5 h-3.5 text-white" />
+                  {a.earned && !claimed.includes(a.id) && (
+                    <button type="button" onClick={() => handleClaim(a.id)}
+                      className="shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold text-white"
+                      style={{ background: 'linear-gradient(135deg, #D97706, #F59E0B)' }}>
+                      Claim 🎁
+                    </button>
+                  )}
+                  {a.earned && claimed.includes(a.id) && (
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-lg"
+                      style={{ background: '#EBF5EF' }}>
+                      {a.icon}
                     </div>
                   )}
                 </div>

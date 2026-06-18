@@ -75,9 +75,17 @@ export function Layout() {
                 </span>
               )}
             </Link>
-            <div className="w-8 h-8 rounded-xl bg-primary-50 flex items-center justify-center text-primary text-xs font-bold">
-              {currentUser?.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
-            </div>
+            {currentUser?.role === 'shopowner' ? (
+              <Link to="/shopowner/profile" className="w-8 h-8 rounded-xl bg-primary-50 flex items-center justify-center text-primary text-xs font-bold hover:bg-primary-100 transition-colors">
+                {currentUser?.imageUrl
+                  ? <img src={currentUser.imageUrl} alt={currentUser.name} className="w-full h-full object-cover rounded-xl" />
+                  : currentUser?.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+              </Link>
+            ) : (
+              <div className="w-8 h-8 rounded-xl bg-primary-50 flex items-center justify-center text-primary text-xs font-bold">
+                {currentUser?.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+              </div>
+            )}
           </div>
         </header>
 

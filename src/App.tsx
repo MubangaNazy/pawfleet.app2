@@ -207,6 +207,7 @@ function AppRoutes() {
         <Route path="notifications" element={<NotificationsPage />} />
         <Route path="analytics"     element={<ShopOwnerAnalytics />} />
         <Route path="profile"       element={<ShopOwnerProfile />} />
+        <Route path="community"     element={<Community />} />
       </Route>
 
       {/* ── Owner ── */}

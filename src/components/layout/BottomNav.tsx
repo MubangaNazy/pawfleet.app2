@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom';
-import { Home, ShoppingBag, User, Calendar, Navigation, DollarSign, MapPin, BarChart2 } from 'lucide-react';
+import { Home, ShoppingBag, User, Calendar, Navigation, DollarSign, MapPin, BarChart2, BookOpen } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useCart } from '../../context/CartContext';
 
@@ -16,6 +16,7 @@ const walkerNav = [
   { to: '/walker/walks',     icon: MapPin,     label: 'Walks' },
   { to: '/walker/history',   icon: BarChart2,  label: 'History' },
   { to: '/walker/earnings',  icon: DollarSign, label: 'Earnings' },
+  { to: '/walker/guide',     icon: BookOpen,   label: 'Guide' },
   { to: '/walker/profile',   icon: User,       label: 'Profile' },
 ];
 
@@ -60,7 +61,7 @@ export function BottomNav() {
           >
             {({ isActive }) => (
               <div
-                className={`relative flex flex-col items-center gap-0.5 px-4 py-1.5 rounded-full transition-all`}
+                className={`relative flex flex-col items-center gap-0.5 rounded-full transition-all ${isWalker ? 'px-2.5 py-1.5' : 'px-4 py-1.5'}`}
                 style={isActive ? { background: '#1B4332' } : {}}
               >
                 <div className="relative">

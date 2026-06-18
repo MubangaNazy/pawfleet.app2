@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronDown, ChevronUp, CheckCircle2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, CheckCircle2, PlayCircle, ExternalLink } from 'lucide-react';
 import PawFleetLogo from '../../components/ui/PawFleetLogo';
 
 interface Section {
@@ -8,6 +8,7 @@ interface Section {
   tag: string;
   summary: string;
   tips: string[];
+  videoQuery: string;
 }
 
 const GUIDE: Section[] = [
@@ -24,6 +25,7 @@ const GUIDE: Section[] = [
       'Ask the owner if the dog has any triggers (skateboards, bikes, loud sounds).',
       'Watch for a relaxed tail wag and soft eyes before clipping the leash.',
     ],
+    videoQuery: 'how to safely greet a dog for the first time dog training',
   },
   {
     emoji: '🦮',
@@ -38,6 +40,7 @@ const GUIDE: Section[] = [
       'Keep the dog on your left side for the most control.',
       'Always use a harness for strong pullers — never just a neck collar.',
     ],
+    videoQuery: 'proper dog leash handling technique loose leash walking tutorial',
   },
   {
     emoji: '🗣️',
@@ -53,6 +56,7 @@ const GUIDE: Section[] = [
       'Reward with treats or praise within 2 seconds of good behaviour.',
       'If the dog does not respond, ask the owner what cues they use.',
     ],
+    videoQuery: 'basic dog commands for beginners sit stay heel leave it tutorial',
   },
   {
     emoji: '🐶',
@@ -67,6 +71,7 @@ const GUIDE: Section[] = [
       'Aggressive warning: stiff body, hard stare, raised hackles, low growl — create distance immediately.',
       'Never punish growling — it is a warning signal. Give the dog space.',
     ],
+    videoQuery: 'understanding dog body language signs stress fear aggression guide',
   },
   {
     emoji: '⚠️',
@@ -81,6 +86,7 @@ const GUIDE: Section[] = [
       'Always carry a poop bag and water on walks over 20 minutes.',
       'If a dog gets loose, don\'t chase — crouch down, act calm, and call their name.',
     ],
+    videoQuery: 'dog walking safety tips hazards traffic other dogs guide',
   },
   {
     emoji: '☀️',
@@ -95,6 +101,7 @@ const GUIDE: Section[] = [
       'Offer water every 15 minutes on warm days.',
       'In the rainy season, check for deep puddles and slippery mud paths.',
     ],
+    videoQuery: 'walking dogs in hot weather heat stroke signs paw burn safety',
   },
   {
     emoji: '🚨',
@@ -109,6 +116,7 @@ const GUIDE: Section[] = [
       'You feel unsafe: end the walk early, go to a public place, contact admin.',
       'Always carry the owner\'s phone number and the PawFleet admin contact.',
     ],
+    videoQuery: 'dog first aid emergency response injured dog what to do',
   },
   {
     emoji: '✂️',
@@ -128,6 +136,7 @@ const GUIDE: Section[] = [
       'Clean ears by dampening a cotton ball with ear cleaner and wiping gently — never insert anything deep.',
       'Reward with treats and calm praise throughout — end every session on a positive note.',
     ],
+    videoQuery: 'how to groom a dog at home step by step bathing brushing nails',
   },
 ];
 
@@ -258,8 +267,29 @@ function GuideCard({
             ))}
           </ul>
 
+          {/* Video tutorial */}
+          <a
+            href={`https://www.youtube.com/results?search_query=${encodeURIComponent(section.videoQuery)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-3 mt-5 p-3.5 rounded-2xl border active:scale-95 transition-transform"
+            style={{ background: '#FFF1F0', borderColor: '#FECACA', textDecoration: 'none' }}
+          >
+            <div
+              className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0"
+              style={{ background: '#EF4444' }}
+            >
+              <PlayCircle className="w-6 h-6 text-white" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold" style={{ color: '#111827' }}>Watch Tutorial</p>
+              <p className="text-xs truncate" style={{ color: '#6B7280' }}>{section.title} — Video Guide on YouTube</p>
+            </div>
+            <ExternalLink className="w-4 h-4 shrink-0" style={{ color: '#9CA3AF' }} />
+          </a>
+
           {/* Mark as read */}
-          <div className="mt-5">
+          <div className="mt-4">
             {isRead ? (
               <div
                 className="flex items-center justify-center gap-2 py-2.5 rounded-xl"
@@ -323,7 +353,7 @@ export default function DogGuide() {
             {[
               { label: `${GUIDE.length} Sections`, emoji: '📚' },
               { label: 'Beginner Friendly', emoji: '✅' },
-              { label: 'Grooming Guide', emoji: '✂️' },
+              { label: 'Video Tutorials', emoji: '▶️' },
             ].map(b => (
               <div
                 key={b.label}

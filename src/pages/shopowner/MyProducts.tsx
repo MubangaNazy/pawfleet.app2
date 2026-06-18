@@ -27,6 +27,14 @@ async function resizePhoto(file: File, maxDim = 800, q = 0.82): Promise<string> 
 
 const CATEGORIES: ShopProduct['category'][] = ['treats', 'accessories', 'meals', 'hygiene'];
 
+const CAT_EMOJIS: Record<string, string> = {
+  all: '🛍️',
+  treats: '🦴',
+  accessories: '🎀',
+  meals: '🍖',
+  hygiene: '🧴',
+};
+
 function ProductModal({
   product,
   shopOwnerId,
@@ -186,14 +194,21 @@ function ProductModal({
   );
 }
 
+type FilterCat = 'all' | ShopProduct['category'];
+
 export default function MyProducts() {
   const { currentUser } = useApp();
   const { products, removeProduct } = useShop();
   const [showAdd, setShowAdd]     = useState(false);
   const [editing, setEditing]     = useState<ShopProduct | null>(null);
   const [deleting, setDeleting]   = useState<string | null>(null);
+  const [filterCat, setFilterCat] = useState<FilterCat>('all');
 
   const myProducts = products.filter(p => p.shopOwnerId === currentUser?.id);
+  const displayed  = filterCat === 'all' ? myProducts : myProducts.filter(p => p.category === filterCat);
+
+  const catCount = (cat: FilterCat) =>
+    cat === 'all' ? myProducts.length : myProducts.filter(p => p.category === cat).length;
 
   return (
     <div className="max-w-xl mx-auto pb-24">
@@ -211,51 +226,93 @@ export default function MyProducts() {
         </button>
       </div>
 
-      <div className="p-4 space-y-3">
-        {myProducts.length === 0 && (
-          <div className="py-16 text-center">
-            <p className="text-4xl mb-3">🛍️</p>
-            <p className="font-semibold text-ink mb-1">No products yet</p>
-            <p className="text-sm text-ink-muted mb-4">Add your first product for owners to discover</p>
-            <button type="button" onClick={() => setShowAdd(true)}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-white text-sm font-semibold"
-              style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)' }}>
-              <Plus className="w-4 h-4" /> Add Product
-            </button>
-          </div>
-        )}
+      {/* Category filter tabs */}
+      {myProducts.length > 0 && (
+        <div className="px-4 pt-4 pb-2 flex gap-2 overflow-x-auto"
+          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+          {(['all', ...CATEGORIES] as FilterCat[]).map(cat => {
+            const count = catCount(cat);
+            if (cat !== 'all' && count === 0) return null;
+            return (
+              <button key={cat} type="button" onClick={() => setFilterCat(cat)}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap shrink-0 capitalize transition-all border"
+                style={{
+                  background: filterCat === cat ? '#1B4332' : 'white',
+                  color: filterCat === cat ? 'white' : '#6B7280',
+                  borderColor: filterCat === cat ? '#1B4332' : '#E5E7EB',
+                }}>
+                <span>{CAT_EMOJIS[cat] || ''}</span>
+                {cat === 'all' ? 'All' : cat}
+                <span className="text-[10px] opacity-70">({count})</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
-        {myProducts.map(p => (
-          <div key={p.id} className="bg-white border border-surface-border rounded-2xl overflow-hidden">
-            <div className="flex items-center gap-3 p-4">
-              <div className="w-16 h-16 rounded-xl overflow-hidden bg-surface-secondary shrink-0">
+      {/* Empty state */}
+      {myProducts.length === 0 && (
+        <div className="py-16 text-center px-4">
+          <p className="text-4xl mb-3">🛍️</p>
+          <p className="font-semibold text-ink mb-1">No products yet</p>
+          <p className="text-sm text-ink-muted mb-4">Add your first product for owners to discover</p>
+          <button type="button" onClick={() => setShowAdd(true)}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-white text-sm font-semibold"
+            style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)' }}>
+            <Plus className="w-4 h-4" /> Add Product
+          </button>
+        </div>
+      )}
+
+      {/* 2×2 Product grid */}
+      {displayed.length > 0 && (
+        <div className="px-4 pt-3 pb-4 grid grid-cols-2 gap-3">
+          {displayed.map(p => (
+            <div key={p.id} className="bg-white border border-surface-border rounded-2xl overflow-hidden">
+              {/* Square image */}
+              <div className="relative aspect-square">
                 <img src={p.img} alt={p.name} className="w-full h-full object-cover" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <p className="font-bold text-ink text-sm truncate">{p.name}</p>
-                  {p.badge && (
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold text-white shrink-0"
-                      style={{ background: '#2B8A50' }}>{p.badge}</span>
-                  )}
+                {p.badge && (
+                  <span className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[10px] font-bold text-white shrink-0"
+                    style={{ background: '#2B8A50' }}>{p.badge}</span>
+                )}
+                {/* Action buttons overlay */}
+                <div className="absolute top-2 right-2 flex flex-col gap-1.5">
+                  <button type="button" onClick={() => setEditing(p)}
+                    className="w-7 h-7 rounded-lg flex items-center justify-center shadow-sm"
+                    style={{ background: 'rgba(255,255,255,0.92)' }}>
+                    <Pencil className="w-3.5 h-3.5 text-ink-secondary" />
+                  </button>
+                  <button type="button" onClick={() => setDeleting(p.id)}
+                    className="w-7 h-7 rounded-lg flex items-center justify-center shadow-sm"
+                    style={{ background: 'rgba(255,255,255,0.92)' }}>
+                    <Trash2 className="w-3.5 h-3.5 text-danger" />
+                  </button>
                 </div>
-                <p className="text-xs text-ink-muted capitalize">{p.category}</p>
-                <p className="font-bold text-ink mt-0.5">K{p.price}</p>
               </div>
-              <div className="flex gap-2 shrink-0">
-                <button type="button" onClick={() => setEditing(p)}
-                  className="w-9 h-9 rounded-xl flex items-center justify-center border border-surface-border hover:bg-surface-hover transition-colors">
-                  <Pencil className="w-4 h-4 text-ink-secondary" />
-                </button>
-                <button type="button" onClick={() => setDeleting(p.id)}
-                  className="w-9 h-9 rounded-xl flex items-center justify-center border border-danger/20 hover:bg-danger/5 transition-colors">
-                  <Trash2 className="w-4 h-4 text-danger" />
-                </button>
+              {/* Info */}
+              <div className="p-3">
+                <p className="font-bold text-ink text-xs leading-tight truncate">{p.name}</p>
+                <p className="text-[10px] text-ink-muted capitalize mt-0.5">{p.category}</p>
+                <p className="font-bold text-sm mt-1.5" style={{ color: '#1B4332' }}>K{p.price}</p>
               </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
+
+      {/* Empty filter state */}
+      {myProducts.length > 0 && displayed.length === 0 && (
+        <div className="py-12 text-center px-4">
+          <p className="text-3xl mb-2">{CAT_EMOJIS[filterCat]}</p>
+          <p className="font-semibold text-ink mb-1 capitalize">No {filterCat} products yet</p>
+          <button type="button" onClick={() => setShowAdd(true)}
+            className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-white text-xs font-semibold"
+            style={{ background: '#2B8A50' }}>
+            <Plus className="w-3.5 h-3.5" /> Add one
+          </button>
+        </div>
+      )}
 
       {(showAdd || editing) && (
         <ProductModal

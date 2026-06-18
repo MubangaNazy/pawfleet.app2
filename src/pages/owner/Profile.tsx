@@ -177,8 +177,11 @@ export default function Profile() {
     const newlyEarned = achievementProgress.filter(a => a.earned && !notified.includes(a.id));
     if (newlyEarned.length === 0) return;
     newlyEarned.forEach(a => {
-      sendNotification(currentUser.id, 'walk_completed' as any,
-        `Achievement Unlocked! ${a.icon}`, `You earned "${a.label}" — ${a.description}`, {});
+      sendNotification(currentUser.id, 'achievement',
+        `Achievement Unlocked! ${a.icon}`, `You earned "${a.label}" — ${a.description}`, {
+          achievementId: a.id, achievementIcon: a.icon,
+          achievementLabel: a.label, achievementDescription: a.description,
+        });
     });
     localStorage.setItem(notifKeyRef, JSON.stringify([...notified, ...newlyEarned.map(a => a.id)]));
   }, [completedWalks.length, myDogs.length, thisMonthWalks.length]);

@@ -4,7 +4,7 @@ import {
   format, startOfMonth, endOfMonth, eachDayOfInterval,
   isSameDay, isSameMonth, isToday, addMonths, subMonths,
 } from 'date-fns';
-import { ChevronLeft, ChevronRight, Calendar, Clock, MapPin, MessageCircle, Navigation } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, Clock, MapPin, MessageCircle, Navigation, StickyNote } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { StatusBadge } from '../../components/ui/Badge';
 
@@ -126,6 +126,7 @@ export default function WalkerSchedule() {
           ) : selectedDayWalks.map(walk => {
             const dog = data.dogs.find(d => d.id === walk.dogId);
             const owner = data.users.find(u => u.id === walk.ownerId);
+            const ownerNote = walk.notes && !walk.notes.startsWith('VET BOOKING:') ? walk.notes : null;
             return (
               <div key={walk.id} className="bg-white border border-surface-border rounded-2xl p-4">
                 <div className="flex items-center gap-3">
@@ -151,6 +152,12 @@ export default function WalkerSchedule() {
                         </span>
                       )}
                     </div>
+                    {ownerNote && (
+                      <div className="mt-2 flex items-start gap-1.5 bg-amber-50 border border-amber-100 rounded-xl px-2.5 py-1.5">
+                        <StickyNote className="w-3 h-3 text-amber-600 mt-0.5 shrink-0" />
+                        <p className="text-xs text-amber-800 leading-snug">{ownerNote}</p>
+                      </div>
+                    )}
                   </div>
                   <div className="flex gap-2 shrink-0">
                     <Link

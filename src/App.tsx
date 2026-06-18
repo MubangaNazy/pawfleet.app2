@@ -61,9 +61,10 @@ const ShopOwnerNotifications = lazy(() => import('./pages/shopowner/Notification
 const ShopOwnerProfile       = lazy(() => import('./pages/shopowner/Profile'));
 const ShopOwnerAnalytics     = lazy(() => import('./pages/shopowner/Analytics'));
 
-const VetDashboard    = lazy(() => import('./pages/vet/Dashboard'));
-const VetAppointments = lazy(() => import('./pages/vet/Appointments'));
-const VetProfile      = lazy(() => import('./pages/vet/Profile'));
+const VetDashboard          = lazy(() => import('./pages/vet/Dashboard'));
+const VetAppointments       = lazy(() => import('./pages/vet/Appointments'));
+const VetAppointmentDetail  = lazy(() => import('./pages/vet/AppointmentDetail'));
+const VetProfile            = lazy(() => import('./pages/vet/Profile'));
 
 const NotificationsPage = lazy(() => import('./pages/Notifications'));
 const ChatInbox         = lazy(() => import('./pages/ChatInbox'));
@@ -251,10 +252,11 @@ function AppRoutes() {
 
       {/* ── Vet ── */}
       <Route path="/vet" element={<ProtectedRoute role="vet"><Layout /></ProtectedRoute>}>
-        <Route index                element={<VetDashboard />} />
-        <Route path="appointments"  element={<VetAppointments />} />
-        <Route path="profile"       element={<VetProfile />} />
-        <Route path="notifications" element={<NotificationsPage />} />
+        <Route index                          element={<VetDashboard />} />
+        <Route path="appointments"            element={<VetAppointments />} />
+        <Route path="appointments/:walkId"    element={<VetAppointmentDetail />} />
+        <Route path="profile"                 element={<VetProfile />} />
+        <Route path="notifications"           element={<NotificationsPage />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

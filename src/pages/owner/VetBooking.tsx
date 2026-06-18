@@ -81,17 +81,18 @@ export default function VetBooking() {
   const ownerPets = data.dogs.filter(d => d.ownerId === currentUser?.id);
   const today     = new Date().toISOString().split('T')[0];
 
-  const [selectedPet,    setSelectedPet]    = useState(ownerPets[0]?.id ?? '');
-  const [serviceId,      setServiceId]      = useState('checkup');
-  const [isAggressive,   setIsAggressive]   = useState(false);
-  const [needsTransport, setNeedsTransport] = useState(false);
-  const [bookingDate,    setBookingDate]    = useState('');
-  const [bookingTime,    setBookingTime]    = useState('09:00');
-  const [userLat,        setUserLat]        = useState<number | null>(null);
-  const [userLng,        setUserLng]        = useState<number | null>(null);
-  const [locLoading,     setLocLoading]     = useState(false);
-  const [submitting,     setSubmitting]     = useState(false);
-  const [done,           setDone]           = useState(false);
+  const [selectedPet,     setSelectedPet]    = useState(ownerPets[0]?.id ?? '');
+  const [serviceId,       setServiceId]      = useState('checkup');
+  const [selectedClinic,  setSelectedClinic] = useState(VET_CLINICS[0].id);
+  const [isAggressive,    setIsAggressive]   = useState(false);
+  const [needsTransport,  setNeedsTransport] = useState(false);
+  const [bookingDate,     setBookingDate]    = useState('');
+  const [bookingTime,     setBookingTime]    = useState('09:00');
+  const [userLat,         setUserLat]        = useState<number | null>(null);
+  const [userLng,         setUserLng]        = useState<number | null>(null);
+  const [locLoading,      setLocLoading]     = useState(false);
+  const [submitting,      setSubmitting]     = useState(false);
+  const [done,            setDone]           = useState(false);
 
   const service = VET_SERVICES.find(s => s.id === serviceId) ?? VET_SERVICES[0];
   const total   = service.price + (isAggressive ? AGGRESSIVE_SURCHARGE : 0) + (needsTransport ? WALKER_FEE : 0);
@@ -109,8 +110,10 @@ export default function VetBooking() {
   const handleBook = async () => {
     if (!selectedPet || !bookingDate || !currentUser) return;
     setSubmitting(true);
+    const clinic = VET_CLINICS.find(c => c.id === selectedClinic) ?? VET_CLINICS[0];
     const note = [
       `VET BOOKING: ${service.label}`,
+      `📍 Clinic: ${clinic.name}`,
       isAggressive   ? '⚠️ Aggressive animal — sedation required' : null,
       needsTransport ? '🚗 Walker transport requested'             : null,
       `Total: K${total}`,
@@ -129,17 +132,26 @@ export default function VetBooking() {
 
   /* ── Success screen ── */
   if (done) {
+    const bookedClinic = VET_CLINICS.find(c => c.id === selectedClinic) ?? VET_CLINICS[0];
     return (
       <div className="min-h-screen flex flex-col items-center justify-center px-6 text-center bg-white gap-5">
         <div className="w-24 h-24 rounded-3xl flex items-center justify-center text-5xl shadow-lg"
           style={{ background: 'linear-gradient(135deg,#0F766E,#0891B2)' }}>🏥</div>
         <div>
           <h2 className="text-2xl font-extrabold text-ink mb-2">Booking Confirmed!</h2>
-          <p className="text-sm text-ink-muted">A vet clinic partner will contact you shortly to confirm your appointment.</p>
+          <p className="text-sm text-ink-muted">Your appointment has been sent to the clinic below.</p>
         </div>
-        <div className="rounded-2xl px-8 py-4 text-center" style={{ background: '#F0FDFA' }}>
-          <p className="text-xs text-teal-600 font-semibold uppercase tracking-wider">Total Due</p>
-          <p className="text-3xl font-extrabold mt-1" style={{ color: '#0F766E' }}>K{total}</p>
+        <div className="w-full max-w-xs space-y-3">
+          <div className="rounded-2xl p-4 text-left" style={{ background: '#F0FDFA', border: '1px solid #A5F3FC' }}>
+            <p className="text-[11px] text-teal-600 font-bold uppercase tracking-wider mb-1">Assigned Clinic</p>
+            <p className="text-base font-extrabold text-ink">{bookedClinic.name}</p>
+            <p className="text-xs text-ink-muted mt-0.5">{bookedClinic.address}</p>
+            <p className="text-xs text-teal-600 mt-0.5">⏰ {bookedClinic.hours}</p>
+          </div>
+          <div className="rounded-2xl px-6 py-3 text-center" style={{ background: '#EBF5EF' }}>
+            <p className="text-xs text-ink-muted font-semibold uppercase tracking-wider">Total Due</p>
+            <p className="text-3xl font-extrabold mt-1" style={{ color: '#0F766E' }}>K{total}</p>
+          </div>
         </div>
         <button onClick={() => navigate('/owner')}
           className="w-full max-w-xs py-4 rounded-2xl font-bold text-white text-sm"
@@ -311,23 +323,29 @@ export default function VetBooking() {
           <p className="text-[11px] text-ink-muted mt-2 text-center">Tap 🏥 markers to see clinic details</p>
         </div>
 
-        {/* ── Clinic list ── */}
+        {/* ── Clinic selection ── */}
         <div>
-          <p className="text-xs font-bold text-ink-muted uppercase tracking-wider mb-3">Partner Clinics</p>
+          <p className="text-xs font-bold text-ink-muted uppercase tracking-wider mb-3">Select a Clinic</p>
           <div className="space-y-2">
             {VET_CLINICS.map(c => (
-              <div key={c.id} className="flex items-center gap-3 p-3.5 rounded-2xl border border-surface-border bg-white">
+              <button key={c.id} type="button" onClick={() => setSelectedClinic(c.id)}
+                className={`w-full flex items-center gap-3 p-3.5 rounded-2xl border-2 text-left transition-all ${
+                  selectedClinic === c.id
+                    ? 'border-primary bg-primary/5 shadow-sm'
+                    : 'border-surface-border bg-white hover:bg-surface-hover'
+                }`}>
                 <div className="w-10 h-10 rounded-2xl flex items-center justify-center text-xl shrink-0"
-                  style={{ background: 'linear-gradient(135deg,#F0FDFA,#CFFAFE)' }}>🏥</div>
+                  style={{ background: selectedClinic === c.id ? '#EBF5EF' : 'linear-gradient(135deg,#F0FDFA,#CFFAFE)' }}>🏥</div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-bold text-ink truncate">{c.name}</p>
                   <p className="text-xs text-ink-muted">{c.address}</p>
                 </div>
-                <div className="text-right shrink-0">
+                <div className="text-right shrink-0 flex flex-col items-end gap-0.5">
                   <p className="text-xs font-bold text-amber-500">⭐ {c.rating}</p>
-                  <p className="text-[10px] text-ink-muted mt-0.5">{c.hours.split(' ')[0]}</p>
+                  <p className="text-[10px] text-ink-muted">{c.hours.split(' ')[0]}</p>
+                  {selectedClinic === c.id && <Check className="w-3.5 h-3.5 text-primary mt-0.5" />}
                 </div>
-              </div>
+              </button>
             ))}
           </div>
         </div>

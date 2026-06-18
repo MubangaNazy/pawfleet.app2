@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { format, parseISO } from 'date-fns';
 import { Search, CheckCircle2, Clock, XCircle } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
@@ -23,6 +24,7 @@ const STATUS_META: Record<string, { label: string; color: string; bg: string; ic
 
 export default function VetAppointments() {
   const { data, updateWalk } = useApp();
+  const navigate = useNavigate();
   const [filter,  setFilter]  = useState<Filter>('all');
   const [query,   setQuery]   = useState('');
   const [confirming, setConfirming] = useState<string | null>(null);
@@ -97,7 +99,9 @@ export default function VetAppointments() {
             const { service, aggressive, transport } = parseVetNote(walk.notes || '');
             const meta = STATUS_META[walk.status] ?? STATUS_META.pending;
             return (
-              <div key={walk.id} className="bg-white border border-surface-border rounded-2xl p-4 shadow-sm">
+              <div key={walk.id}
+                className="bg-white border border-surface-border rounded-2xl p-4 shadow-sm cursor-pointer hover:shadow-md transition-shadow"
+                onClick={() => navigate(`/vet/appointments/${walk.id}`)}>
                 <div className="flex items-start gap-3">
                   <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl shrink-0"
                     style={{ background: '#F0FDFA' }}>
@@ -126,7 +130,7 @@ export default function VetAppointments() {
 
                 {/* Confirm button for pending */}
                 {walk.status === 'pending' && (
-                  <button type="button" onClick={() => confirm(walk.id)}
+                  <button type="button" onClick={e => { e.stopPropagation(); confirm(walk.id); }}
                     disabled={confirming === walk.id}
                     className="mt-3 w-full py-2.5 rounded-xl text-white text-xs font-bold flex items-center justify-center gap-2 disabled:opacity-60"
                     style={{ background: 'linear-gradient(135deg,#0F766E,#0891B2)' }}>

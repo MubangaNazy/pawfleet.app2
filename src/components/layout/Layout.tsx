@@ -48,6 +48,8 @@ export function Layout() {
     ? '/walker/notifications'
     : currentUser?.role === 'owner'
     ? '/owner/notifications'
+    : currentUser?.role === 'vet'
+    ? '/vet/notifications'
     : '/shopowner/notifications';
 
   return (

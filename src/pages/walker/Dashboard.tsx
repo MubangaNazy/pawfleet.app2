@@ -193,10 +193,11 @@ export default function WalkerDashboard() {
             { to: '/walker/walks',    emoji: '🐾', label: 'Walks',    badge: availableWalks.length > 0 ? availableWalks.length : null, badgeType: 'amber' as const },
             { to: '/walker/schedule', emoji: '📅', label: 'Schedule', badge: null, badgeType: 'amber' as const },
             { to: '/walker/earnings', emoji: '💰', label: 'Earnings', badge: null, badgeType: 'amber' as const },
+            { to: '/walker/guide',    emoji: '📖', label: 'Guide',    badge: null, badgeType: 'amber' as const },
             { to: '/walker/chats',    emoji: '💬', label: 'Chat',     badge: unreadWalkerNotifs.length > 0 ? unreadWalkerNotifs.length : null, badgeType: 'red' as const },
           ];
           return (
-            <div className="grid grid-cols-4 gap-3">
+            <div className="grid grid-cols-5 gap-3">
               {quickItems.map(({ to, emoji, label, badge, badgeType }) => (
                 <Link key={to} to={to}
                   className="flex flex-col items-center gap-2 py-3 rounded-2xl bg-white border border-surface-border hover:shadow-md transition-all active:scale-95">

@@ -12,6 +12,9 @@ export interface User {
   role: Role;
   createdAt: string;
   imageUrl?: string;
+  businessName?: string;
+  businessAddress?: string;
+  businessType?: string;
   nrc?: string;                        // National Registration Card (walkers)
   walkerStatus?: WalkerStatus;         // Walker application status
   referredByAdminId?: string;          // Which admin's referral code was used

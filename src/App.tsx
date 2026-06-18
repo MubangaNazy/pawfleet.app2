@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppProvider, useApp } from './context/AppContext';
 import { CartProvider } from './context/CartContext';
@@ -6,63 +6,75 @@ import { ShopProvider } from './context/ShopContext';
 import { ToastProvider } from './components/ui/Toast';
 import { Layout } from './components/layout/Layout';
 import SplashScreen from './components/SplashScreen';
+// Login / Register / Landing are needed immediately — keep static
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Landing from './pages/Landing';
 
-// Admin pages
-import AdminDashboard   from './pages/admin/Dashboard';
-import AdminWalks       from './pages/admin/Walks';
-import AdminCreateWalk  from './pages/admin/CreateWalk';
-import AdminMapView     from './pages/admin/MapView';
-import AdminWalkers     from './pages/admin/Walkers';
-import AdminOwners      from './pages/admin/Owners';
-import AdminPayments    from './pages/admin/Payments';
-import AdminShopManager from './pages/admin/ShopManager';
-import AdminAnalytics   from './pages/admin/Analytics';
-import AdminProfitMgmt  from './pages/admin/ProfitManagement';
+// ── Lazy-loaded pages (split into separate chunks) ──────────────────────────
+const AdminDashboard   = lazy(() => import('./pages/admin/Dashboard'));
+const AdminWalks       = lazy(() => import('./pages/admin/Walks'));
+const AdminCreateWalk  = lazy(() => import('./pages/admin/CreateWalk'));
+const AdminMapView     = lazy(() => import('./pages/admin/MapView'));
+const AdminWalkers     = lazy(() => import('./pages/admin/Walkers'));
+const AdminOwners      = lazy(() => import('./pages/admin/Owners'));
+const AdminPayments    = lazy(() => import('./pages/admin/Payments'));
+const AdminShopManager = lazy(() => import('./pages/admin/ShopManager'));
+const AdminAnalytics   = lazy(() => import('./pages/admin/Analytics'));
+const AdminProfitMgmt  = lazy(() => import('./pages/admin/ProfitManagement'));
 
-// Walker pages
-import WalkerDashboard   from './pages/walker/Dashboard';
-import WalkerMyWalks     from './pages/walker/MyWalks';
-import WalkerEarnings    from './pages/walker/Earnings';
-import WalkerBadges      from './pages/walker/Badges';
-import WalkerWalkDetail  from './pages/walker/WalkDetail';
-import WalkerHistory     from './pages/walker/WalkHistory';
+const WalkerDashboard  = lazy(() => import('./pages/walker/Dashboard'));
+const WalkerMyWalks    = lazy(() => import('./pages/walker/MyWalks'));
+const WalkerEarnings   = lazy(() => import('./pages/walker/Earnings'));
+const WalkerBadges     = lazy(() => import('./pages/walker/Badges'));
+const WalkerWalkDetail = lazy(() => import('./pages/walker/WalkDetail'));
+const WalkerHistory    = lazy(() => import('./pages/walker/WalkHistory'));
+const WalkerSchedule   = lazy(() => import('./pages/walker/Schedule'));
+const WalkerLiveWalk   = lazy(() => import('./pages/walker/LiveWalk'));
+const WalkerProfile    = lazy(() => import('./pages/walker/Profile'));
+const WalkerDogGuide   = lazy(() => import('./pages/walker/DogGuide'));
 
-// Owner pages
-import OwnerDashboard  from './pages/owner/Dashboard';
-import OwnerRequestWalk from './pages/owner/RequestWalk';
-import OwnerHistory    from './pages/owner/History';
-import OwnerDogs       from './pages/owner/Dogs';
-import DogProfile      from './pages/owner/DogProfile';
-import OwnerServices   from './pages/owner/Services';
-import OwnerShop       from './pages/owner/Shop';
-import OwnerProfile    from './pages/owner/Profile';
-import WalkTracker     from './pages/owner/WalkTracker';
-import OwnerSchedule   from './pages/owner/Schedule';
-import OwnerCart       from './pages/owner/Cart';
-import FavouriteWalkers from './pages/owner/FavouriteWalkers';
-import PrivacySafety    from './pages/owner/PrivacySafety';
-import PaymentMethods   from './pages/owner/PaymentMethods';
+const OwnerDashboard   = lazy(() => import('./pages/owner/Dashboard'));
+const OwnerRequestWalk = lazy(() => import('./pages/owner/RequestWalk'));
+const OwnerHistory     = lazy(() => import('./pages/owner/History'));
+const OwnerDogs        = lazy(() => import('./pages/owner/Dogs'));
+const DogProfile       = lazy(() => import('./pages/owner/DogProfile'));
+const OwnerServices    = lazy(() => import('./pages/owner/Services'));
+const OwnerShop        = lazy(() => import('./pages/owner/Shop'));
+const OwnerCart        = lazy(() => import('./pages/owner/Cart'));
+const OwnerProfile     = lazy(() => import('./pages/owner/Profile'));
+const WalkTracker      = lazy(() => import('./pages/owner/WalkTracker'));
+const OwnerSchedule    = lazy(() => import('./pages/owner/Schedule'));
+const FavouriteWalkers = lazy(() => import('./pages/owner/FavouriteWalkers'));
+const PrivacySafety    = lazy(() => import('./pages/owner/PrivacySafety'));
+const PaymentMethods   = lazy(() => import('./pages/owner/PaymentMethods'));
 
-// Shared / full-screen
-import WalkerSchedule  from './pages/walker/Schedule';
-import WalkerLiveWalk  from './pages/walker/LiveWalk';
-import WalkerProfile   from './pages/walker/Profile';
-import WalkerDogGuide  from './pages/walker/DogGuide';
-import Chat            from './pages/Chat';
+const ShopOwnerDashboard     = lazy(() => import('./pages/shopowner/Dashboard'));
+const ShopOwnerMyProducts    = lazy(() => import('./pages/shopowner/MyProducts'));
+const ShopOwnerOrders        = lazy(() => import('./pages/shopowner/Orders'));
+const ShopOwnerNotifications = lazy(() => import('./pages/shopowner/Notifications'));
+const ShopOwnerProfile       = lazy(() => import('./pages/shopowner/Profile'));
+const ShopOwnerAnalytics     = lazy(() => import('./pages/shopowner/Analytics'));
 
-// Shop Owner
-import ShopOwnerDashboard     from './pages/shopowner/Dashboard';
-import ShopOwnerMyProducts    from './pages/shopowner/MyProducts';
-import ShopOwnerOrders        from './pages/shopowner/Orders';
-import ShopOwnerNotifications from './pages/shopowner/Notifications';
+const NotificationsPage = lazy(() => import('./pages/Notifications'));
+const ChatInbox         = lazy(() => import('./pages/ChatInbox'));
+const Chat              = lazy(() => import('./pages/Chat'));
+const Community         = lazy(() => import('./pages/Community'));
+const PrivacyPolicy     = lazy(() => import('./pages/PrivacyPolicy'));
 
-// Shared notifications page
-import NotificationsPage from './pages/Notifications';
-import ChatInbox from './pages/ChatInbox';
-import Community from './pages/Community';
+// ── Page fallback while chunks load ─────────────────────────────────────────
+function PageLoader() {
+  return (
+    <div className="flex-1 flex items-center justify-center py-24">
+      <div className="flex gap-1.5">
+        {[0, 1, 2].map(i => (
+          <div key={i} className="w-2 h-2 rounded-full bg-primary animate-bounce"
+            style={{ animationDelay: `${i * 0.15}s` }} />
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function ProtectedRoute({ children, role }: { children: React.ReactNode; role?: string | string[] }) {
   const { currentUser } = useApp();
@@ -106,7 +118,6 @@ function AppContent() {
         </div>
         <p className="text-xs text-ink-muted">Starting up PawFleet…</p>
 
-        {/* Dog walking animation */}
         <style>{`
           @keyframes dogWalk {
             0%   { left: 4%;  transform: scaleX(1); }
@@ -124,11 +135,9 @@ function AppContent() {
           }
         `}</style>
         <div style={{ position: 'relative', width: 160, height: 40 }}>
-          {/* Trail bar */}
           <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 5, borderRadius: 999, background: '#EBF5EF', overflow: 'hidden' }}>
             <div style={{ height: '100%', borderRadius: 999, background: 'linear-gradient(90deg, #1B4332, #52B788)', animation: 'trailGrow 2.4s ease-in-out infinite' }} />
           </div>
-          {/* Dog */}
           <div style={{ position: 'absolute', bottom: 7, fontSize: 22, lineHeight: 1, animation: 'dogWalk 2.4s linear infinite', display: 'inline-block' }}>🐕</div>
         </div>
 
@@ -136,20 +145,25 @@ function AppContent() {
       </div>
     );
   }
-  return <AppRoutes />;
+  return (
+    <Suspense fallback={<PageLoader />}>
+      <AppRoutes />
+    </Suspense>
+  );
 }
 
 function AppRoutes() {
   return (
     <Routes>
-      <Route path="/login"    element={<Login />} />
-      <Route path="/register" element={<Register />} />
-      <Route path="/landing"  element={<Landing />} />
-      <Route path="/"         element={<RoleRedirect />} />
+      <Route path="/login"          element={<Login />} />
+      <Route path="/register"       element={<Register />} />
+      <Route path="/landing"        element={<Landing />} />
+      <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+      <Route path="/"               element={<RoleRedirect />} />
 
       {/* ── Admin ── */}
       <Route path="/admin" element={<ProtectedRoute role="admin"><Layout /></ProtectedRoute>}>
-        <Route index          element={<AdminDashboard />} />
+        <Route index              element={<AdminDashboard />} />
         <Route path="walks"       element={<AdminWalks />} />
         <Route path="create-walk" element={<AdminCreateWalk />} />
         <Route path="map"         element={<AdminMapView />} />
@@ -165,19 +179,19 @@ function AppRoutes() {
 
       {/* ── Walker ── */}
       <Route path="/walker" element={<ProtectedRoute role="walker"><Layout /></ProtectedRoute>}>
-        <Route index          element={<WalkerDashboard />} />
-        <Route path="walks"     element={<WalkerMyWalks />} />
-        <Route path="schedule"  element={<WalkerSchedule />} />
-        <Route path="earnings"  element={<WalkerEarnings />} />
-        <Route path="badges"    element={<WalkerBadges />} />
-        <Route path="profile"   element={<WalkerProfile />} />
-        <Route path="guide"     element={<WalkerDogGuide />} />
-        <Route path="history"   element={<WalkerHistory />} />
+        <Route index              element={<WalkerDashboard />} />
+        <Route path="walks"       element={<WalkerMyWalks />} />
+        <Route path="schedule"    element={<WalkerSchedule />} />
+        <Route path="earnings"    element={<WalkerEarnings />} />
+        <Route path="badges"      element={<WalkerBadges />} />
+        <Route path="profile"     element={<WalkerProfile />} />
+        <Route path="guide"       element={<WalkerDogGuide />} />
+        <Route path="history"     element={<WalkerHistory />} />
         <Route path="notifications" element={<NotificationsPage />} />
-        <Route path="chats"         element={<ChatInbox />} />
-        <Route path="community"     element={<Community />} />
-        <Route path="dashboard" element={<Navigate to="/walker" replace />} />
-        <Route path="my-walks"  element={<Navigate to="/walker/walks" replace />} />
+        <Route path="chats"       element={<ChatInbox />} />
+        <Route path="community"   element={<Community />} />
+        <Route path="dashboard"   element={<Navigate to="/walker" replace />} />
+        <Route path="my-walks"    element={<Navigate to="/walker/walks" replace />} />
       </Route>
 
       {/* Walker full-screen (outside Layout) */}
@@ -187,33 +201,34 @@ function AppRoutes() {
 
       {/* ── Shop Owner ── */}
       <Route path="/shopowner" element={<ProtectedRoute role="shopowner"><Layout /></ProtectedRoute>}>
-        <Route index                    element={<ShopOwnerDashboard />} />
-        <Route path="products"          element={<ShopOwnerMyProducts />} />
-        <Route path="orders"            element={<ShopOwnerOrders />} />
-        <Route path="notifications"     element={<NotificationsPage />} />
-        <Route path="analytics"         element={<Navigate to="/shopowner" replace />} />
+        <Route index                element={<ShopOwnerDashboard />} />
+        <Route path="products"      element={<ShopOwnerMyProducts />} />
+        <Route path="orders"        element={<ShopOwnerOrders />} />
+        <Route path="notifications" element={<NotificationsPage />} />
+        <Route path="analytics"     element={<ShopOwnerAnalytics />} />
+        <Route path="profile"       element={<ShopOwnerProfile />} />
       </Route>
 
       {/* ── Owner ── */}
       <Route path="/owner" element={<ProtectedRoute role="owner"><Layout /></ProtectedRoute>}>
-        <Route index          element={<OwnerDashboard />} />
-        <Route path="request"   element={<OwnerRequestWalk />} />
-        <Route path="schedule"  element={<OwnerSchedule />} />
-        <Route path="history"   element={<OwnerHistory />} />
-        <Route path="dogs"      element={<OwnerDogs />} />
+        <Route index              element={<OwnerDashboard />} />
+        <Route path="request"     element={<OwnerRequestWalk />} />
+        <Route path="schedule"    element={<OwnerSchedule />} />
+        <Route path="history"     element={<OwnerHistory />} />
+        <Route path="dogs"        element={<OwnerDogs />} />
         <Route path="dogs/:dogId" element={<DogProfile />} />
-        <Route path="services"  element={<OwnerServices />} />
-        <Route path="shop"      element={<OwnerShop />} />
-        <Route path="cart"      element={<OwnerCart />} />
-        <Route path="profile"   element={<OwnerProfile />} />
+        <Route path="services"    element={<OwnerServices />} />
+        <Route path="shop"        element={<OwnerShop />} />
+        <Route path="cart"        element={<OwnerCart />} />
+        <Route path="profile"     element={<OwnerProfile />} />
         <Route path="track/:walkId" element={<WalkTracker />} />
         <Route path="notifications" element={<NotificationsPage />} />
-        <Route path="chats"         element={<ChatInbox />} />
-        <Route path="community"     element={<Community />} />
-        <Route path="dashboard"     element={<Navigate to="/owner" replace />} />
-        <Route path="request-walk"  element={<Navigate to="/owner/request" replace />} />
-        <Route path="favourites"    element={<FavouriteWalkers />} />
-        <Route path="privacy"       element={<PrivacySafety />} />
+        <Route path="chats"       element={<ChatInbox />} />
+        <Route path="community"   element={<Community />} />
+        <Route path="dashboard"   element={<Navigate to="/owner" replace />} />
+        <Route path="request-walk" element={<Navigate to="/owner/request" replace />} />
+        <Route path="favourites"  element={<FavouriteWalkers />} />
+        <Route path="privacy"     element={<PrivacySafety />} />
         <Route path="profile/payment" element={<PaymentMethods />} />
       </Route>
 

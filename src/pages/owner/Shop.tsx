@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, ShoppingCart, Plus, X, Star, ShieldCheck } from 'lucide-react';
+import { Search, ShoppingCart, Plus, X, Star, ShieldCheck, MapPin } from 'lucide-react';
 import { useCart } from '../../context/CartContext';
 import { useShop, ShopProduct } from '../../context/ShopContext';
+import { useApp } from '../../context/AppContext';
 
 const GROOM_IMG = 'https://images.unsplash.com/photo-1597633544156-0a5e9d7a1285?w=400&q=80';
 
@@ -112,7 +113,12 @@ export default function Shop() {
   const [selected, setSelected] = useState<ShopProduct | null>(null);
   const { addItem, count: cartTotal } = useCart();
   const { products } = useShop();
+  const { data } = useApp();
   const navigate = useNavigate();
+
+  // Group custom products by shop owner, showing shop header
+  const shopOwnerIds = [...new Set(products.filter(p => p.shopOwnerId).map(p => p.shopOwnerId!))];
+  const getShopInfo = (ownerId: string) => data.users.find(u => u.id === ownerId);
 
   const treats      = products.filter(p => p.category === 'treats');
   const accessories = products.filter(p => p.category === 'accessories');
@@ -184,6 +190,31 @@ export default function Shop() {
           </button>
         </div>
       )}
+
+      {/* Shop banners for custom shop owners */}
+      {!search && shopOwnerIds.length > 0 && shopOwnerIds.map(ownerId => {
+        const shop = getShopInfo(ownerId);
+        if (!shop?.businessName && !shop?.businessType) return null;
+        return (
+          <div key={ownerId} className="mx-4 mb-4 rounded-2xl border border-surface-border bg-white p-4 flex items-center gap-3">
+            <div className="w-14 h-14 rounded-2xl overflow-hidden shrink-0 flex items-center justify-center text-lg font-bold text-white"
+              style={{ background: shop.imageUrl ? undefined : 'linear-gradient(135deg, #1B4332, #2B8A50)' }}>
+              {shop.imageUrl
+                ? <img src={shop.imageUrl} alt={shop.businessName} className="w-full h-full object-cover" />
+                : (shop.businessName || shop.name)[0].toUpperCase()}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-bold text-ink text-sm">{shop.businessName || shop.name}</p>
+              {shop.businessType && <p className="text-xs text-primary font-semibold">{shop.businessType}</p>}
+              {shop.businessAddress && (
+                <p className="text-xs text-ink-muted flex items-center gap-1 mt-0.5">
+                  <MapPin className="w-3 h-3 shrink-0" />{shop.businessAddress}
+                </p>
+              )}
+            </div>
+          </div>
+        );
+      })}
 
       {/* Product sections */}
       {sections.map(section => (

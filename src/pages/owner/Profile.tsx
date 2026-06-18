@@ -1,9 +1,8 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CreditCard, Bell, Heart, Shield, ChevronRight, Settings, LogOut, Dog, Camera, Upload, X, Check, Pencil } from 'lucide-react';
+import { CreditCard, Bell, Heart, Shield, ChevronRight, LogOut, Dog, Camera, Upload, X, Check, Pencil } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
-import { format, isThisMonth } from 'date-fns';
-import type { OwnerAchievement } from '../../types';
+import { isThisMonth } from 'date-fns';
 
 async function resizePhoto(file: File, maxDim = 512, q = 0.78): Promise<string> {
   return new Promise(resolve => {
@@ -26,23 +25,21 @@ async function resizePhoto(file: File, maxDim = 512, q = 0.78): Promise<string> 
   });
 }
 
-function computeOwnerAchievements(completedWalks: number, dogs: number, thisMonthWalks: number): OwnerAchievement[] {
-  const now = new Date().toISOString();
-  const all: OwnerAchievement[] = [
-    { id: 'first_walk', label: 'First Walk!', icon: '🐾', description: 'Booked your first walk', earnedAt: now },
-    { id: 'five_walks', label: 'Committed',   icon: '🌿', description: '5 completed walks',   earnedAt: now },
-    { id: 'ten_walks',  label: 'Loyal Owner', icon: '💚', description: '10 completed walks',  earnedAt: now },
-    { id: 'multi_dog',  label: 'Pack Leader', icon: '🐕', description: '2 or more dogs',      earnedAt: now },
-    { id: 'active',     label: 'Active Month',icon: '🔥', description: '3+ walks this month', earnedAt: now },
-  ];
-  return all.filter(a => {
-    if (a.id === 'first_walk') return completedWalks >= 1;
-    if (a.id === 'five_walks') return completedWalks >= 5;
-    if (a.id === 'ten_walks')  return completedWalks >= 10;
-    if (a.id === 'multi_dog')  return dogs >= 2;
-    if (a.id === 'active')     return thisMonthWalks >= 3;
-    return false;
-  });
+const ACHIEVEMENT_DEFS = [
+  { id: 'first_walk', label: 'First Walk!',  icon: '🐾', description: 'Book your first walk',    target: 1,  metric: 'walks'   },
+  { id: 'five_walks', label: 'Committed',    icon: '🌿', description: '5 completed walks',       target: 5,  metric: 'walks'   },
+  { id: 'ten_walks',  label: 'Loyal Owner',  icon: '💚', description: '10 completed walks',      target: 10, metric: 'walks'   },
+  { id: 'multi_dog',  label: 'Pack Leader',  icon: '🐕', description: '2 or more dogs added',    target: 2,  metric: 'dogs'    },
+  { id: 'active',     label: 'Active Month', icon: '🔥', description: '3 walks this month',      target: 3,  metric: 'monthly' },
+];
+
+function getAchievementProgress(id: string, completedWalks: number, dogs: number, monthly: number) {
+  if (id === 'first_walk') return { current: Math.min(completedWalks, 1),  target: 1  };
+  if (id === 'five_walks') return { current: Math.min(completedWalks, 5),  target: 5  };
+  if (id === 'ten_walks')  return { current: Math.min(completedWalks, 10), target: 10 };
+  if (id === 'multi_dog')  return { current: Math.min(dogs, 2),            target: 2  };
+  if (id === 'active')     return { current: Math.min(monthly, 3),         target: 3  };
+  return { current: 0, target: 1 };
 }
 
 function computeStreak(walks: { scheduledDate: string; status: string }[]): number {
@@ -155,20 +152,39 @@ function EditProfileModal({ onClose }: { onClose: () => void }) {
 }
 
 export default function Profile() {
-  const { currentUser, data, logout } = useApp();
+  const { currentUser, data, logout, sendNotification } = useApp();
   const navigate = useNavigate();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
 
-  const myDogs          = data.dogs.filter(d => d.ownerId === currentUser?.id);
-  const myWalks         = data.walks.filter(w => w.ownerId === currentUser?.id);
-  const completedWalks  = myWalks.filter(w => w.status === 'completed');
-  const thisMonthWalks  = completedWalks.filter(w => isThisMonth(new Date(w.scheduledDate)));
-  const totalSpent      = thisMonthWalks.reduce((s, w) => s + (w.ownerCost || w.price || 0), 0);
-  const streak          = computeStreak(myWalks);
-  const achievements    = computeOwnerAchievements(completedWalks.length, myDogs.length, thisMonthWalks.length);
+  const myDogs         = data.dogs.filter(d => d.ownerId === currentUser?.id);
+  const myWalks        = data.walks.filter(w => w.ownerId === currentUser?.id);
+  const completedWalks = myWalks.filter(w => w.status === 'completed');
+  const thisMonthWalks = completedWalks.filter(w => isThisMonth(new Date(w.scheduledDate)));
+  const totalSpent     = thisMonthWalks.reduce((s, w) => s + ((w as any).ownerCost || w.price || 0), 0);
+  const streak         = computeStreak(myWalks);
 
-  const initials = currentUser?.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || '?';
+  const achievementProgress = ACHIEVEMENT_DEFS.map(def => {
+    const { current, target } = getAchievementProgress(def.id, completedWalks.length, myDogs.length, thisMonthWalks.length);
+    return { ...def, current, target, earned: current >= target };
+  });
+
+  // Fire a notification the first time each achievement is earned
+  const notifKeyRef = `pawfleet_achiev_notified_${currentUser?.id}`;
+  useEffect(() => {
+    if (!currentUser) return;
+    const notified: string[] = JSON.parse(localStorage.getItem(notifKeyRef) || '[]');
+    const newlyEarned = achievementProgress.filter(a => a.earned && !notified.includes(a.id));
+    if (newlyEarned.length === 0) return;
+    newlyEarned.forEach(a => {
+      sendNotification(currentUser.id, 'walk_completed' as any,
+        `Achievement Unlocked! ${a.icon}`, `You earned "${a.label}" — ${a.description}`, {});
+    });
+    localStorage.setItem(notifKeyRef, JSON.stringify([...notified, ...newlyEarned.map(a => a.id)]));
+  }, [completedWalks.length, myDogs.length, thisMonthWalks.length]);
+
+  const earnedCount = achievementProgress.filter(a => a.earned).length;
+  const initials    = currentUser?.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || '?';
   const handleLogout = () => { logout(); navigate('/login'); };
 
   return (
@@ -210,39 +226,51 @@ export default function Profile() {
           <p className="text-xs text-white/60 mt-1.5">K{Math.max(500 - totalSpent, 0)} left in monthly budget</p>
         </div>
 
-        {/* Achievements / Gamification */}
+        {/* Achievements */}
         <div>
           <div className="flex items-center justify-between mb-3">
             <p className="font-bold text-ink">Achievements</p>
-            <span className="text-xs text-ink-muted">{achievements.length} earned</span>
+            <span className="text-xs font-semibold px-2.5 py-1 rounded-full"
+              style={{ background: '#EBF5EF', color: '#1B4332' }}>{earnedCount}/{ACHIEVEMENT_DEFS.length} earned</span>
           </div>
-          {achievements.length === 0 ? (
-            <div className="p-4 rounded-2xl border border-surface-border text-center">
-              <p className="text-sm text-ink-muted">Book your first walk to unlock achievements!</p>
-            </div>
-          ) : (
-            <div className="flex gap-2 flex-wrap">
-              {achievements.map(a => (
-                <div key={a.id} className="flex items-center gap-2 px-3 py-2 rounded-2xl border border-surface-border bg-white hover:bg-surface-hover transition-colors">
-                  <span className="text-lg">{a.icon}</span>
-                  <div>
-                    <p className="text-xs font-bold text-ink leading-tight">{a.label}</p>
-                    <p className="text-[10px] text-ink-muted">{a.description}</p>
+          <div className="space-y-2.5">
+            {achievementProgress.map(a => {
+              const pct = Math.round((a.current / a.target) * 100);
+              return (
+                <div key={a.id}
+                  className="flex items-center gap-3 p-4 rounded-2xl border bg-white transition-all"
+                  style={{ borderColor: a.earned ? '#52B788' : '#E5E7EB', boxShadow: a.earned ? '0 0 0 1px #52B78840' : 'none' }}>
+                  <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl shrink-0"
+                    style={{ background: a.earned ? '#EBF5EF' : '#F9FAFB' }}>
+                    {a.earned ? a.icon : '🔒'}
                   </div>
-                </div>
-              ))}
-              {/* Locked achievements hint */}
-              {achievements.length < 5 && (
-                <div className="flex items-center gap-2 px-3 py-2 rounded-2xl border border-dashed border-surface-border opacity-50">
-                  <span className="text-lg">🔒</span>
-                  <div>
-                    <p className="text-xs font-bold text-ink leading-tight">Keep going!</p>
-                    <p className="text-[10px] text-ink-muted">More to unlock</p>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-1">
+                      <p className={`text-sm font-bold ${a.earned ? 'text-ink' : 'text-ink-muted'}`}>{a.label}</p>
+                      <span className="text-xs font-semibold shrink-0 ml-2"
+                        style={{ color: a.earned ? '#2B8A50' : '#9CA3AF' }}>{a.current}/{a.target}</span>
+                    </div>
+                    <p className="text-[11px] text-ink-muted mb-2">{a.description}</p>
+                    <div className="h-2 rounded-full overflow-hidden" style={{ background: '#F3F4F6' }}>
+                      <div className="h-full rounded-full transition-all duration-700"
+                        style={{
+                          width: `${pct}%`,
+                          background: a.earned
+                            ? 'linear-gradient(90deg, #1B4332, #2B8A50)'
+                            : 'linear-gradient(90deg, #6B7280, #9CA3AF)',
+                        }} />
+                    </div>
                   </div>
+                  {a.earned && (
+                    <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0"
+                      style={{ background: '#2B8A50' }}>
+                      <Check className="w-3.5 h-3.5 text-white" />
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          )}
+              );
+            })}
+          </div>
         </div>
 
         {/* My dogs */}

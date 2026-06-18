@@ -1,16 +1,22 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { User, Dog, Walk, Payment, WalkerStats, WalkerBadge, AppData, Role, BadgeId, AppNotification } from '../types';
+import { requestNotificationPermission, onForegroundMessage } from '../lib/firebase';
+import { identifyUser, clearUser, trackEvent } from '../lib/monitoring';
 
 // ── Type helpers ────────────────────────────────────────────
 const toUser = (r: any): User => ({
   id: r.id, name: r.name, phone: r.phone, email: r.email,
   password: r.password, role: r.role as Role, createdAt: r.created_at,
   imageUrl: r.image_url ?? undefined,
+  businessName: r.business_name ?? undefined,
+  businessAddress: r.business_address ?? undefined,
+  businessType: r.business_type ?? undefined,
   nrc: r.nrc ?? undefined,
   walkerStatus: r.walker_status ?? undefined,
   referralCode: r.referral_code ?? undefined,
   referredByAdminId: r.referred_by_admin_id ?? undefined,
+  fcmToken: r.fcm_token ?? undefined,
 });
 
 const toNotification = (r: any): AppNotification => ({
@@ -140,6 +146,31 @@ function playDogChime() {
   } catch { /* AudioContext unavailable */ }
 }
 
+// Upbeat "ka-ching" for new shop orders
+function playShopOrderSound() {
+  try {
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    // Rising 4-note fanfare: F5 → A5 → C6 → E6
+    const notes = [698.46, 880, 1046.5, 1318.5];
+    notes.forEach((freq, i) => {
+      const osc  = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = 'triangle';
+      osc.frequency.value = freq;
+      const t = ctx.currentTime + i * 0.09;
+      gain.gain.setValueAtTime(0, t);
+      gain.gain.linearRampToValueAtTime(0.28, t + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.38);
+      osc.start(t);
+      osc.stop(t + 0.42);
+    });
+  } catch { /* AudioContext unavailable */ }
+}
+
 // ── Provider ────────────────────────────────────────────────
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
@@ -153,6 +184,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // Keep a ref so realtime callbacks can access current user without stale closure
   const currentUserRef = React.useRef(currentUser);
   useEffect(() => { currentUserRef.current = currentUser; }, [currentUser]);
+
+  // ── FCM push token registration ──────────────────────────
+  useEffect(() => {
+    if (!currentUser) return;
+    requestNotificationPermission().then(token => {
+      if (!token) return;
+      supabase.from('users').update({ fcm_token: token }).eq('id', currentUser.id).then(() => {});
+    });
+    // Show foreground notifications as a toast-style banner
+    const unsub = onForegroundMessage(payload => {
+      const { title = 'PawFleet', body = '' } = payload.notification || {};
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification(title, { body, icon: '/icons/icon-192.png' });
+      }
+    });
+    return unsub;
+  }, [currentUser?.id]);
 
   // ── Load all data ────────────────────────────────────────
   const loadData = useCallback(async () => {
@@ -231,7 +279,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, (p) => {
         const notif = toNotification(p.new);
         // Play sound only for the logged-in user's own notifications
-        if (notif.userId === currentUserRef.current?.id) playDogChime();
+        if (notif.userId === currentUserRef.current?.id) {
+          if (notif.type === 'shop_order') playShopOrderSound();
+          else playDogChime();
+        }
         setData(prev => ({ ...prev, notifications: [notif, ...prev.notifications] }));
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'notifications' }, (p) =>
@@ -258,7 +309,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     };
     // Play chime for the currently logged-in user's own notifications
     if (userId === currentUserRef.current?.id) playDogChime();
-    setData(prev => ({ ...prev, notifications: [notif, ...prev.notifications] }));
+    setData(prev => {
+      // Look up FCM token for the target user and fire push (background-safe)
+      const target = prev.users.find(u => u.id === userId);
+      if (target?.fcmToken) {
+        fetch('/api/send-notification', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token: target.fcmToken, title, body, data: data ?? {} }),
+        }).catch(() => {});
+      }
+      return { ...prev, notifications: [notif, ...prev.notifications] };
+    });
     supabase.from('notifications').insert({
       id: notif.id, user_id: userId, type, title, body,
       data: data ?? null, read: false,
@@ -339,6 +401,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (user) {
         setCurrentUser(user);
         sessionStorage.setItem('pawfleet_user', JSON.stringify(user));
+        identifyUser(user.id, user.name, user.role);
+        trackEvent('login', { method: 'demo', role: user.role });
         return user;
       }
     }
@@ -358,6 +422,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (user) {
           setCurrentUser(user);
           sessionStorage.setItem('pawfleet_user', JSON.stringify(user));
+          identifyUser(user.id, user.name, user.role);
+          trackEvent('login', { method: 'supabase', role: user.role });
           return user;
         }
       }
@@ -452,6 +518,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const logout = () => {
     supabase.auth.signOut().catch(() => {});
+    clearUser();
     setCurrentUser(null);
     sessionStorage.removeItem('pawfleet_user');
   };
@@ -507,6 +574,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         : `You have been assigned to walk ${dog?.name || 'a dog'}. K${walk.walkerEarning} earning.`;
       sendNotification(walk.walkerId, 'walk_accepted', assignedTitle, assignedMsg, { walkId: newWalk.id });
     }
+    trackEvent('walk_booked', { dogId: walk.dogId, duration: walk.duration, price: walk.price });
     return newWalk;
   };
 
@@ -812,7 +880,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (updates.name !== undefined)     dbFields.name     = updates.name;
     if (updates.phone !== undefined)    dbFields.phone    = updates.phone;
     if (updates.email !== undefined)    dbFields.email    = updates.email;
-    if (updates.imageUrl !== undefined) dbFields.image_url = updates.imageUrl;
+    if (updates.imageUrl !== undefined)       dbFields.image_url       = updates.imageUrl;
+    if (updates.businessName !== undefined)    dbFields.business_name    = updates.businessName;
+    if (updates.businessAddress !== undefined) dbFields.business_address = updates.businessAddress;
+    if (updates.businessType !== undefined)    dbFields.business_type    = updates.businessType;
     if (Object.keys(dbFields).length > 0) {
       supabase.from('users').update(dbFields).eq('id', userId)
         .then(({ error }) => { if (error) console.error('updateUser:', error); });

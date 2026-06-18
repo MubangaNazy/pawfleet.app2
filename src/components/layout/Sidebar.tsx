@@ -46,10 +46,12 @@ const ownerNav = [
 ];
 
 const shopownerNav = [
-  { to: '/shopowner',               icon: LayoutDashboard, label: 'Dashboard',   exact: true },
+  { to: '/shopowner',               icon: LayoutDashboard, label: 'Dashboard',     exact: true },
   { to: '/shopowner/products',      icon: Package,         label: 'My Products' },
   { to: '/shopowner/orders',        icon: ShoppingBag,     label: 'Orders' },
+  { to: '/shopowner/analytics',     icon: TrendingUp,      label: 'Analytics' },
   { to: '/shopowner/notifications', icon: Bell,            label: 'Notifications' },
+  { to: '/shopowner/profile',       icon: User,            label: 'Shop Profile' },
 ];
 
 const roleGradient: Record<string, string> = {

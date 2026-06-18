@@ -436,16 +436,23 @@ export default function Services() {
 
       {/* Tabs */}
       <div className="sticky top-0 bg-white/95 backdrop-blur z-10 border-b border-surface-border px-4 pt-4 pb-3">
-        <div className="grid grid-cols-2 gap-1 p-1 bg-surface-secondary rounded-xl max-w-xs">
-          {(['grooming', 'walking'] as const).map(t => (
-            <button key={t} onClick={() => setTab(t)}
-              className={`flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-medium transition-all ${
-                tab === t ? 'bg-white shadow-sm text-primary' : 'text-ink-muted hover:text-ink'
-              }`}>
-              {t === 'grooming' ? <Scissors className="w-4 h-4" /> : <PawPrint className="w-4 h-4" />}
-              {t.charAt(0).toUpperCase() + t.slice(1)}
-            </button>
-          ))}
+        <div className="grid grid-cols-3 gap-1 p-1 bg-surface-secondary rounded-xl">
+          <button onClick={() => setTab('grooming')}
+            className={`flex items-center justify-center gap-1 py-2 rounded-lg text-xs font-medium transition-all ${
+              tab === 'grooming' ? 'bg-white shadow-sm text-primary' : 'text-ink-muted hover:text-ink'
+            }`}>
+            <Scissors className="w-3.5 h-3.5" /> Grooming
+          </button>
+          <button onClick={() => setTab('walking')}
+            className={`flex items-center justify-center gap-1 py-2 rounded-lg text-xs font-medium transition-all ${
+              tab === 'walking' ? 'bg-white shadow-sm text-primary' : 'text-ink-muted hover:text-ink'
+            }`}>
+            <PawPrint className="w-3.5 h-3.5" /> Walking
+          </button>
+          <button onClick={() => navigate('/owner/vet-booking')}
+            className="flex items-center justify-center gap-1 py-2 rounded-lg text-xs font-medium transition-all text-ink-muted hover:text-ink hover:bg-white">
+            <Heart className="w-3.5 h-3.5" /> Vet Care
+          </button>
         </div>
       </div>
 

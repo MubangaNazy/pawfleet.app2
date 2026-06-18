@@ -33,6 +33,10 @@ const WalkerSchedule   = lazy(() => import('./pages/walker/Schedule'));
 const WalkerLiveWalk   = lazy(() => import('./pages/walker/LiveWalk'));
 const WalkerProfile    = lazy(() => import('./pages/walker/Profile'));
 const WalkerDogGuide   = lazy(() => import('./pages/walker/DogGuide'));
+const WalkerSettings   = lazy(() => import('./pages/walker/Settings'));
+const WalkerPrivacy    = lazy(() => import('./pages/walker/Privacy'));
+
+const AdminProfile     = lazy(() => import('./pages/admin/Profile'));
 
 const OwnerDashboard   = lazy(() => import('./pages/owner/Dashboard'));
 const OwnerRequestWalk = lazy(() => import('./pages/owner/RequestWalk'));
@@ -43,6 +47,7 @@ const OwnerServices    = lazy(() => import('./pages/owner/Services'));
 const OwnerShop        = lazy(() => import('./pages/owner/Shop'));
 const OwnerCart        = lazy(() => import('./pages/owner/Cart'));
 const OwnerProfile     = lazy(() => import('./pages/owner/Profile'));
+const VetBooking       = lazy(() => import('./pages/owner/VetBooking'));
 const WalkTracker      = lazy(() => import('./pages/owner/WalkTracker'));
 const OwnerSchedule    = lazy(() => import('./pages/owner/Schedule'));
 const FavouriteWalkers = lazy(() => import('./pages/owner/FavouriteWalkers'));
@@ -174,6 +179,7 @@ function AppRoutes() {
         <Route path="analytics"   element={<AdminAnalytics />} />
         <Route path="profit"      element={<AdminProfitMgmt />} />
         <Route path="notifications" element={<NotificationsPage />} />
+        <Route path="profile"       element={<AdminProfile />} />
         <Route path="dashboard"   element={<Navigate to="/admin" replace />} />
       </Route>
 
@@ -190,6 +196,8 @@ function AppRoutes() {
         <Route path="notifications" element={<NotificationsPage />} />
         <Route path="chats"       element={<ChatInbox />} />
         <Route path="community"   element={<Community />} />
+        <Route path="settings"    element={<WalkerSettings />} />
+        <Route path="privacy"     element={<WalkerPrivacy />} />
         <Route path="dashboard"   element={<Navigate to="/walker" replace />} />
         <Route path="my-walks"    element={<Navigate to="/walker/walks" replace />} />
       </Route>
@@ -222,6 +230,7 @@ function AppRoutes() {
         <Route path="shop"        element={<OwnerShop />} />
         <Route path="cart"        element={<OwnerCart />} />
         <Route path="profile"     element={<OwnerProfile />} />
+        <Route path="vet-booking" element={<VetBooking />} />
         <Route path="track/:walkId" element={<WalkTracker />} />
         <Route path="notifications" element={<NotificationsPage />} />
         <Route path="chats"       element={<ChatInbox />} />

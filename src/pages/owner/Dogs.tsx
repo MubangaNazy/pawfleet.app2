@@ -31,6 +31,7 @@ function AddDogModal({ onClose }: { onClose: () => void }) {
   const { currentUser, createDog } = useApp();
   const fileRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<string | null>(null);
+  const [animalType, setAnimalType] = useState<'dog' | 'cat'>('dog');
   const [name, setName] = useState('');
   const [breed, setBreed] = useState('');
   const [age, setAge] = useState('');
@@ -56,6 +57,7 @@ function AddDogModal({ onClose }: { onClose: () => void }) {
       ownerId: currentUser.id,
       imageUrl: preview || undefined,
       healthLogs: [],
+      animalType,
     });
     await new Promise(r => setTimeout(r, 400));
     onClose();
@@ -74,7 +76,7 @@ function AddDogModal({ onClose }: { onClose: () => void }) {
 
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3 border-b border-surface-border">
-          <h2 className="text-lg font-bold text-ink">Add a Dog</h2>
+          <h2 className="text-lg font-bold text-ink">Add a Pet</h2>
           <button type="button" onClick={onClose}
             className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-surface-hover text-ink-muted">
             <X className="w-4 h-4" />
@@ -118,13 +120,31 @@ function AddDogModal({ onClose }: { onClose: () => void }) {
             <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handlePhoto} />
           </div>
 
+          {/* Animal Type */}
+          <div>
+            <label className="block text-sm font-medium text-ink-secondary mb-1.5">Animal Type</label>
+            <div className="grid grid-cols-2 gap-2">
+              {(['dog', 'cat'] as const).map(type => (
+                <button key={type} type="button" onClick={() => setAnimalType(type)}
+                  className={`flex items-center justify-center gap-2 h-11 rounded-xl border-2 text-sm font-semibold transition-all ${
+                    animalType === type
+                      ? 'border-primary bg-primary/5 text-primary'
+                      : 'border-surface-border text-ink-secondary hover:bg-surface-hover'
+                  }`}>
+                  <span className="text-xl">{type === 'dog' ? '🐕' : '🐈'}</span>
+                  {type === 'dog' ? 'Dog' : 'Cat'}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Name */}
           <div>
             <label className="block text-sm font-medium text-ink-secondary mb-1.5">
-              Dog's Name <span className="text-danger">*</span>
+              {animalType === 'dog' ? "Dog's" : "Cat's"} Name <span className="text-danger">*</span>
             </label>
             <input type="text" value={name} onChange={e => setName(e.target.value)}
-              placeholder="e.g. Rex, Coco, Luna" required
+              placeholder={animalType === 'dog' ? 'e.g. Rex, Coco, Luna' : 'e.g. Whiskers, Mochi, Luna'} required
               className="w-full h-11 px-4 rounded-xl border border-surface-border bg-white text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-primary transition-all" />
           </div>
 
@@ -164,7 +184,7 @@ function AddDogModal({ onClose }: { onClose: () => void }) {
                 Saving…
               </>
             ) : (
-              <>Add Dog</>
+              <>Add {animalType === 'dog' ? 'Dog' : 'Cat'}</>
             )}
           </button>
         </form>
@@ -182,26 +202,26 @@ export default function OwnerDogs() {
     <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-ink">My Dogs</h1>
-          <p className="text-ink-secondary mt-0.5">{myDogs.length} registered dog{myDogs.length !== 1 ? 's' : ''}</p>
+          <h1 className="text-2xl font-bold text-ink">My Pets</h1>
+          <p className="text-ink-secondary mt-0.5">{myDogs.length} registered pet{myDogs.length !== 1 ? 's' : ''}</p>
         </div>
         <button type="button" onClick={() => setShowAdd(true)}
           className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-white text-sm font-semibold shadow-sm transition-all hover:shadow-md active:scale-95"
           style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)' }}>
           <Plus className="w-4 h-4" />
-          Add Dog
+          Add Pet
         </button>
       </div>
 
       {myDogs.length === 0 ? (
         <div className="bg-white border border-surface-border rounded-2xl p-16 text-center shadow-card">
-          <p className="text-5xl mb-4">🐕</p>
-          <p className="font-semibold text-ink text-lg">No dogs yet</p>
-          <p className="text-ink-muted text-sm mt-1 mb-6">Add your first dog to get started with walks</p>
+          <p className="text-5xl mb-4">🐾</p>
+          <p className="font-semibold text-ink text-lg">No pets yet</p>
+          <p className="text-ink-muted text-sm mt-1 mb-6">Add your first dog or cat to get started</p>
           <button type="button" onClick={() => setShowAdd(true)}
             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-white text-sm font-semibold"
             style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)' }}>
-            <Plus className="w-4 h-4" /> Add Your First Dog
+            <Plus className="w-4 h-4" /> Add Your First Pet
           </button>
         </div>
       ) : (
@@ -218,7 +238,7 @@ export default function OwnerDogs() {
                   <div className="w-16 h-16 rounded-2xl bg-primary-50 flex items-center justify-center overflow-hidden shrink-0 border border-surface-border">
                     {dog.imageUrl
                       ? <img src={dog.imageUrl} alt={dog.name} className="w-16 h-16 object-cover" />
-                      : <span className="text-3xl">🐕</span>}
+                      : <span className="text-3xl">{dog.animalType === 'cat' ? '🐈' : '🐕'}</span>}
                   </div>
                   <div className="flex-1 min-w-0">
                     <h3 className="font-bold text-ink text-lg">{dog.name}</h3>
@@ -253,7 +273,7 @@ export default function OwnerDogs() {
             <div className="w-14 h-14 rounded-2xl bg-primary-50 flex items-center justify-center group-hover:bg-primary/10 transition-colors">
               <Plus className="w-7 h-7 text-primary/60 group-hover:text-primary transition-colors" />
             </div>
-            <p className="text-sm font-semibold text-ink-secondary group-hover:text-primary transition-colors">Add Another Dog</p>
+            <p className="text-sm font-semibold text-ink-secondary group-hover:text-primary transition-colors">Add Another Pet</p>
           </button>
         </div>
       )}

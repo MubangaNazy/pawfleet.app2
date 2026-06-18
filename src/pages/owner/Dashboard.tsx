@@ -37,35 +37,35 @@ function Reveal({ children, delay = 0, className = '' }: { children: ReactNode; 
 // ── Slideshow images ─────────────────────────────────────────
 const SLIDES = [
   {
-    img: '/images/pf-walk-man.jpg',
+    img: '/images/pf-walk-man.png',
     tag: 'Trusted walkers in Lusaka',
     headline: 'Book a walk in seconds',
     sub: 'Get started →',
     to: '/owner/request',
   },
   {
-    img: '/images/pf-walk-women.jpg',
+    img: '/images/pf-walk-women.png',
     tag: 'Live GPS on every walk',
     headline: 'Follow every step, live',
     sub: 'See how tracking works →',
     to: '/owner/request',
   },
   {
-    img: '/images/pf-groom-dog.jpg',
+    img: '/images/pf-groom-dog.png',
     tag: 'Premium grooming service',
     headline: 'Pamper your pet today',
     sub: 'Book a grooming →',
     to: '/owner/services',
   },
   {
-    img: '/images/pf-vet.jpg',
+    img: '/images/pf-vet.png',
     tag: '4 partner vet clinics in Lusaka',
     headline: 'Vet care, made easy',
     sub: 'Book a vet visit →',
     to: '/owner/vet-booking',
   },
   {
-    img: '/images/pf-dogs-park.jpg',
+    img: '/images/pf-dogs-park.png',
     tag: 'Trusted by families in Lusaka',
     headline: 'Happy pets, happy you',
     sub: 'Meet your walkers →',

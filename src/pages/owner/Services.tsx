@@ -11,23 +11,23 @@ import { supabase } from '../../lib/supabase';
 /* ── Slideshow images ── */
 const SLIDES = [
   {
-    url: '/images/pf-groom-dog.jpg',
+    url: '/images/pf-groom-dog.png',
     label: 'Professional dog grooming at your door',
   },
   {
-    url: '/images/pf-groom-cats.jpg',
+    url: '/images/pf-groom-cats.png',
     label: 'Expert cat grooming & spa',
   },
   {
-    url: '/images/pf-walk-man.jpg',
+    url: '/images/pf-walk-man.png',
     label: 'Trusted walkers near you',
   },
   {
-    url: '/images/pf-walk-women.jpg',
+    url: '/images/pf-walk-women.png',
     label: 'Professional walkers, every step',
   },
   {
-    url: '/images/pf-dogs-park.jpg',
+    url: '/images/pf-dogs-park.png',
     label: 'Happy, healthy, loved pets',
   },
 ];

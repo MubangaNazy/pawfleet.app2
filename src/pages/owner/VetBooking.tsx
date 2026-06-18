@@ -8,10 +8,10 @@ import { supabase } from '../../lib/supabase';
 
 /* ── Hero slides ─────────────────────────────────────────── */
 const VET_HERO_SLIDES = [
-  '/images/pf-vet.jpg',
-  '/images/pf-groom-dog.jpg',
-  '/images/pf-walk-man.jpg',
-  '/images/pf-dogs-park.jpg',
+  '/images/pf-vet.png',
+  '/images/pf-groom-dog.png',
+  '/images/pf-walk-man.png',
+  '/images/pf-dogs-park.png',
 ];
 
 /* ── Data ─────────────────────────────────────────────────── */

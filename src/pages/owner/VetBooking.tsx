@@ -8,10 +8,10 @@ import { supabase } from '../../lib/supabase';
 
 /* ── Hero slides ─────────────────────────────────────────── */
 const VET_HERO_SLIDES = [
-  'https://images.unsplash.com/photo-1532938911079-1b06ac7ceec7?w=800&q=80',
-  'https://images.unsplash.com/photo-1560807707-8cc77767d783?w=800&q=80',
-  'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=800&q=80',
-  'https://images.unsplash.com/photo-1583511655857-d19b40a7a54e?w=800&q=80',
+  '/images/pf-vet.jpg',
+  '/images/pf-groom-dog.jpg',
+  '/images/pf-walk-man.jpg',
+  '/images/pf-dogs-park.jpg',
 ];
 
 /* ── Data ─────────────────────────────────────────────────── */

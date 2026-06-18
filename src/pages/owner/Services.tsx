@@ -11,23 +11,23 @@ import { supabase } from '../../lib/supabase';
 /* ── Slideshow images ── */
 const SLIDES = [
   {
-    url: 'https://images.unsplash.com/photo-1583511655857-d19b40a7a54e?w=800&q=80',
-    label: 'Professional grooming at your door',
+    url: '/images/pf-groom-dog.jpg',
+    label: 'Professional dog grooming at your door',
   },
   {
-    url: 'https://images.unsplash.com/photo-1552053831-71594a27632d?w=800&q=80',
-    label: 'Bath, trim & full groom packages',
+    url: '/images/pf-groom-cats.jpg',
+    label: 'Expert cat grooming & spa',
   },
   {
-    url: 'https://images.unsplash.com/photo-1560807707-8cc77767d783?w=800&q=80',
-    label: 'Expert walkers near you',
+    url: '/images/pf-walk-man.jpg',
+    label: 'Trusted walkers near you',
   },
   {
-    url: 'https://images.unsplash.com/photo-1597633544156-0a5e9d7a1285?w=800&q=80',
-    label: 'Premium pet care, Zambia-wide',
+    url: '/images/pf-walk-women.jpg',
+    label: 'Professional walkers, every step',
   },
   {
-    url: 'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=800&q=80',
+    url: '/images/pf-dogs-park.jpg',
     label: 'Happy, healthy, loved pets',
   },
 ];

@@ -37,35 +37,35 @@ function Reveal({ children, delay = 0, className = '' }: { children: ReactNode; 
 // ── Slideshow images ─────────────────────────────────────────
 const SLIDES = [
   {
-    img: 'https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=1400&q=85',
+    img: '/images/pf-walk-man.jpg',
     tag: 'Trusted walkers in Lusaka',
     headline: 'Book a walk in seconds',
     sub: 'Get started →',
     to: '/owner/request',
   },
   {
-    img: 'https://images.unsplash.com/photo-1560807707-8cc77767d783?w=1400&q=85',
+    img: '/images/pf-walk-women.jpg',
     tag: 'Live GPS on every walk',
     headline: 'Follow every step, live',
     sub: 'See how tracking works →',
     to: '/owner/request',
   },
   {
-    img: 'https://images.unsplash.com/photo-1583511655857-d19b40a7a54e?w=1400&q=85',
+    img: '/images/pf-groom-dog.jpg',
     tag: 'Premium grooming service',
     headline: 'Pamper your pet today',
     sub: 'Book a grooming →',
     to: '/owner/services',
   },
   {
-    img: 'https://images.unsplash.com/photo-1532938911079-1b06ac7ceec7?w=1400&q=85',
+    img: '/images/pf-vet.jpg',
     tag: '4 partner vet clinics in Lusaka',
     headline: 'Vet care, made easy',
     sub: 'Book a vet visit →',
     to: '/owner/vet-booking',
   },
   {
-    img: 'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=1400&q=85',
+    img: '/images/pf-dogs-park.jpg',
     tag: 'Trusted by families in Lusaka',
     headline: 'Happy pets, happy you',
     sub: 'Meet your walkers →',

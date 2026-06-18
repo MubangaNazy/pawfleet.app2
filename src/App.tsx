@@ -61,6 +61,10 @@ const ShopOwnerNotifications = lazy(() => import('./pages/shopowner/Notification
 const ShopOwnerProfile       = lazy(() => import('./pages/shopowner/Profile'));
 const ShopOwnerAnalytics     = lazy(() => import('./pages/shopowner/Analytics'));
 
+const VetDashboard    = lazy(() => import('./pages/vet/Dashboard'));
+const VetAppointments = lazy(() => import('./pages/vet/Appointments'));
+const VetProfile      = lazy(() => import('./pages/vet/Profile'));
+
 const NotificationsPage = lazy(() => import('./pages/Notifications'));
 const ChatInbox         = lazy(() => import('./pages/ChatInbox'));
 const Chat              = lazy(() => import('./pages/Chat'));
@@ -92,7 +96,7 @@ function ProtectedRoute({ children, role }: { children: React.ReactNode; role?: 
 }
 
 const ROLE_ROUTES: Record<string, string> = {
-  admin: '/admin', walker: '/walker', owner: '/owner', shopowner: '/shopowner',
+  admin: '/admin', walker: '/walker', owner: '/owner', shopowner: '/shopowner', vet: '/vet',
 };
 
 function RoleRedirect() {
@@ -244,6 +248,14 @@ function AppRoutes() {
 
       {/* Owner full-screen (outside Layout) */}
       <Route path="/owner/chat/:walkId" element={<ProtectedRoute role="owner"><Chat /></ProtectedRoute>} />
+
+      {/* ── Vet ── */}
+      <Route path="/vet" element={<ProtectedRoute role="vet"><Layout /></ProtectedRoute>}>
+        <Route index                element={<VetDashboard />} />
+        <Route path="appointments"  element={<VetAppointments />} />
+        <Route path="profile"       element={<VetProfile />} />
+        <Route path="notifications" element={<NotificationsPage />} />
+      </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

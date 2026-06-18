@@ -381,16 +381,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       phone: '0977000006', email: 'shopowner@pawfleet.zm', password: '', role: 'shopowner',
       createdAt: '2024-01-01T00:00:00Z',
     },
+    'vet@pawfleet.zm': {
+      id: 'b2c3d4e5-0007-0007-0007-b2c3d4e50007', name: 'Lusaka Vet Clinic',
+      phone: '0977000007', email: 'vet@pawfleet.zm', password: '', role: 'vet',
+      createdAt: '2024-01-01T00:00:00Z',
+    },
   };
   const DEMO_CREDS: Record<string, string> = {
     'admin@pawfleet.zm': 'admin123', '0977000001': 'admin123',
     'walker1@pawfleet.zm': 'walker123', '0977000002': 'walker123',
     'owner1@pawfleet.zm': 'owner123', '0977000004': 'owner123',
     'shopowner@pawfleet.zm': 'shop123', '0977000006': 'shop123',
+    'vet@pawfleet.zm': 'vet123', '0977000007': 'vet123',
   };
   const PHONE_TO_EMAIL: Record<string, string> = {
     '0977000001': 'admin@pawfleet.zm', '0977000002': 'walker1@pawfleet.zm',
     '0977000004': 'owner1@pawfleet.zm', '0977000006': 'shopowner@pawfleet.zm',
+    '0977000007': 'vet@pawfleet.zm',
   };
 
   const login = async (identifier: string, pw: string): Promise<User | null> => {

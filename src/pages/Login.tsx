@@ -12,12 +12,13 @@ import { Role } from '../types';
 type DemoRole = { label: string; sub: string; identifier: string; password: string; role: Role; emoji: string; gradient: string };
 
 const DEMOS: DemoRole[] = [
-  { label: 'Admin',      sub: 'Business owner',   identifier: 'admin@pawfleet.zm',     password: 'admin123',  role: 'admin',      emoji: '👑', gradient: 'from-green-800 to-green-950' },
-  { label: 'Walker',     sub: 'Dog walker agent',  identifier: 'walker1@pawfleet.zm',   password: 'walker123', role: 'walker',     emoji: '🦮', gradient: 'from-emerald-500 to-green-700' },
-  { label: 'Owner',      sub: 'Dog owner',         identifier: 'owner1@pawfleet.zm',    password: 'owner123',  role: 'owner',      emoji: '🐾', gradient: 'from-green-400 to-emerald-600' },
-  { label: 'Shop Owner', sub: 'Pet shop seller',   identifier: 'shopowner@pawfleet.zm', password: 'shop123',   role: 'shopowner',  emoji: '🏪', gradient: 'from-green-600 to-green-900' },
+  { label: 'Admin',      sub: 'Business owner',       identifier: 'admin@pawfleet.zm',     password: 'admin123',  role: 'admin',      emoji: '👑', gradient: 'from-green-800 to-green-950' },
+  { label: 'Walker',     sub: 'Dog walker agent',      identifier: 'walker1@pawfleet.zm',   password: 'walker123', role: 'walker',     emoji: '🦮', gradient: 'from-emerald-500 to-green-700' },
+  { label: 'Owner',      sub: 'Dog / cat owner',       identifier: 'owner1@pawfleet.zm',    password: 'owner123',  role: 'owner',      emoji: '🐾', gradient: 'from-green-400 to-emerald-600' },
+  { label: 'Shop Owner', sub: 'Pet shop seller',       identifier: 'shopowner@pawfleet.zm', password: 'shop123',   role: 'shopowner',  emoji: '🏪', gradient: 'from-green-600 to-green-900' },
+  { label: 'Vet Clinic', sub: 'Veterinary partner',   identifier: 'vet@pawfleet.zm',       password: 'vet123',    role: 'vet',        emoji: '🏥', gradient: 'from-teal-600 to-cyan-800' },
 ];
-const ROLE_ROUTES: Record<Role, string> = { admin: '/admin', walker: '/walker', owner: '/owner', shopowner: '/shopowner' };
+const ROLE_ROUTES: Record<Role, string> = { admin: '/admin', walker: '/walker', owner: '/owner', shopowner: '/shopowner', vet: '/vet' };
 
 /* ─── Floating Preview Cards ─── */
 function FloatingCard1() {

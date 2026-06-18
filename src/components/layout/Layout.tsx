@@ -75,17 +75,22 @@ export function Layout() {
                 </span>
               )}
             </Link>
-            {currentUser?.role === 'shopowner' ? (
-              <Link to="/shopowner/profile" className="w-8 h-8 rounded-xl bg-primary-50 flex items-center justify-center text-primary text-xs font-bold hover:bg-primary-100 transition-colors">
-                {currentUser?.imageUrl
-                  ? <img src={currentUser.imageUrl} alt={currentUser.name} className="w-full h-full object-cover rounded-xl" />
-                  : currentUser?.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
-              </Link>
-            ) : (
-              <div className="w-8 h-8 rounded-xl bg-primary-50 flex items-center justify-center text-primary text-xs font-bold">
-                {currentUser?.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
-              </div>
-            )}
+            {(() => {
+              const profilePath =
+                currentUser?.role === 'shopowner' ? '/shopowner/profile' :
+                currentUser?.role === 'owner'     ? '/owner/profile' :
+                currentUser?.role === 'walker'    ? '/walker/profile' :
+                currentUser?.role === 'vet'       ? '/vet/profile' :
+                '/admin/profile';
+              return (
+                <Link to={profilePath}
+                  className="w-8 h-8 rounded-xl bg-primary-50 flex items-center justify-center text-primary text-xs font-bold hover:bg-primary-100 transition-colors overflow-hidden shrink-0">
+                  {currentUser?.imageUrl
+                    ? <img src={currentUser.imageUrl} alt={currentUser?.name} className="w-full h-full object-cover" />
+                    : currentUser?.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                </Link>
+              );
+            })()}
           </div>
         </header>
 

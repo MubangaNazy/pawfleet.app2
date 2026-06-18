@@ -3,7 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Map, ListChecks, PlusCircle,
   Users, UserCog, CreditCard, Activity, DollarSign, Clock,
-  LogOut, X, Dog, ChevronRight, Scissors, ShoppingBag, User, Calendar, Bell, Package, TrendingUp, History, Trophy,
+  LogOut, X, Dog, ChevronRight, Scissors, ShoppingBag, User, Calendar, Bell, Package, TrendingUp, History, Trophy, Stethoscope, ClipboardList,
 } from 'lucide-react';
 import PawFleetLogo from '../ui/PawFleetLogo';
 import { useApp } from '../../context/AppContext';
@@ -39,10 +39,17 @@ const ownerNav = [
   { to: '/owner/schedule',     icon: Calendar,        label: 'Schedule' },
   { to: '/owner/dogs',         icon: Dog,             label: 'My Dogs' },
   { to: '/owner/history',      icon: Clock,           label: 'Walk History' },
-  { to: '/owner/services',     icon: Scissors,        label: 'Services' },
+  { to: '/owner/services',     icon: Scissors,        label: 'Grooming & Walking' },
+  { to: '/owner/vet-booking',  icon: Stethoscope,     label: 'Vet Care' },
   { to: '/owner/shop',         icon: ShoppingBag,     label: 'Shop' },
   { to: '/owner/profile',      icon: User,            label: 'Profile' },
   { to: '/owner/community',    icon: Trophy,          label: 'Community' },
+];
+
+const vetNav = [
+  { to: '/vet',              icon: LayoutDashboard, label: 'Dashboard',     exact: true },
+  { to: '/vet/appointments', icon: ClipboardList,   label: 'Appointments' },
+  { to: '/vet/profile',      icon: User,            label: 'Clinic Profile' },
 ];
 
 const shopownerNav = [
@@ -60,21 +67,24 @@ const roleGradient: Record<string, string> = {
   walker:    'from-emerald-500 to-green-700',
   owner:     'from-green-500 to-emerald-600',
   shopowner: 'from-teal-600 to-green-700',
+  vet:       'from-teal-500 to-cyan-700',
 };
 const roleBadge: Record<string, string> = {
   admin:     'bg-green-50 text-green-800',
   walker:    'bg-emerald-50 text-emerald-700',
   owner:     'bg-green-50 text-green-700',
   shopowner: 'bg-teal-50 text-teal-700',
+  vet:       'bg-cyan-50 text-cyan-700',
 };
 
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const { currentUser, logout } = useApp();
   const navigate = useNavigate();
 
-  const navItems = currentUser?.role === 'admin' ? adminNav
+  const navItems = currentUser?.role === 'admin'     ? adminNav
     : currentUser?.role === 'walker'    ? walkerNav
     : currentUser?.role === 'shopowner' ? shopownerNav
+    : currentUser?.role === 'vet'       ? vetNav
     : ownerNav;
 
   const handleLogout = () => { logout(); navigate('/login'); };

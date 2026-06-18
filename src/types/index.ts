@@ -1,4 +1,4 @@
-export type Role = 'admin' | 'walker' | 'owner' | 'shopowner';
+export type Role = 'admin' | 'walker' | 'owner' | 'shopowner' | 'vet';
 export type WalkStatus = 'pending' | 'assigned' | 'active' | 'completed' | 'cancelled';
 export type PaymentStatus = 'unpaid' | 'held' | 'paid' | 'released';
 export type WalkerStatus = 'pending_approval' | 'active' | 'suspended';
@@ -49,6 +49,7 @@ export interface Dog {
   imageUrl?: string; // base64 data URL
   notes?: string;
   healthLogs?: HealthLog[];
+  animalType?: 'dog' | 'cat';
 }
 
 export interface GeoLocation {

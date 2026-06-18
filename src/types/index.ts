@@ -16,12 +16,13 @@ export interface User {
   walkerStatus?: WalkerStatus;         // Walker application status
   referredByAdminId?: string;          // Which admin's referral code was used
   referralCode?: string;               // Admin's own referral code (admins only)
+  fcmToken?: string;                   // Firebase Cloud Messaging push token
 }
 
 export interface AppNotification {
   id: string;
   userId: string;          // recipient
-  type: 'walk_booked' | 'walk_accepted' | 'walk_started' | 'walk_completed' | 'payment_marked' | 'walker_signup' | 'shop_promo' | 'walker_approved' | 'walker_rejected' | 'shop_order';
+  type: 'walk_booked' | 'walk_accepted' | 'walk_started' | 'walk_completed' | 'payment_marked' | 'walker_signup' | 'shop_promo' | 'walker_approved' | 'walker_rejected' | 'shop_order' | 'shop_message';
   title: string;
   body: string;
   data?: Record<string, string>;

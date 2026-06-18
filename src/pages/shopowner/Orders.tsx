@@ -1,17 +1,100 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { format } from 'date-fns';
 import {
   ShoppingBag, MapPin, Phone, CreditCard, Package, Truck,
-  CheckCircle2, ChevronDown, ChevronUp, Clock, DollarSign,
+  CheckCircle2, ChevronDown, ChevronUp, Clock, DollarSign, MessageCircle, Send, X,
 } from 'lucide-react';
+
+const QUICK_MSGS = [
+  { label: '📦 Preparing', text: "Your order is being prepared and will be dispatched soon!" },
+  { label: '🚚 On the way', text: "Your order is on the way! You can expect it shortly." },
+  { label: '✅ Delivered', text: "Your order has been delivered. Thank you for shopping with us!" },
+  { label: '❓ Need details', text: "Hi! We need a bit more information about your order. Could you please confirm your delivery address?" },
+];
+
+function MessageModal({ buyerId, buyerName, onClose }: { buyerId: string; buyerName: string; onClose: () => void }) {
+  const { sendNotification, currentUser } = useApp();
+  const [text, setText] = useState('');
+  const [sent, setSent] = useState(false);
+
+  const handleSend = (msg: string) => {
+    if (!msg.trim() || !currentUser) return;
+    sendNotification(
+      buyerId,
+      'shop_message',
+      `Message from ${currentUser.name} 🛍️`,
+      msg.trim(),
+      { fromName: currentUser.name, fromId: currentUser.id }
+    );
+    setSent(true);
+    setTimeout(onClose, 1200);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col justify-end bg-black/50"
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="bg-white rounded-t-3xl w-full max-w-lg mx-auto" style={{ maxHeight: '80vh' }}>
+        <div className="flex justify-center pt-3 pb-1">
+          <div className="w-10 h-1 rounded-full bg-gray-200" />
+        </div>
+        <div className="flex items-center justify-between px-5 py-3 border-b border-surface-border">
+          <div>
+            <p className="font-bold text-ink text-sm">Message {buyerName}</p>
+            <p className="text-xs text-ink-muted">They'll receive it as a notification</p>
+          </div>
+          <button type="button" onClick={onClose}
+            className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-surface-hover">
+            <X className="w-4 h-4 text-ink-muted" />
+          </button>
+        </div>
+
+        {sent ? (
+          <div className="flex flex-col items-center justify-center py-10 gap-3">
+            <div className="w-14 h-14 rounded-full bg-[#EBF5EF] flex items-center justify-center">
+              <CheckCircle2 className="w-7 h-7" style={{ color: '#2B8A50' }} />
+            </div>
+            <p className="font-bold text-ink">Message sent!</p>
+          </div>
+        ) : (
+          <div className="p-4 space-y-4 pb-8">
+            <div className="grid grid-cols-2 gap-2">
+              {QUICK_MSGS.map(q => (
+                <button key={q.label} type="button" onClick={() => handleSend(q.text)}
+                  className="px-3 py-2.5 rounded-xl border border-surface-border text-xs font-semibold text-ink text-left hover:bg-surface-hover active:scale-95 transition-all">
+                  {q.label}
+                </button>
+              ))}
+            </div>
+            <div className="flex gap-2 items-end">
+              <textarea
+                value={text}
+                onChange={e => setText(e.target.value)}
+                rows={2}
+                placeholder="Or type a custom message…"
+                className="flex-1 px-4 py-3 rounded-xl border border-surface-border text-sm text-ink placeholder:text-ink-muted outline-none focus:border-primary resize-none"
+              />
+              <button type="button" onClick={() => handleSend(text)}
+                disabled={!text.trim()}
+                className="w-11 h-11 rounded-xl flex items-center justify-center text-white disabled:opacity-40 active:scale-95 transition-all"
+                style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)' }}>
+                <Send className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 type DeliveryStatus = 'pending' | 'confirmed' | 'delivered';
 
 const STATUS_CONFIG: Record<DeliveryStatus, { label: string; color: string; bg: string; icon: React.ElementType }> = {
-  pending:   { label: 'Pending',   color: '#E67E22', bg: '#FEF3CD', icon: Clock        },
-  confirmed: { label: 'Confirmed', color: '#2B8A50', bg: '#EBF5EF', icon: Package      },
-  delivered: { label: 'Delivered', color: '#52B788', bg: '#D1FAE5', icon: CheckCircle2 },
+  pending:   { label: 'Pending',    color: '#E67E22', bg: '#FEF3CD', icon: Clock        },
+  confirmed: { label: 'On the Way', color: '#2B8A50', bg: '#EBF5EF', icon: Truck        },
+  delivered: { label: 'Delivered',  color: '#52B788', bg: '#D1FAE5', icon: CheckCircle2 },
 };
 
 const METHOD_LABELS: Record<string, string> = {
@@ -24,8 +107,16 @@ const METHOD_LABELS: Record<string, string> = {
 
 export default function ShopOwnerOrders() {
   const { currentUser, data, updateOrderStatus } = useApp();
+  const [searchParams] = useSearchParams();
   const [filter, setFilter] = useState<DeliveryStatus | 'all'>('all');
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [messaging, setMessaging] = useState<{ buyerId: string; buyerName: string } | null>(null);
+
+  // Auto-expand the order linked from Notifications
+  useEffect(() => {
+    const orderId = searchParams.get('orderId');
+    if (orderId) setExpandedId(orderId);
+  }, [searchParams]);
 
   // Use Supabase-backed notifications as order source (cross-session)
   const orders = data.notifications
@@ -54,9 +145,9 @@ export default function ShopOwnerOrders() {
         {/* Status summary pills */}
         <div className="grid grid-cols-3 gap-2 mb-4">
           {[
-            { label: 'Pending',   count: pendingCount,   status: 'pending'   },
-            { label: 'Confirmed', count: confirmedCount, status: 'confirmed' },
-            { label: 'Delivered', count: deliveredCount, status: 'delivered' },
+            { label: 'Pending',    count: pendingCount,   status: 'pending'   },
+            { label: 'On the Way', count: confirmedCount, status: 'confirmed' },
+            { label: 'Delivered',  count: deliveredCount, status: 'delivered' },
           ].map(({ label, count, status }) => (
             <div key={status} className="bg-white/15 rounded-xl px-3 py-2 text-center">
               <p className="text-white font-extrabold text-lg leading-none">{count}</p>
@@ -74,9 +165,10 @@ export default function ShopOwnerOrders() {
                 background: filter === s ? 'white' : 'rgba(255,255,255,0.15)',
                 color: filter === s ? '#1B4332' : 'rgba(255,255,255,0.8)',
               }}>
-              {s === 'all' ? `All (${orders.length})` : `${s} (${
-                s === 'pending' ? pendingCount : s === 'confirmed' ? confirmedCount : deliveredCount
-              })`}
+              {s === 'all' ? `All (${orders.length})`
+                : s === 'pending'   ? `Pending (${pendingCount})`
+                : s === 'confirmed' ? `On the Way (${confirmedCount})`
+                : `Delivered (${deliveredCount})`}
             </button>
           ))}
         </div>
@@ -177,7 +269,9 @@ export default function ShopOwnerOrders() {
                           <p className="text-[10px] text-ink-muted">Delivery Address</p>
                           <p className="text-sm text-ink font-medium leading-relaxed">{deliveryAddr}</p>
                           <a
-                            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(deliveryAddr)}`}
+                            href={/iPad|iPhone|iPod/.test(navigator.userAgent)
+                              ? `maps.apple.com/?q=${encodeURIComponent(deliveryAddr)}`
+                              : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(deliveryAddr)}`}
                             target="_blank" rel="noopener noreferrer"
                             className="text-[11px] text-primary font-semibold mt-0.5 inline-block hover:underline"
                           >
@@ -229,7 +323,7 @@ export default function ShopOwnerOrders() {
 
                   {/* Status action buttons */}
                   <div className="px-4 pb-4 space-y-2">
-                    <p className="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-2">Update Status</p>
+                    <p className="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-2">Actions</p>
                     <div className="flex gap-2">
                       {status === 'pending' && (
                         <button
@@ -260,6 +354,14 @@ export default function ShopOwnerOrders() {
                           Order Delivered ✓
                         </div>
                       )}
+                      <button
+                        type="button"
+                        onClick={() => setMessaging({ buyerId: order.data?.buyerId || '', buyerName })}
+                        className="flex items-center justify-center gap-1.5 px-4 py-3 rounded-xl text-sm font-bold border border-surface-border text-ink hover:bg-surface-hover active:scale-95 transition-all"
+                      >
+                        <MessageCircle className="w-4 h-4" />
+                        Message
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -268,6 +370,14 @@ export default function ShopOwnerOrders() {
           );
         })}
       </div>
+
+      {messaging && (
+        <MessageModal
+          buyerId={messaging.buyerId}
+          buyerName={messaging.buyerName}
+          onClose={() => setMessaging(null)}
+        />
+      )}
     </div>
   );
 }

@@ -4,7 +4,7 @@ import { useApp } from '../context/AppContext';
 import { AppNotification } from '../types';
 import { format } from 'date-fns';
 
-const TYPE_META: Record<AppNotification['type'], { icon: React.ReactNode; color: string; bg: string }> = {
+const TYPE_META: Record<string, { icon: React.ReactNode; color: string; bg: string }> = {
   walk_booked:     { icon: <MapPin className="w-4 h-4" />,      color: '#2B8A50', bg: '#EBF5EF' },
   walk_accepted:   { icon: <CheckCircle className="w-4 h-4" />, color: '#2B8A50', bg: '#EBF5EF' },
   walk_started:    { icon: <MapPin className="w-4 h-4" />,      color: '#3B82F6', bg: '#EFF6FF' },
@@ -12,6 +12,8 @@ const TYPE_META: Record<AppNotification['type'], { icon: React.ReactNode; color:
   payment_marked:  { icon: <CreditCard className="w-4 h-4" />,  color: '#7C3AED', bg: '#F5F3FF' },
   walker_signup:   { icon: <UserPlus className="w-4 h-4" />,    color: '#F59E0B', bg: '#FFFBEB' },
   shop_promo:      { icon: <ShoppingBag className="w-4 h-4" />, color: '#EC4899', bg: '#FDF2F8' },
+  shop_message:    { icon: <ShoppingBag className="w-4 h-4" />, color: '#1B4332', bg: '#EBF5EF' },
+  shop_order:      { icon: <ShoppingBag className="w-4 h-4" />, color: '#1B4332', bg: '#EBF5EF' },
   walker_approved: { icon: <CheckCircle className="w-4 h-4" />, color: '#059669', bg: '#ECFDF5' },
   walker_rejected: { icon: <XCircle className="w-4 h-4" />,     color: '#EF4444', bg: '#FEF2F2' },
 };

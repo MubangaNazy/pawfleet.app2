@@ -43,6 +43,8 @@ function ProductModal({
   const [badge, setBadge]       = useState(product?.badge || '');
   const [category, setCategory] = useState<ShopProduct['category']>(product?.category || 'treats');
   const [description, setDesc]  = useState(product?.description || '');
+  const [brand, setBrand]       = useState(product?.brand || '');
+  const [specs, setSpecs]       = useState(product?.specs || '');
   const [img, setImg]           = useState<string>(product?.img || '');
   const [saving, setSaving]     = useState(false);
   const isEdit = !!product;
@@ -63,6 +65,8 @@ function ProductModal({
       badge: badge.trim() || null,
       category,
       description: description.trim() || undefined,
+      brand: brand.trim() || undefined,
+      specs: specs.trim() || undefined,
       img: img || 'https://images.unsplash.com/photo-1568640347023-a616a30bc3bd?w=400&q=80',
       shopOwnerId,
     };
@@ -151,8 +155,24 @@ function ProductModal({
           {/* Description */}
           <div>
             <label className="block text-sm font-medium text-ink-secondary mb-1.5">Description</label>
-            <textarea rows={3} value={description} onChange={e => setDesc(e.target.value)} placeholder="What makes this product great?"
+            <textarea rows={2} value={description} onChange={e => setDesc(e.target.value)} placeholder="What makes this product great?"
               className="w-full px-4 py-3 rounded-xl border border-surface-border text-sm text-ink focus:outline-none focus:border-primary transition-all resize-none" />
+          </div>
+
+          {/* Brand */}
+          <div>
+            <label className="block text-sm font-medium text-ink-secondary mb-1.5">Brand <span className="text-ink-muted text-xs">(optional)</span></label>
+            <input type="text" value={brand} onChange={e => setBrand(e.target.value)} placeholder="e.g. Royal Canin, Pedigree"
+              className="w-full h-11 px-4 rounded-xl border border-surface-border text-sm text-ink focus:outline-none focus:border-primary transition-all" />
+          </div>
+
+          {/* Specs */}
+          <div>
+            <label className="block text-sm font-medium text-ink-secondary mb-1.5">Specifications <span className="text-ink-muted text-xs">(optional)</span></label>
+            <textarea rows={3} value={specs} onChange={e => setSpecs(e.target.value)}
+              placeholder={"e.g.\nWeight: 250g\nFlavour: Chicken\nSuitable for: All breeds"}
+              className="w-full px-4 py-3 rounded-xl border border-surface-border text-sm text-ink focus:outline-none focus:border-primary transition-all resize-none font-mono" />
+            <p className="text-[11px] text-ink-muted mt-1">Each line becomes a spec bullet. Buyers will see this when they tap on your product.</p>
           </div>
 
           <button type="submit" disabled={saving || !name.trim() || !price}

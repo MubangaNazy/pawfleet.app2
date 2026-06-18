@@ -11,20 +11,24 @@ import { supabase } from '../../lib/supabase';
 /* ── Slideshow images ── */
 const SLIDES = [
   {
-    url: 'https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=800&q=80',
-    label: 'Expert care at your door',
-  },
-  {
-    url: 'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=800&q=80',
-    label: 'Trusted by 500+ Lusaka families',
+    url: 'https://images.unsplash.com/photo-1583511655857-d19b40a7a54e?w=800&q=80',
+    label: 'Professional grooming at your door',
   },
   {
     url: 'https://images.unsplash.com/photo-1552053831-71594a27632d?w=800&q=80',
-    label: 'Happy, healthy, clean dogs',
+    label: 'Bath, trim & full groom packages',
+  },
+  {
+    url: 'https://images.unsplash.com/photo-1560807707-8cc77767d783?w=800&q=80',
+    label: 'Expert walkers near you',
   },
   {
     url: 'https://images.unsplash.com/photo-1597633544156-0a5e9d7a1285?w=800&q=80',
-    label: 'Premium grooming, Zambia-wide',
+    label: 'Premium pet care, Zambia-wide',
+  },
+  {
+    url: 'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=800&q=80',
+    label: 'Happy, healthy, loved pets',
   },
 ];
 

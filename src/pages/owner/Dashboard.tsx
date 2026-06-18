@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { format } from 'date-fns';
-import { Navigation, MessageCircle, Scissors, ChevronRight, Star } from 'lucide-react';
+import { Navigation, MessageCircle, ChevronRight, Star } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
 // ── Scroll-reveal wrapper ────────────────────────────────────
@@ -38,21 +38,38 @@ function Reveal({ children, delay = 0, className = '' }: { children: ReactNode; 
 const SLIDES = [
   {
     img: 'https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=1400&q=85',
-    tag: 'Trusted walkers near you',
+    tag: 'Trusted walkers in Lusaka',
     headline: 'Book a walk in seconds',
     sub: 'Get started →',
+    to: '/owner/request',
+  },
+  {
+    img: 'https://images.unsplash.com/photo-1560807707-8cc77767d783?w=1400&q=85',
+    tag: 'Live GPS on every walk',
+    headline: 'Follow every step, live',
+    sub: 'See how tracking works →',
+    to: '/owner/request',
+  },
+  {
+    img: 'https://images.unsplash.com/photo-1583511655857-d19b40a7a54e?w=1400&q=85',
+    tag: 'Premium grooming service',
+    headline: 'Pamper your pet today',
+    sub: 'Book a grooming →',
+    to: '/owner/services',
+  },
+  {
+    img: 'https://images.unsplash.com/photo-1532938911079-1b06ac7ceec7?w=1400&q=85',
+    tag: '4 partner vet clinics in Lusaka',
+    headline: 'Vet care, made easy',
+    sub: 'Book a vet visit →',
+    to: '/owner/vet-booking',
   },
   {
     img: 'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=1400&q=85',
-    tag: 'Professional care',
-    headline: 'Happy dogs, happy you',
+    tag: 'Trusted by families in Lusaka',
+    headline: 'Happy pets, happy you',
     sub: 'Meet your walkers →',
-  },
-  {
-    img: 'https://images.unsplash.com/photo-1601758228041-f3b2795255f1?w=1400&q=85',
-    tag: 'Live GPS tracking',
-    headline: 'Follow every step live',
-    sub: 'See how it works →',
+    to: '/owner/request',
   },
 ];
 
@@ -83,8 +100,9 @@ export default function OwnerDashboard() {
   );
 
   const quickActions = [
-    { label: 'Walk',  icon: '🐾', to: '/owner/request', badge: null as null | number | 'pulse-green' },
-    { label: 'Groom', icon: '✂️', to: '/owner/services', badge: (pendingGroomingWalks.length > 0 ? 'pulse-green' : null) as null | number | 'pulse-green' },
+    { label: 'Walk',  icon: '🦮', to: '/owner/request', badge: null as null | number | 'pulse-green' },
+    { label: 'Groom', icon: '🛁', to: '/owner/services', badge: (pendingGroomingWalks.length > 0 ? 'pulse-green' : null) as null | number | 'pulse-green' },
+    { label: 'Vet',   icon: '🩺', to: '/owner/services', badge: null as null | number | 'pulse-green' },
     { label: 'Track', icon: '📍', to: nearestWalk ? `/owner/track/${nearestWalk.id}` : '/owner/history', badge: (activeWalk ? 'pulse-green' : null) as null | number | 'pulse-green' },
     { label: 'Chat',  icon: '💬', to: '/owner/chats', badge: (unreadChatNotifications.length > 0 ? unreadChatNotifications.length : null) as null | number | 'pulse-green' },
   ];
@@ -107,7 +125,7 @@ export default function OwnerDashboard() {
         </div>
 
         {/* ── Hero Slideshow ── */}
-        <Link to="/owner/request" className="block relative overflow-hidden rounded-3xl" style={{ height: 230 }}>
+        <Link to={SLIDES[slide].to} className="block relative overflow-hidden rounded-3xl" style={{ height: 230 }}>
           {SLIDES.map((s, i) => (
             <img
               key={i}
@@ -158,11 +176,11 @@ export default function OwnerDashboard() {
 
         {/* ── Quick Actions ── */}
         <Reveal delay={50}>
-          <div className="grid grid-cols-4 gap-3">
+          <div className="grid grid-cols-5 gap-2">
             {quickActions.map((a) => (
-              <Link key={a.label} to={a.to} className="flex flex-col items-center gap-2">
+              <Link key={a.label} to={a.to} className="flex flex-col items-center gap-1.5">
                 <div className="relative">
-                  <div className="w-14 h-14 rounded-full flex items-center justify-center text-2xl shadow-sm hover:scale-105 transition-transform active:scale-95"
+                  <div className="w-12 h-12 rounded-full flex items-center justify-center text-xl shadow-sm hover:scale-105 transition-transform active:scale-95"
                     style={{ background: '#1B4332' }}>
                     <span>{a.icon}</span>
                   </div>
@@ -282,26 +300,40 @@ export default function OwnerDashboard() {
         <Reveal delay={200}>
           <div>
             <h2 className="text-base font-bold text-ink mb-3">Services</h2>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-3">
               <Link to="/owner/request"
-                className="relative overflow-hidden rounded-3xl p-5 flex flex-col justify-between group hover:opacity-90 transition-opacity active:scale-95"
-                style={{ height: 128, background: '#1B4332' }}>
-                <div className="absolute top-0 right-0 w-20 h-20 rounded-full opacity-10"
+                className="relative overflow-hidden rounded-3xl p-4 flex flex-col justify-between group hover:opacity-90 transition-opacity active:scale-95"
+                style={{ height: 120, background: '#1B4332' }}>
+                <div className="absolute top-0 right-0 w-16 h-16 rounded-full opacity-10"
                   style={{ background: 'radial-gradient(circle, white, transparent)', transform: 'translate(35%,-35%)' }} />
-                <span className="text-2xl">🐾</span>
+                <span className="text-2xl">🦮</span>
                 <div>
-                  <p className="text-white font-bold text-sm">Dog Walking</p>
-                  <p className="text-white/70 text-xs">From K150 / walk</p>
+                  <p className="text-white font-bold text-xs">Dog Walking</p>
+                  <p className="text-white/70 text-[10px]">From K150</p>
                 </div>
               </Link>
 
               <Link to="/owner/services"
-                className="rounded-3xl p-5 flex flex-col justify-between border-2 border-surface-border hover:border-primary/30 transition-colors group active:scale-95"
-                style={{ height: 128 }}>
-                <Scissors className="w-6 h-6 text-ink-secondary group-hover:text-primary transition-colors" />
+                className="relative overflow-hidden rounded-3xl p-4 flex flex-col justify-between group hover:opacity-90 transition-opacity active:scale-95"
+                style={{ height: 120, background: '#2B8A50' }}>
+                <div className="absolute top-0 right-0 w-16 h-16 rounded-full opacity-10"
+                  style={{ background: 'radial-gradient(circle, white, transparent)', transform: 'translate(35%,-35%)' }} />
+                <span className="text-2xl">🛁</span>
                 <div>
-                  <p className="text-ink font-bold text-sm">Grooming</p>
-                  <p className="text-ink-muted text-xs">From K350 / session</p>
+                  <p className="text-white font-bold text-xs">Grooming</p>
+                  <p className="text-white/70 text-[10px]">From K350</p>
+                </div>
+              </Link>
+
+              <Link to="/owner/services"
+                className="relative overflow-hidden rounded-3xl p-4 flex flex-col justify-between group hover:opacity-90 transition-opacity active:scale-95"
+                style={{ height: 120, background: '#52B788' }}>
+                <div className="absolute top-0 right-0 w-16 h-16 rounded-full opacity-10"
+                  style={{ background: 'radial-gradient(circle, white, transparent)', transform: 'translate(35%,-35%)' }} />
+                <span className="text-2xl">🩺</span>
+                <div>
+                  <p className="text-white font-bold text-xs">Vetting</p>
+                  <p className="text-white/70 text-[10px]">Book a vet visit</p>
                 </div>
               </Link>
             </div>

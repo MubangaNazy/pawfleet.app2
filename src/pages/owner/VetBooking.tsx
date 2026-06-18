@@ -6,6 +6,14 @@ import { ArrowLeft, AlertTriangle, Check, Navigation, MapPin, ChevronRight } fro
 import { useApp } from '../../context/AppContext';
 import { supabase } from '../../lib/supabase';
 
+/* ── Hero slides ─────────────────────────────────────────── */
+const VET_HERO_SLIDES = [
+  'https://images.unsplash.com/photo-1532938911079-1b06ac7ceec7?w=800&q=80',
+  'https://images.unsplash.com/photo-1560807707-8cc77767d783?w=800&q=80',
+  'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=800&q=80',
+  'https://images.unsplash.com/photo-1583511655857-d19b40a7a54e?w=800&q=80',
+];
+
 /* ── Data ─────────────────────────────────────────────────── */
 const VET_SERVICES = [
   { id: 'checkup',     label: 'General Checkup', icon: '🩺', price: 450, color: '#2B8A50', includes: ['Full physical exam', 'Vital signs check', 'Health report'] },
@@ -81,9 +89,15 @@ export default function VetBooking() {
   const ownerPets = data.dogs.filter(d => d.ownerId === currentUser?.id);
   const today     = new Date().toISOString().split('T')[0];
 
+  const [heroSlide,       setHeroSlide]      = useState(0);
   const [selectedPet,     setSelectedPet]    = useState(ownerPets[0]?.id ?? '');
   const [serviceId,       setServiceId]      = useState('checkup');
   const [selectedClinic,  setSelectedClinic] = useState(VET_CLINICS[0].id);
+
+  useEffect(() => {
+    const id = setInterval(() => setHeroSlide(s => (s + 1) % VET_HERO_SLIDES.length), 4500);
+    return () => clearInterval(id);
+  }, []);
   const [isAggressive,    setIsAggressive]   = useState(false);
   const [needsTransport,  setNeedsTransport] = useState(false);
   const [bookingDate,     setBookingDate]    = useState('');
@@ -167,8 +181,18 @@ export default function VetBooking() {
 
       {/* ── Hero ── */}
       <div className="relative h-56 w-full overflow-hidden">
-        <img src="https://images.unsplash.com/photo-1532938911079-1b06ac7ceec7?w=800&q=80"
-          alt="Vet care" className="w-full h-full object-cover" />
+        {VET_HERO_SLIDES.map((url, i) => (
+          <img key={i} src={url} alt="Vet care"
+            className="absolute inset-0 w-full h-full object-cover"
+            style={{ opacity: heroSlide === i ? 1 : 0, transition: 'opacity 0.9s ease' }} />
+        ))}
+        {/* Slide dots */}
+        <div className="absolute bottom-4 right-4 flex gap-1.5 items-center z-10">
+          {VET_HERO_SLIDES.map((_, i) => (
+            <div key={i} className="rounded-full transition-all duration-400"
+              style={{ width: heroSlide === i ? 18 : 5, height: 5, background: heroSlide === i ? 'white' : 'rgba(255,255,255,0.45)' }} />
+          ))}
+        </div>
         <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, rgba(15,118,110,0.55) 0%, rgba(0,0,0,0.70) 100%)' }} />
 
         {/* Back button */}

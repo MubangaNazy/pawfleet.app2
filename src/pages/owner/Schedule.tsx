@@ -1,5 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import maplibregl from 'maplibre-gl';
+import 'maplibre-gl/dist/maplibre-gl.css';
 import {
   format, addMonths, subMonths, startOfMonth, endOfMonth,
   eachDayOfInterval, isSameDay, isSameMonth, isToday,
@@ -7,30 +9,131 @@ import {
 import {
   Clock, MapPin, MessageCircle, Navigation,
   ChevronLeft, ChevronRight, StickyNote, X, Check,
-  Calendar, CheckCircle,
+  Calendar, CheckCircle, Star,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import type { Walk } from '../../types';
 
-/* ─── Clinic / studio data ──────────────────────────────── */
+/* ─── Clinic data (with coords for map) ────────────────── */
 const VET_CLINICS = [
-  { id: 1, name: 'Lusaka Veterinary Clinic', address: 'Cairo Rd, Lusaka' },
-  { id: 2, name: 'PetCare Lusaka',           address: 'Kabulonga, Lusaka' },
-  { id: 3, name: 'Animal Health Centre',     address: 'Woodlands, Lusaka' },
-  { id: 4, name: 'VetZam Clinic',            address: 'Roma, Lusaka' },
-];
-
-const GROOM_STUDIOS = [
-  { id: 1, name: 'PawFleet Mobile Grooming', address: 'At your door · All Lusaka' },
-  { id: 2, name: 'Paws & Claws Studio',      address: 'Roma, Lusaka' },
-  { id: 3, name: 'PetSpa Lusaka',            address: 'Kabulonga, Lusaka' },
+  { id: 1, name: 'Lusaka Veterinary Clinic', address: 'Cairo Rd, Lusaka',      lat: -15.4131, lng: 28.2822 },
+  { id: 2, name: 'PetCare Lusaka',           address: 'Kabulonga, Lusaka',     lat: -15.4408, lng: 28.3100 },
+  { id: 3, name: 'Animal Health Centre',     address: 'Woodlands, Lusaka',     lat: -15.4285, lng: 28.3000 },
+  { id: 4, name: 'VetZam Clinic',            address: 'Roma, Lusaka',          lat: -15.4500, lng: 28.3200 },
 ];
 
 const SERVICE_TILES = [
-  { type: 'walk' as const,  icon: '🦮', label: 'Dog Walk',  sub: 'Book a walker',      color: '#1B4332', bg: '#EBF5EF' },
+  { type: 'walk'  as const, icon: '🦮', label: 'Dog Walk',  sub: 'Book a walker',      color: '#1B4332', bg: '#EBF5EF' },
   { type: 'groom' as const, icon: '✂️', label: 'Grooming',  sub: 'At-home grooming',   color: '#0891B2', bg: '#EFF6FF' },
-  { type: 'vet' as const,   icon: '🩺', label: 'Vet Care',  sub: 'Clinic appointment', color: '#7C3AED', bg: '#F5F3FF' },
+  { type: 'vet'   as const, icon: '🩺', label: 'Vet Care',  sub: 'Clinic appointment', color: '#7C3AED', bg: '#F5F3FF' },
 ];
+
+/* ─── Vet map picker sub-component ─────────────────────── */
+function VetMapPicker({
+  selected,
+  onSelect,
+}: {
+  selected: number | null;
+  onSelect: (id: number) => void;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const mapRef       = useRef<maplibregl.Map | null>(null);
+  const [locLoading, setLocLoading] = useState(false);
+
+  useEffect(() => {
+    if (!containerRef.current || mapRef.current) return;
+
+    const map = new maplibregl.Map({
+      container: containerRef.current,
+      style:     'https://tiles.openfreemap.org/styles/liberty',
+      center:    [28.2922, -15.4167],
+      zoom:      12,
+      attributionControl: false,
+    });
+
+    VET_CLINICS.forEach(clinic => {
+      const el = document.createElement('div');
+      el.style.cssText = [
+        'width:34px;height:34px;border-radius:50%;',
+        'background:#7C3AED;border:3px solid white;',
+        'box-shadow:0 2px 8px rgba(0,0,0,0.35);',
+        'display:flex;align-items:center;justify-content:center;',
+        'font-size:16px;cursor:pointer;',
+      ].join('');
+      el.textContent = '🏥';
+      new maplibregl.Marker({ element: el })
+        .setLngLat([clinic.lng, clinic.lat])
+        .setPopup(new maplibregl.Popup({ offset: 22, closeButton: false }).setText(clinic.name))
+        .addTo(map);
+      el.addEventListener('click', () => {
+        onSelect(clinic.id);
+        map.flyTo({ center: [clinic.lng, clinic.lat], zoom: 14 });
+      });
+    });
+
+    mapRef.current = map;
+    return () => { mapRef.current?.remove(); mapRef.current = null; };
+  }, []);
+
+  /* Fly to selected clinic */
+  useEffect(() => {
+    if (selected === null) return;
+    const c = VET_CLINICS.find(x => x.id === selected);
+    if (c) mapRef.current?.flyTo({ center: [c.lng, c.lat], zoom: 14 });
+  }, [selected]);
+
+  const handleUseLocation = () => {
+    setLocLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        const { longitude, latitude } = pos.coords;
+        mapRef.current?.flyTo({ center: [longitude, latitude], zoom: 13 });
+        setLocLoading(false);
+      },
+      () => setLocLoading(false),
+      { timeout: 8000 }
+    );
+  };
+
+  return (
+    <div>
+      {/* Map */}
+      <div className="relative" style={{ height: 180 }}>
+        <div ref={containerRef} className="w-full h-full" />
+        <button type="button" onClick={handleUseLocation}
+          className="absolute bottom-2 right-2 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-white shadow"
+          style={{ background: 'rgba(27,67,50,0.88)', backdropFilter: 'blur(4px)' }}>
+          {locLoading
+            ? <><div className="w-3 h-3 rounded-full border-2 border-white/40 border-t-white animate-spin" /> Locating…</>
+            : <>📍 Use my location</>}
+        </button>
+      </div>
+
+      {/* Clinic list */}
+      <div className="divide-y divide-surface-border">
+        {VET_CLINICS.map(c => {
+          const active = selected === c.id;
+          return (
+            <button key={c.id} type="button"
+              onClick={() => onSelect(c.id)}
+              className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-surface-hover transition-all"
+              style={active ? { background: '#F5F3FF' } : {}}>
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center text-lg shrink-0"
+                style={{ background: active ? '#7C3AED20' : '#F3F4F6' }}>🏥</div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold text-ink">{c.name}</p>
+                <p className="text-xs text-ink-muted">{c.address}</p>
+              </div>
+              {active
+                ? <CheckCircle className="w-4 h-4 shrink-0" style={{ color: '#7C3AED' }} />
+                : <div className="w-4 h-4 rounded-full border-2 border-surface-border shrink-0" />}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 /* ─── Notes modal ───────────────────────────────────────── */
 function NotesModal({ walk, onClose }: { walk: Walk; onClose: () => void }) {
@@ -77,41 +180,50 @@ function NotesModal({ walk, onClose }: { walk: Walk; onClose: () => void }) {
   );
 }
 
-const isVetWalk = (notes?: string) => notes?.startsWith('VET BOOKING:') ?? false;
+const isVetWalk   = (n?: string) => n?.startsWith('VET BOOKING:') ?? false;
+const isGroomWalk = (n?: string) => n?.startsWith('GROOMING:') ?? false;
 
+/* ─── Main Schedule component ───────────────────────────── */
 export default function OwnerSchedule() {
   const { data, currentUser, createWalk, updateWalk } = useApp();
   const navigate = useNavigate();
+
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
   const [notesWalk,    setNotesWalk]    = useState<Walk | null>(null);
 
-  /* ── Inline booking state ─────────────────────────────── */
+  /* Inline booking state */
   const [selService,  setSelService]  = useState<'walk' | 'groom' | 'vet' | null>(null);
-  const [selProvider, setSelProvider] = useState<number | null>(null);
-  const [selDog,      setSelDog]      = useState<string>('');
+  const [selClinic,   setSelClinic]   = useState<number | null>(null);
+  const [selGroomer,  setSelGroomer]  = useState<string | null>(null);
+  const [selDogs,     setSelDogs]     = useState<string[]>([]);
   const [booking,     setBooking]     = useState(false);
   const [booked,      setBooked]      = useState(false);
 
-  /* Reset booking state when date changes */
+  const myWalks  = data.walks.filter(w => w.ownerId === currentUser?.id);
+  const myDogs   = data.dogs.filter(d => d.ownerId === currentUser?.id);
+  const walkers  = data.users.filter(u => u.role === 'walker');
+
+  /* Auto-select first dog when opening */
+  useEffect(() => {
+    if (myDogs.length > 0 && selDogs.length === 0) {
+      setSelDogs([myDogs[0].id]);
+    }
+  }, [myDogs.length]);
+
+  /* Reset booking when date changes */
   useEffect(() => {
     setSelService(null);
-    setSelProvider(null);
+    setSelClinic(null);
+    setSelGroomer(null);
     setBooked(false);
   }, [selectedDate?.toDateString()]);
 
-  const myWalks = data.walks.filter(w => w.ownerId === currentUser?.id);
-  const myDogs  = data.dogs.filter(d => d.ownerId === currentUser?.id);
-
-  /* Auto-select first dog */
-  useEffect(() => {
-    if (myDogs.length > 0 && !selDog) setSelDog(myDogs[0].id);
-  }, [myDogs.length]);
-
-  const monthStart = startOfMonth(currentMonth);
-  const monthEnd   = endOfMonth(currentMonth);
-  const days       = eachDayOfInterval({ start: monthStart, end: monthEnd });
-  const startPad   = monthStart.getDay();
+  /* Calendar helpers */
+  const monthStart  = startOfMonth(currentMonth);
+  const monthEnd    = endOfMonth(currentMonth);
+  const days        = eachDayOfInterval({ start: monthStart, end: monthEnd });
+  const startPad    = monthStart.getDay();
   const paddedDays: (Date | null)[] = [...Array(startPad).fill(null), ...days];
 
   const walksForDay = (date: Date) =>
@@ -125,48 +237,61 @@ export default function OwnerSchedule() {
     .filter(w => w.status === 'assigned' || w.status === 'pending' || w.status === 'active')
     .sort((a, b) => new Date(a.scheduledDate).getTime() - new Date(b.scheduledDate).getTime());
 
-  /* ── Book now handler ─────────────────────────────────── */
-  const handleScheduleNow = () => {
-    if (!selectedDate || !currentUser) return;
-    if (myDogs.length === 0) { navigate('/owner/dogs'); return; }
+  /* Toggle a dog in/out of selection */
+  const toggleDog = (dogId: string) => {
+    setSelDogs(prev =>
+      prev.includes(dogId)
+        ? prev.filter(id => id !== dogId)
+        : [...prev, dogId]
+    );
+  };
 
-    const dogId = selDog || myDogs[0].id;
+  /* ── Book handler ─────────────────────────────────────── */
+  const handleScheduleNow = () => {
+    if (!selectedDate || !currentUser || myDogs.length === 0) return;
+
+    const dogsToBook = selDogs.length > 0 ? selDogs : [myDogs[0].id];
     const dt = new Date(selectedDate);
     dt.setHours(9, 0, 0, 0);
 
     let notes = '';
     let duration = 60;
-    let price = 0;
+    let price    = 0;
+    let walkerId: string | undefined;
 
     if (selService === 'vet') {
-      const clinic = VET_CLINICS.find(c => c.id === selProvider);
+      const clinic = VET_CLINICS.find(c => c.id === selClinic);
       notes    = `VET BOOKING: General Checkup\n📍 Clinic: ${clinic?.name ?? ''}\nTotal: K450`;
       duration = 60;
       price    = 450;
     } else if (selService === 'groom') {
-      const studio = GROOM_STUDIOS.find(s => s.id === selProvider);
-      notes    = `GROOMING: Full Groom\n📍 Studio: ${studio?.name ?? ''}\nTotal: K350`;
-      duration = 90;
-      price    = 350;
+      const groomer = data.users.find(u => u.id === selGroomer);
+      notes     = `GROOMING: Full Groom\n📍 Groomer: ${groomer?.name ?? ''}\nTotal: K350`;
+      duration  = 90;
+      price     = 350;
+      walkerId  = selGroomer ?? undefined;
     }
 
     setBooking(true);
-    createWalk({
-      dogId,
-      ownerId:       currentUser.id,
-      status:        'pending',
-      scheduledDate: dt.toISOString(),
-      duration,
-      price,
-      walkerEarning: Math.round(price * 0.7),
-      ownerCost:     price,
-      notes,
+    dogsToBook.forEach(dogId => {
+      createWalk({
+        dogId,
+        ownerId:       currentUser.id,
+        walkerId,
+        status:        'pending',
+        scheduledDate: dt.toISOString(),
+        duration,
+        price,
+        walkerEarning: Math.round(price * 0.7),
+        ownerCost:     price,
+        notes,
+      });
     });
     setBooking(false);
     setBooked(true);
   };
 
-  /* ── Walk card renderer ───────────────────────────────── */
+  /* ── Walk card ────────────────────────────────────────── */
   const statusBadge = (status: string) => {
     if (status === 'active')    return { label: 'Active',    cls: 'bg-success/10 text-success border border-success/20' };
     if (status === 'completed') return { label: 'Done',      cls: 'bg-surface-secondary text-ink-secondary border border-surface-border' };
@@ -179,12 +304,14 @@ export default function OwnerSchedule() {
     const walker = data.users.find(u => u.id === walk.walkerId);
     const badge  = statusBadge(walk.status);
     const vet    = isVetWalk(walk.notes);
+    const groom  = isGroomWalk(walk.notes);
 
     const lines      = (walk.notes ?? '').split('\n');
     const vetService = vet ? lines[0].replace('VET BOOKING: ', '') : null;
     const clinicLine = lines.find(l => l.startsWith('📍 Clinic:'));
     const clinic     = clinicLine ? clinicLine.replace('📍 Clinic: ', '') : null;
-    const ownerNote  = !vet && walk.notes?.trim() ? walk.notes : null;
+    const groomLabel = groom ? lines[0].replace('GROOMING: ', '') : null;
+    const ownerNote  = !vet && !groom && walk.notes?.trim() ? walk.notes : null;
 
     return (
       <div key={walk.id} className="flex gap-4">
@@ -198,21 +325,25 @@ export default function OwnerSchedule() {
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5 text-xs text-ink-muted mb-1">
                 <Clock className="w-3 h-3 shrink-0" />
-                <span>{format(new Date(walk.scheduledDate), 'h:mm a')} · {vet ? '60 min' : '45 min'}</span>
+                <span>{format(new Date(walk.scheduledDate), 'h:mm a')} · {vet || groom ? '60 min' : '45 min'}</span>
               </div>
 
-              {vet ? (
+              {vet && (
                 <>
-                  <p className="font-bold text-ink text-sm flex items-center gap-1.5">
-                    <span>🏥</span>{vetService}
-                  </p>
+                  <p className="font-bold text-ink text-sm flex items-center gap-1.5">🏥 {vetService}</p>
                   {clinic && (
                     <div className="flex items-center gap-1 text-xs text-ink-muted mt-0.5">
                       <MapPin className="w-3 h-3 shrink-0" /><span className="truncate">{clinic}</span>
                     </div>
                   )}
                 </>
-              ) : (
+              )}
+
+              {groom && (
+                <p className="font-bold text-ink text-sm flex items-center gap-1.5">✂️ {groomLabel}</p>
+              )}
+
+              {!vet && !groom && (
                 <>
                   <p className="font-bold text-ink text-sm">
                     Walk with {walker?.name?.split(' ')[0] || 'Walker'}
@@ -236,10 +367,10 @@ export default function OwnerSchedule() {
             </span>
           </div>
 
-          {!vet && (
+          {!vet && !groom && (
             <div className="flex gap-3 mt-3 flex-wrap items-center">
               <Link to={`/owner/chat/${walk.id}`}
-                className="flex items-center gap-1.5 text-xs text-ink-secondary font-semibold hover:text-primary transition-colors">
+                className="flex items-center gap-1.5 text-xs text-ink-secondary font-semibold hover:text-primary">
                 <MessageCircle className="w-3.5 h-3.5" /> Chat
               </Link>
               <span className="text-ink-muted text-xs">·</span>
@@ -249,9 +380,8 @@ export default function OwnerSchedule() {
               </Link>
               <span className="text-ink-muted text-xs">·</span>
               <button type="button" onClick={() => setNotesWalk(walk)}
-                className="flex items-center gap-1.5 text-xs text-amber-600 font-semibold hover:text-amber-700">
-                <StickyNote className="w-3.5 h-3.5" />
-                {ownerNote ? 'Edit Note' : 'Add Note'}
+                className="flex items-center gap-1.5 text-xs text-amber-600 font-semibold">
+                <StickyNote className="w-3.5 h-3.5" />{ownerNote ? 'Edit Note' : 'Add Note'}
               </button>
             </div>
           )}
@@ -260,32 +390,71 @@ export default function OwnerSchedule() {
     );
   };
 
-  /* ─── Inline booking panel ──────────────────────────── */
+  /* ── Dog multi-picker ─────────────────────────────────── */
+  const renderDogPicker = () => {
+    if (myDogs.length === 0) {
+      return (
+        <p className="text-xs text-ink-muted">
+          <Link to="/owner/dogs" className="text-primary font-bold underline">Add a pet</Link> to get started.
+        </p>
+      );
+    }
+    return (
+      <div>
+        <p className="text-xs font-bold text-ink-muted mb-2 uppercase tracking-wider">
+          {myDogs.length === 1 ? 'Your pet' : 'Select pets (can pick multiple)'}
+        </p>
+        <div className="flex gap-2 flex-wrap">
+          {myDogs.map(dog => {
+            const active = selDogs.includes(dog.id);
+            return (
+              <button key={dog.id} type="button" onClick={() => toggleDog(dog.id)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border-2 text-xs font-bold transition-all"
+                style={active
+                  ? { background: '#EBF5EF', borderColor: '#1B4332', color: '#1B4332' }
+                  : { background: 'white', borderColor: '#E5E7EB', color: '#6B7280' }}>
+                {dog.imageUrl
+                  ? <img src={dog.imageUrl} alt={dog.name} className="w-4 h-4 rounded-full object-cover" />
+                  : <span>🐾</span>}
+                {dog.name}
+                {active && <CheckCircle className="w-3 h-3" style={{ color: '#1B4332' }} />}
+              </button>
+            );
+          })}
+        </div>
+        {myDogs.length > 1 && selDogs.length > 1 && (
+          <p className="text-[10px] text-ink-muted mt-1.5">
+            {selDogs.length} separate bookings will be created
+          </p>
+        )}
+      </div>
+    );
+  };
+
+  /* ── Inline booking panel ─────────────────────────────── */
   const renderBookingPanel = () => {
     if (!selectedDate) return null;
 
-    /* Success state */
+    /* Success */
     if (booked) {
-      const service = selService === 'vet' ? 'Vet appointment' : selService === 'groom' ? 'Grooming session' : 'Walk';
+      const svcLabel = selService === 'vet' ? 'Vet appointment' : selService === 'groom' ? 'Grooming session' : 'Walk';
       const provider = selService === 'vet'
-        ? VET_CLINICS.find(c => c.id === selProvider)?.name
+        ? VET_CLINICS.find(c => c.id === selClinic)?.name
         : selService === 'groom'
-        ? GROOM_STUDIOS.find(s => s.id === selProvider)?.name
+        ? data.users.find(u => u.id === selGroomer)?.name
         : null;
+      const petNames = selDogs.map(id => myDogs.find(d => d.id === id)?.name).filter(Boolean).join(', ');
       return (
         <div className="bg-white border border-surface-border rounded-2xl p-5 text-center space-y-3">
           <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto text-2xl"
-            style={{ background: '#EBF5EF' }}>
-            ✅
-          </div>
+            style={{ background: '#EBF5EF' }}>✅</div>
           <div>
-            <p className="font-bold text-ink">{service} requested!</p>
+            <p className="font-bold text-ink">{svcLabel} requested!</p>
             {provider && <p className="text-sm text-ink-muted mt-0.5">{provider}</p>}
-            <p className="text-sm text-ink-muted mt-0.5">
-              {format(selectedDate, 'EEEE, MMMM d')} · 9:00 AM
-            </p>
+            <p className="text-sm text-ink-muted">{format(selectedDate, 'MMMM d')} · 9:00 AM</p>
+            {petNames && <p className="text-xs text-primary font-semibold mt-1">🐾 {petNames}</p>}
           </div>
-          <button type="button" onClick={() => { setBooked(false); setSelService(null); setSelProvider(null); }}
+          <button type="button" onClick={() => { setBooked(false); setSelService(null); setSelClinic(null); setSelGroomer(null); }}
             className="text-xs font-bold px-4 py-2 rounded-xl border border-surface-border text-ink-secondary hover:bg-surface-hover">
             Book another
           </button>
@@ -308,7 +477,12 @@ export default function OwnerSchedule() {
             const active = selService === s.type;
             return (
               <button key={s.type} type="button"
-                onClick={() => { setSelService(s.type); setSelProvider(null); setBooked(false); }}
+                onClick={() => {
+                  setSelService(s.type);
+                  setSelClinic(null);
+                  setSelGroomer(null);
+                  setBooked(false);
+                }}
                 className="flex flex-col items-center gap-2 py-4 px-2 transition-all active:scale-95"
                 style={active ? { background: s.bg } : { background: 'white' }}>
                 <div className="w-11 h-11 rounded-xl flex items-center justify-center text-xl border-2 transition-all"
@@ -327,7 +501,7 @@ export default function OwnerSchedule() {
           })}
         </div>
 
-        {/* Step 2 — Walk: show Find Walker button */}
+        {/* Step 2 — Walk */}
         {selService === 'walk' && (
           <div className="p-4 space-y-3">
             <p className="text-sm text-ink-secondary">
@@ -341,96 +515,72 @@ export default function OwnerSchedule() {
           </div>
         )}
 
-        {/* Step 2 — Vet: clinic list */}
+        {/* Step 2 — Vet: map + clinic list */}
         {selService === 'vet' && (
-          <div className="divide-y divide-surface-border">
-            {VET_CLINICS.map(c => {
-              const active = selProvider === c.id;
-              return (
-                <button key={c.id} type="button"
-                  onClick={() => setSelProvider(c.id)}
-                  className="w-full flex items-center gap-3 px-4 py-3.5 text-left transition-all hover:bg-surface-hover"
-                  style={active ? { background: '#F5F3FF' } : {}}>
-                  <div className="w-9 h-9 rounded-xl flex items-center justify-center text-lg shrink-0"
-                    style={{ background: active ? '#7C3AED20' : '#F3F4F6' }}>🏥</div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-bold text-ink">{c.name}</p>
-                    <p className="text-xs text-ink-muted">{c.address}</p>
-                  </div>
-                  {active && <CheckCircle className="w-4 h-4 shrink-0" style={{ color: '#7C3AED' }} />}
-                </button>
-              );
-            })}
-          </div>
+          <VetMapPicker selected={selClinic} onSelect={setSelClinic} />
         )}
 
-        {/* Step 2 — Groom: studio list */}
+        {/* Step 2 — Groom: available groomers */}
         {selService === 'groom' && (
-          <div className="divide-y divide-surface-border">
-            {GROOM_STUDIOS.map(s => {
-              const active = selProvider === s.id;
-              return (
-                <button key={s.id} type="button"
-                  onClick={() => setSelProvider(s.id)}
-                  className="w-full flex items-center gap-3 px-4 py-3.5 text-left transition-all hover:bg-surface-hover"
-                  style={active ? { background: '#EFF6FF' } : {}}>
-                  <div className="w-9 h-9 rounded-xl flex items-center justify-center text-lg shrink-0"
-                    style={{ background: active ? '#0891B220' : '#F3F4F6' }}>✂️</div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-bold text-ink">{s.name}</p>
-                    <p className="text-xs text-ink-muted">{s.address}</p>
-                  </div>
-                  {active && <CheckCircle className="w-4 h-4 shrink-0" style={{ color: '#0891B2' }} />}
-                </button>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Step 3 — Dog picker (multiple dogs) + Schedule Now */}
-        {(selService === 'vet' || selService === 'groom') && selProvider !== null && (
-          <div className="p-4 space-y-3 border-t border-surface-border">
-            {/* Dog selector if multiple dogs */}
-            {myDogs.length > 1 && (
-              <div>
-                <p className="text-xs font-bold text-ink-muted mb-2">For which pet?</p>
-                <div className="flex gap-2 flex-wrap">
-                  {myDogs.map(dog => (
-                    <button key={dog.id} type="button"
-                      onClick={() => setSelDog(dog.id)}
-                      className="flex items-center gap-2 px-3 py-1.5 rounded-xl border-2 text-xs font-bold transition-all"
-                      style={selDog === dog.id
-                        ? { background: '#EBF5EF', borderColor: '#1B4332', color: '#1B4332' }
-                        : { background: 'white', borderColor: '#E5E7EB', color: '#6B7280' }}>
-                      {dog.imageUrl
-                        ? <img src={dog.imageUrl} alt={dog.name} className="w-4 h-4 rounded-full object-cover" />
-                        : <span>🐾</span>}
-                      {dog.name}
+          <div>
+            <div className="px-4 py-3 border-b border-surface-border bg-surface-secondary/40">
+              <p className="text-xs font-bold text-ink-muted uppercase tracking-wider">Available Groomers</p>
+            </div>
+            {walkers.length === 0 ? (
+              <p className="text-sm text-ink-muted px-4 py-4">No groomers available right now.</p>
+            ) : (
+              <div className="divide-y divide-surface-border">
+                {walkers.slice(0, 5).map((w, i) => {
+                  const active = selGroomer === w.id;
+                  const ratings = ['4.9', '5.0', '4.8', '4.9', '4.7'];
+                  const initials = w.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase();
+                  return (
+                    <button key={w.id} type="button"
+                      onClick={() => setSelGroomer(w.id)}
+                      className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-surface-hover transition-all"
+                      style={active ? { background: '#EFF6FF' } : {}}>
+                      <div className="w-10 h-10 rounded-2xl overflow-hidden flex items-center justify-center text-white font-bold text-sm shrink-0"
+                        style={{ background: active ? '#0891B2' : '#1B4332' }}>
+                        {w.imageUrl
+                          ? <img src={w.imageUrl} alt={w.name} className="w-full h-full object-cover" />
+                          : initials}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-ink">{w.name}</p>
+                        <div className="flex items-center gap-1 mt-0.5">
+                          <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                          <span className="text-xs text-ink-muted">{ratings[i % ratings.length]} · Professional groomer</span>
+                        </div>
+                      </div>
+                      {active
+                        ? <CheckCircle className="w-4 h-4 shrink-0" style={{ color: '#0891B2' }} />
+                        : <div className="w-4 h-4 rounded-full border-2 border-surface-border shrink-0" />}
                     </button>
-                  ))}
-                </div>
+                  );
+                })}
               </div>
             )}
-
-            {myDogs.length === 0 && (
-              <p className="text-xs text-ink-muted">
-                You need to{' '}
-                <Link to="/owner/dogs" className="text-primary font-bold underline">add a pet</Link>{' '}
-                before scheduling.
-              </p>
-            )}
-
-            {myDogs.length > 0 && (
-              <button type="button" onClick={handleScheduleNow} disabled={booking}
-                className="w-full py-3.5 rounded-2xl font-bold text-sm text-white flex items-center justify-center gap-2 disabled:opacity-60"
-                style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)' }}>
-                {booking
-                  ? <><div className="w-4 h-4 rounded-full border-2 border-white/40 border-t-white animate-spin" /> Scheduling…</>
-                  : <><Calendar className="w-4 h-4" /> Schedule Now</>}
-              </button>
-            )}
           </div>
         )}
+
+        {/* Step 3 — Dog picker + Schedule Now (for vet/groom after provider selected) */}
+        {(selService === 'vet' && selClinic !== null) ||
+         (selService === 'groom' && selGroomer !== null)
+          ? (
+            <div className="p-4 space-y-3 border-t border-surface-border">
+              {renderDogPicker()}
+              {myDogs.length > 0 && (
+                <button type="button" onClick={handleScheduleNow}
+                  disabled={booking || selDogs.length === 0}
+                  className="w-full py-3.5 rounded-2xl font-bold text-sm text-white flex items-center justify-center gap-2 disabled:opacity-60"
+                  style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)' }}>
+                  {booking
+                    ? <><div className="w-4 h-4 rounded-full border-2 border-white/40 border-t-white animate-spin" /> Scheduling…</>
+                    : <><Calendar className="w-4 h-4" /> Schedule Now{selDogs.length > 1 ? ` (${selDogs.length} pets)` : ''}</>}
+                </button>
+              )}
+            </div>
+          ) : null}
       </div>
     );
   };
@@ -439,13 +589,12 @@ export default function OwnerSchedule() {
     <div className="bg-white min-h-screen pb-28">
       <div className="max-w-lg mx-auto px-4 pt-5 space-y-5">
 
-        {/* Header */}
         <div>
           <h1 className="text-2xl font-extrabold text-ink">Schedule</h1>
           <p className="text-sm text-ink-secondary mt-0.5">Pick a date to book a service</p>
         </div>
 
-        {/* Monthly calendar */}
+        {/* Calendar */}
         <div className="bg-white border border-surface-border rounded-2xl overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 border-b border-surface-border">
             <button onClick={() => setCurrentMonth(m => subMonths(m, 1))}
@@ -487,7 +636,10 @@ export default function OwnerSchedule() {
                     <div className="flex gap-0.5">
                       {walks.slice(0, 3).map((w, j) => (
                         <div key={j} className={`w-1 h-1 rounded-full ${
-                          isSel ? 'bg-white/70' : isVetWalk(w.notes) ? 'bg-teal-500' : 'bg-primary'
+                          isSel ? 'bg-white/70'
+                          : isVetWalk(w.notes) ? 'bg-teal-500'
+                          : isGroomWalk(w.notes) ? 'bg-blue-400'
+                          : 'bg-primary'
                         }`} />
                       ))}
                     </div>
@@ -505,10 +657,13 @@ export default function OwnerSchedule() {
             <div className="flex items-center gap-1.5 text-xs text-ink-muted">
               <div className="w-2 h-2 rounded-full bg-teal-500" />Vet
             </div>
+            <div className="flex items-center gap-1.5 text-xs text-ink-muted">
+              <div className="w-2 h-2 rounded-full bg-blue-400" />Groom
+            </div>
           </div>
         </div>
 
-        {/* Selected date section */}
+        {/* Selected date */}
         {selectedDate && (
           <div className="space-y-4">
             <p className="text-xs font-bold text-ink-muted uppercase tracking-wider">
@@ -519,7 +674,7 @@ export default function OwnerSchedule() {
           </div>
         )}
 
-        {/* No date selected — all upcoming */}
+        {/* No date selected — upcoming */}
         {!selectedDate && upcomingWalks.length > 0 && (
           <div className="space-y-3">
             <p className="text-xs font-bold text-ink-muted uppercase tracking-wider">All Upcoming</p>
@@ -527,7 +682,6 @@ export default function OwnerSchedule() {
           </div>
         )}
 
-        {/* No date selected — empty */}
         {!selectedDate && upcomingWalks.length === 0 && (
           <div className="text-center py-10">
             <div className="w-16 h-16 rounded-3xl flex items-center justify-center mx-auto mb-4"
@@ -538,7 +692,6 @@ export default function OwnerSchedule() {
             <p className="text-sm text-ink-muted">Tap a date on the calendar to get started</p>
           </div>
         )}
-
       </div>
 
       {notesWalk && !isVetWalk(notesWalk.notes) && (

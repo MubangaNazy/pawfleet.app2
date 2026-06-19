@@ -95,6 +95,13 @@ export default function OwnerDashboard() {
   const pendingGroomingWalks = myWalks.filter(
     w => (w.status === 'pending' || w.status === 'assigned') && w.notes?.startsWith('GROOMING:')
   );
+
+  const activeGroomingWalks = myWalks.filter(
+    w => (w.status === 'active' || w.status === 'assigned') && w.notes?.startsWith('GROOMING:')
+  );
+  const activeVetWalks = myWalks.filter(
+    w => (w.status === 'active' || w.status === 'assigned') && w.notes?.startsWith('VET BOOKING:')
+  );
   const unreadChatNotifications = data.notifications.filter(
     n => n.userId === currentUser?.id && !n.read && n.type.startsWith('walk')
   );
@@ -253,6 +260,82 @@ export default function OwnerDashboard() {
                   </Link>
                 </div>
               </div>
+            </div>
+          </Reveal>
+        )}
+
+        {/* ── Active Grooming Banner ── */}
+        {activeGroomingWalks.length > 0 && (
+          <Reveal delay={120}>
+            <div className="rounded-3xl overflow-hidden border border-blue-200 shadow-sm"
+              style={{ background: 'linear-gradient(135deg, #EFF6FF, #DBEAFE)' }}>
+              {activeGroomingWalks.map(w => {
+                const dog   = data.dogs.find(d => d.id === w.dogId);
+                const label = (w.notes ?? '').split('\n')[0].replace('GROOMING: ', '');
+                const groomer = data.users.find(u => u.id === w.walkerId);
+                return (
+                  <div key={w.id} className="flex items-center gap-3 px-4 py-4">
+                    <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl shrink-0"
+                      style={{ background: '#0891B215' }}>✂️</div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span className="flex items-center gap-1 text-[10px] font-bold text-white bg-blue-500 px-2 py-0.5 rounded-full">
+                          <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                          {w.status === 'active' ? 'GROOMING ACTIVE' : 'GROOMING CONFIRMED'}
+                        </span>
+                      </div>
+                      <p className="text-sm font-bold text-ink truncate">{label}</p>
+                      <p className="text-xs text-ink-muted">
+                        {dog?.name}{groomer ? ` · ${groomer.name}` : ''}
+                      </p>
+                    </div>
+                    <Link to="/owner/schedule"
+                      className="text-xs font-bold px-3 py-1.5 rounded-xl text-white shrink-0"
+                      style={{ background: '#0891B2' }}>
+                      View
+                    </Link>
+                  </div>
+                );
+              })}
+            </div>
+          </Reveal>
+        )}
+
+        {/* ── Active Vet Banner ── */}
+        {activeVetWalks.length > 0 && (
+          <Reveal delay={130}>
+            <div className="rounded-3xl overflow-hidden border border-purple-200 shadow-sm"
+              style={{ background: 'linear-gradient(135deg, #F5F3FF, #EDE9FE)' }}>
+              {activeVetWalks.map(w => {
+                const dog      = data.dogs.find(d => d.id === w.dogId);
+                const lines    = (w.notes ?? '').split('\n');
+                const service  = lines[0].replace('VET BOOKING: ', '');
+                const clinicLn = lines.find(l => l.startsWith('📍 Clinic:'));
+                const clinic   = clinicLn ? clinicLn.replace('📍 Clinic: ', '') : null;
+                return (
+                  <div key={w.id} className="flex items-center gap-3 px-4 py-4">
+                    <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl shrink-0"
+                      style={{ background: '#7C3AED15' }}>🏥</div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span className="flex items-center gap-1 text-[10px] font-bold text-white bg-purple-500 px-2 py-0.5 rounded-full">
+                          <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                          {w.status === 'active' ? 'AT THE VET' : 'VET VISIT CONFIRMED'}
+                        </span>
+                      </div>
+                      <p className="text-sm font-bold text-ink truncate">{service}</p>
+                      <p className="text-xs text-ink-muted">
+                        {dog?.name}{clinic ? ` · ${clinic}` : ''}
+                      </p>
+                    </div>
+                    <Link to="/owner/schedule"
+                      className="text-xs font-bold px-3 py-1.5 rounded-xl text-white shrink-0"
+                      style={{ background: '#7C3AED' }}>
+                      View
+                    </Link>
+                  </div>
+                );
+              })}
             </div>
           </Reveal>
         )}

@@ -419,8 +419,15 @@ function GroomingBookingModal({ service, onClose }: BookingModalProps) {
 /* ── Main Component ── */
 export default function Services() {
   const navigate = useNavigate();
+  const { data, currentUser } = useApp();
   const [tab, setTab] = useState<'grooming' | 'walking'>('grooming');
   const [bookingService, setBookingService] = useState<typeof GROOM_SERVICES[0] | null>(null);
+
+  const activeGroomings = data.walks.filter(w =>
+    w.ownerId === currentUser?.id &&
+    w.notes?.startsWith('GROOMING:') &&
+    (w.status === 'active' || w.status === 'assigned')
+  );
 
   const groomSteps = [
     { icon: <Scissors className="w-5 h-5" />, title: 'Choose a service', desc: 'Pick a one-time groom or a recurring plan — monthly or twice a month.' },
@@ -437,6 +444,33 @@ export default function Services() {
 
   return (
     <div className="max-w-2xl mx-auto pb-28 lg:pb-8 bg-white min-h-screen">
+
+      {/* Active Grooming Banner */}
+      {activeGroomings.length > 0 && (
+        <div className="mx-4 mt-4 rounded-2xl overflow-hidden border border-blue-200"
+          style={{ background: 'linear-gradient(135deg, #EFF6FF, #DBEAFE)' }}>
+          {activeGroomings.map(w => {
+            const dog = data.dogs.find(d => d.id === w.dogId);
+            const label = (w.notes ?? '').split('\n')[0].replace('GROOMING: ', '');
+            return (
+              <div key={w.id} className="flex items-center gap-3 px-4 py-3.5">
+                <div className="w-10 h-10 rounded-2xl flex items-center justify-center text-xl shrink-0"
+                  style={{ background: '#0891B220' }}>✂️</div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="flex items-center gap-1 text-[10px] font-bold text-white bg-blue-500 px-2 py-0.5 rounded-full">
+                      <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                      {w.status === 'active' ? 'ACTIVE' : 'CONFIRMED'}
+                    </span>
+                  </div>
+                  <p className="text-sm font-bold text-ink mt-0.5">{label}</p>
+                  {dog && <p className="text-xs text-ink-muted">For {dog.name}</p>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="sticky top-0 bg-white/95 backdrop-blur z-10 border-b border-surface-border px-4 pt-4 pb-3">

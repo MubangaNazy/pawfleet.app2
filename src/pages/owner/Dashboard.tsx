@@ -102,7 +102,7 @@ export default function OwnerDashboard() {
   const quickActions = [
     { label: 'Walk',  icon: '🦮', to: '/owner/request', badge: null as null | number | 'pulse-green' },
     { label: 'Groom', icon: '🛁', to: '/owner/services', badge: (pendingGroomingWalks.length > 0 ? 'pulse-green' : null) as null | number | 'pulse-green' },
-    { label: 'Vet',   icon: '🩺', to: '/owner/services', badge: null as null | number | 'pulse-green' },
+    { label: 'Vet',   icon: '🩺', to: '/owner/vet-booking', badge: null as null | number | 'pulse-green' },
     { label: 'Track', icon: '📍', to: nearestWalk ? `/owner/track/${nearestWalk.id}` : '/owner/history', badge: (activeWalk ? 'pulse-green' : null) as null | number | 'pulse-green' },
     { label: 'Chat',  icon: '💬', to: '/owner/chats', badge: (unreadChatNotifications.length > 0 ? unreadChatNotifications.length : null) as null | number | 'pulse-green' },
   ];

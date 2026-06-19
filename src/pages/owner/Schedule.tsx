@@ -5,7 +5,7 @@ import {
   eachDayOfInterval, isSameDay, isSameMonth, isToday,
 } from 'date-fns';
 import {
-  PlusCircle, Clock, MapPin, MessageCircle, Navigation,
+  Clock, MapPin, MessageCircle, Navigation,
   ChevronLeft, ChevronRight, StickyNote, X, Check, Calendar,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
@@ -39,12 +39,12 @@ function NotesModal({ walk, onClose }: { walk: Walk; onClose: () => void }) {
           </button>
         </div>
         <p className="text-xs text-ink-muted">
-          Leave notes for the walker about your pet or walk preferences. The walker will see these on their schedule.
+          Leave notes for the walker about your pet or walk preferences.
         </p>
         <textarea
           value={note}
           onChange={e => setNote(e.target.value)}
-          placeholder="e.g. Please use the side gate. Buddy needs his harness. He's friendly but nervous around other dogs…"
+          placeholder="e.g. Please use the side gate. Buddy needs his harness…"
           rows={5}
           className="w-full rounded-2xl border border-surface-border px-4 py-3 text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-primary resize-none"
         />
@@ -59,6 +59,12 @@ function NotesModal({ walk, onClose }: { walk: Walk; onClose: () => void }) {
 }
 
 const isVetWalk = (notes?: string) => notes?.startsWith('VET BOOKING:') ?? false;
+
+const SERVICE_OPTIONS = [
+  { icon: '🦮', label: 'Dog Walk',  sub: 'Book a walker',      to: '/owner/request',     color: '#1B4332', bg: '#EBF5EF' },
+  { icon: '✂️', label: 'Grooming',  sub: 'At-home grooming',   to: '/owner/services',    color: '#0891B2', bg: '#EFF6FF' },
+  { icon: '🩺', label: 'Vet Care',  sub: 'Clinic appointment', to: '/owner/vet-booking', color: '#7C3AED', bg: '#F5F3FF' },
+];
 
 export default function OwnerSchedule() {
   const { data, currentUser } = useApp();
@@ -86,9 +92,9 @@ export default function OwnerSchedule() {
     .sort((a, b) => new Date(a.scheduledDate).getTime() - new Date(b.scheduledDate).getTime());
 
   const statusBadge = (status: string) => {
-    if (status === 'active')    return { label: 'Active',     cls: 'bg-success/10 text-success border border-success/20' };
-    if (status === 'completed') return { label: 'Done',       cls: 'bg-surface-secondary text-ink-secondary border border-surface-border' };
-    if (status === 'cancelled') return { label: 'Cancelled',  cls: 'bg-red-50 text-red-600 border border-red-100' };
+    if (status === 'active')    return { label: 'Active',    cls: 'bg-success/10 text-success border border-success/20' };
+    if (status === 'completed') return { label: 'Done',      cls: 'bg-surface-secondary text-ink-secondary border border-surface-border' };
+    if (status === 'cancelled') return { label: 'Cancelled', cls: 'bg-red-50 text-red-600 border border-red-100' };
     return { label: 'Upcoming', cls: 'bg-primary/10 text-primary border border-primary/20' };
   };
 
@@ -106,13 +112,11 @@ export default function OwnerSchedule() {
 
     return (
       <div key={walk.id} className="flex gap-4">
-        {/* Date block */}
         <div className="flex flex-col items-center shrink-0 pt-0.5" style={{ minWidth: 48 }}>
           <p className="text-[10px] font-bold text-ink-muted uppercase">{format(new Date(walk.scheduledDate), 'MMM')}</p>
           <p className="text-2xl font-extrabold text-ink leading-tight">{format(new Date(walk.scheduledDate), 'd')}</p>
         </div>
 
-        {/* Card */}
         <div className="flex-1 bg-white border border-surface-border rounded-2xl p-3.5 shadow-sm min-w-0">
           <div className="flex items-start justify-between gap-2">
             <div className="flex-1 min-w-0">
@@ -156,27 +160,25 @@ export default function OwnerSchedule() {
             </span>
           </div>
 
-          <div className="flex gap-3 mt-3 flex-wrap items-center">
-            {!vet && (
-              <>
-                <Link to={`/owner/chat/${walk.id}`}
-                  className="flex items-center gap-1.5 text-xs text-ink-secondary font-semibold hover:text-primary transition-colors">
-                  <MessageCircle className="w-3.5 h-3.5" /> Chat
-                </Link>
-                <span className="text-ink-muted text-xs">·</span>
-                <Link to={`/owner/track/${walk.id}`}
-                  className="flex items-center gap-1.5 text-xs text-primary font-semibold hover:underline">
-                  <Navigation className="w-3.5 h-3.5" /> Track
-                </Link>
-                <span className="text-ink-muted text-xs">·</span>
-                <button type="button" onClick={() => setNotesWalk(walk)}
-                  className="flex items-center gap-1.5 text-xs text-amber-600 font-semibold hover:text-amber-700 transition-colors">
-                  <StickyNote className="w-3.5 h-3.5" />
-                  {ownerNote ? 'Edit Note' : 'Add Note'}
-                </button>
-              </>
-            )}
-          </div>
+          {!vet && (
+            <div className="flex gap-3 mt-3 flex-wrap items-center">
+              <Link to={`/owner/chat/${walk.id}`}
+                className="flex items-center gap-1.5 text-xs text-ink-secondary font-semibold hover:text-primary transition-colors">
+                <MessageCircle className="w-3.5 h-3.5" /> Chat
+              </Link>
+              <span className="text-ink-muted text-xs">·</span>
+              <Link to={`/owner/track/${walk.id}`}
+                className="flex items-center gap-1.5 text-xs text-primary font-semibold hover:underline">
+                <Navigation className="w-3.5 h-3.5" /> Track
+              </Link>
+              <span className="text-ink-muted text-xs">·</span>
+              <button type="button" onClick={() => setNotesWalk(walk)}
+                className="flex items-center gap-1.5 text-xs text-amber-600 font-semibold hover:text-amber-700 transition-colors">
+                <StickyNote className="w-3.5 h-3.5" />
+                {ownerNote ? 'Edit Note' : 'Add Note'}
+              </button>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -187,14 +189,9 @@ export default function OwnerSchedule() {
       <div className="max-w-lg mx-auto px-4 pt-5 space-y-5">
 
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-extrabold text-ink">{format(currentMonth, 'MMMM yyyy')}</h1>
-            <p className="text-sm text-ink-secondary mt-0.5">Your upcoming bookings</p>
-          </div>
-          <Link to="/owner/request"
-            className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-xl"
-            style={{ background: '#1B4332' }}>+</Link>
+        <div>
+          <h1 className="text-2xl font-extrabold text-ink">Schedule</h1>
+          <p className="text-sm text-ink-secondary mt-0.5">Pick a date to book a service</p>
         </div>
 
         {/* Monthly calendar */}
@@ -260,27 +257,43 @@ export default function OwnerSchedule() {
           </div>
         </div>
 
-        <div className="border-t border-surface-border" />
-
-        {/* Selected day — has walks */}
-        {selectedDate && selectedDayWalks.length > 0 && (
-          <div className="space-y-3">
+        {/* Selected date section */}
+        {selectedDate && (
+          <div className="space-y-4">
             <p className="text-xs font-bold text-ink-muted uppercase tracking-wider">
               {format(selectedDate, 'EEEE, MMMM d')}
             </p>
-            {selectedDayWalks.map(renderWalkCard)}
+
+            {/* Existing bookings for this day */}
+            {selectedDayWalks.length > 0 && selectedDayWalks.map(renderWalkCard)}
+
+            {/* Book a service panel */}
+            <div className="rounded-2xl overflow-hidden border border-surface-border">
+              <div className="px-4 py-3 border-b border-surface-border" style={{ background: '#F8FBF9' }}>
+                <p className="text-xs font-bold text-ink-muted uppercase tracking-wider">
+                  {selectedDayWalks.length > 0 ? '+ Add another booking' : 'What would you like to schedule?'}
+                </p>
+              </div>
+              <div className="grid grid-cols-3 divide-x divide-surface-border bg-white">
+                {SERVICE_OPTIONS.map(s => (
+                  <Link key={s.label} to={s.to}
+                    className="flex flex-col items-center gap-2 py-5 px-2 hover:opacity-80 active:scale-95 transition-all">
+                    <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl"
+                      style={{ background: s.bg }}>
+                      {s.icon}
+                    </div>
+                    <div className="text-center">
+                      <p className="text-xs font-bold text-ink">{s.label}</p>
+                      <p className="text-[10px] text-ink-muted mt-0.5">{s.sub}</p>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
           </div>
         )}
 
-        {/* Selected day — no walks */}
-        {selectedDate && selectedDayWalks.length === 0 && (
-          <div className="text-center py-8">
-            <Calendar className="w-10 h-10 text-ink-muted/40 mx-auto mb-2" />
-            <p className="text-sm text-ink-muted">No bookings on {format(selectedDate, 'MMMM d')}</p>
-          </div>
-        )}
-
-        {/* No date selected — show all upcoming */}
+        {/* No date selected — all upcoming */}
         {!selectedDate && upcomingWalks.length > 0 && (
           <div className="space-y-3">
             <p className="text-xs font-bold text-ink-muted uppercase tracking-wider">All Upcoming</p>
@@ -288,20 +301,15 @@ export default function OwnerSchedule() {
           </div>
         )}
 
-        {/* No date selected — nothing upcoming */}
+        {/* No date selected — empty */}
         {!selectedDate && upcomingWalks.length === 0 && (
-          <div className="text-center py-14">
+          <div className="text-center py-10">
             <div className="w-16 h-16 rounded-3xl flex items-center justify-center mx-auto mb-4"
               style={{ background: '#EBF5EF' }}>
-              <span className="text-3xl">📅</span>
+              <Calendar className="w-8 h-8" style={{ color: '#1B4332' }} />
             </div>
-            <p className="font-bold text-ink mb-1">No walks scheduled</p>
-            <p className="text-sm text-ink-muted mb-5">Book a walk to see it here</p>
-            <Link to="/owner/request"
-              className="inline-flex items-center gap-2 text-sm font-bold text-white px-6 py-3 rounded-2xl"
-              style={{ background: '#1B4332' }}>
-              <PlusCircle className="w-4 h-4" /> Book a Walk
-            </Link>
+            <p className="font-bold text-ink mb-1">No bookings yet</p>
+            <p className="text-sm text-ink-muted mb-5">Tap a date on the calendar to get started</p>
           </div>
         )}
 

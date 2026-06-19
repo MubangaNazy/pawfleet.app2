@@ -259,7 +259,7 @@ export default function Profile() {
               style={{ background: '#EBF5EF', color: '#1B4332' }}>{earnedCount}/{ACHIEVEMENT_DEFS.length} earned</span>
           </div>
           <div className="space-y-2.5">
-            {achievementProgress.map(a => {
+            {achievementProgress.filter(a => !(a.earned && claimed.includes(a.id))).map(a => {
               const pct = Math.round((a.current / a.target) * 100);
               return (
                 <div key={a.id}

@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import { Camera, ArrowLeft, Droplets, Coffee, Moon, CheckCircle, Activity } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
@@ -89,7 +89,7 @@ export default function DogProfile() {
   ];
 
   return (
-    <div className="bg-surface-secondary min-h-screen pb-28">
+    <div className="bg-surface-secondary min-h-screen pb-40">
 
       {/* ── Hero banner ─────────────────────────── */}
       <div className="relative h-60 w-full overflow-hidden">
@@ -132,7 +132,8 @@ export default function DogProfile() {
       </div>
 
       {/* ── Stats row ──────────────────────────── */}
-      <div className="mx-4 -mt-0 bg-white rounded-2xl shadow-card border border-surface-border overflow-hidden">
+      <div className="mx-4 -mt-0 bg-white rounded-2xl overflow-hidden"
+        style={{ boxShadow: '0 4px 20px rgba(0,0,0,0.08)' }}>
         {[
           { value: dogWalks.length,  label: 'Total Walks' },
           { value: completedWalks,   label: 'Completed' },
@@ -146,18 +147,30 @@ export default function DogProfile() {
         ))}
       </div>
 
+      {/* ── Sticky Book CTA ─────────────────────── */}
+      <div className="fixed bottom-16 left-0 right-0 z-50 px-4 pb-3 pt-2"
+        style={{ background: 'linear-gradient(to top, white 80%, transparent)' }}>
+        <Link
+          to="/owner/request"
+          className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl text-white font-extrabold text-sm shadow-lg active:scale-95 transition-transform"
+          style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)' }}
+        >
+          🦮 Book a Walk for {dog.name}
+        </Link>
+      </div>
+
       <div className="px-4 mt-4 space-y-4">
 
         {/* ── Notes card ─────────────────────────── */}
         {dog.notes && (
-          <div className="bg-white rounded-2xl border border-surface-border p-4">
+          <div className="bg-white rounded-2xl p-4" style={{ boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
             <p className="text-xs font-bold text-ink-muted uppercase tracking-wider mb-2">About {dog.name}</p>
             <p className="text-sm text-ink-secondary leading-relaxed italic">"{dog.notes}"</p>
           </div>
         )}
 
         {/* ── Today's Care ───────────────────────── */}
-        <div className="bg-white rounded-2xl border border-surface-border overflow-hidden">
+        <div className="bg-white rounded-2xl overflow-hidden" style={{ boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
           <div className="px-4 py-3.5 border-b border-surface-border flex items-center justify-between">
             <div>
               <p className="text-sm font-bold text-ink">Today's Care</p>

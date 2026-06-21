@@ -499,56 +499,68 @@ export default function OwnerRequestWalk() {
                 <p className="text-xs text-ink-muted mt-1">Book anyway and we'll assign one shortly</p>
               </div>
             ) : (
-              <div className="space-y-3">
-                {walkers.map((walker, i) => (
-                  <div key={walker.id}
-                    className={`flex items-center gap-3 p-4 rounded-2xl border-2 transition-all ${
-                      selectedWalkerId === walker.id
-                        ? 'border-primary bg-primary-50/40'
-                        : 'border-surface-border bg-white hover:border-primary/30'
-                    }`}>
-                    <div className="w-12 h-12 rounded-full overflow-hidden bg-surface-secondary shrink-0 border-2 border-surface-border">
-                      {walker.imageUrl
-                        ? <img src={walker.imageUrl} alt={walker.name} className="w-full h-full object-cover" />
-                        : <div className="w-full h-full flex items-center justify-center font-bold text-lg text-white" style={{ background: '#1B4332' }}>
-                            {walker.name[0]}
-                          </div>}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-bold text-ink text-sm">{walker.name}</p>
-                      <div className="flex items-center gap-1 text-xs text-ink-secondary">
-                        <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
-                        <span>{walkerRatings[i] || '4.8'} · 0.{i + 4} mi</span>
-                        {(() => {
-                          const BADGE_DEFS = [
-                            { id: 'first_walk', icon: '🐾', minWalks: 1 },
-                            { id: 'five_walks', icon: '⭐', minWalks: 5 },
-                            { id: 'ten_walks', icon: '🏆', minWalks: 10 },
-                            { id: 'twenty_five_walks', icon: '🥇', minWalks: 25 },
-                          ];
-                          const count = data.walks.filter(w => w.walkerId === walker.id && w.status === 'completed').length;
-                          const earned = BADGE_DEFS.filter(b => count >= b.minWalks);
-                          return earned.length > 0 ? (
-                            <span className="flex items-center gap-0.5">
-                              {earned.map(b => <span key={b.id} title={b.id} className="text-sm leading-none">{b.icon}</span>)}
-                            </span>
-                          ) : null;
-                        })()}
+              <div className="grid grid-cols-2 gap-3">
+                {walkers.map((walker, i) => {
+                  const BADGE_DEFS = [
+                    { id: 'first_walk', icon: '🐾', minWalks: 1 },
+                    { id: 'five_walks', icon: '⭐', minWalks: 5 },
+                    { id: 'ten_walks', icon: '🏆', minWalks: 10 },
+                    { id: 'twenty_five_walks', icon: '🥇', minWalks: 25 },
+                  ];
+                  const completedCount = data.walks.filter(w => w.walkerId === walker.id && w.status === 'completed').length;
+                  const earnedBadges  = BADGE_DEFS.filter(b => completedCount >= b.minWalks);
+
+                  return (
+                    <div key={walker.id}
+                      className={`relative overflow-hidden rounded-2xl flex flex-col transition-all active:scale-95 ${
+                        selectedWalkerId === walker.id ? 'ring-2 ring-primary' : ''
+                      }`}
+                      style={{ boxShadow: '0 4px 16px rgba(0,0,0,0.09)' }}>
+                      {/* Image area */}
+                      <div className="relative h-32 w-full bg-surface-secondary">
+                        {walker.imageUrl
+                          ? <img src={walker.imageUrl} alt={walker.name} className="w-full h-full object-cover" />
+                          : (
+                            <div className="w-full h-full flex items-center justify-center"
+                              style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)' }}>
+                              <span className="text-4xl font-bold text-white">{walker.name[0]}</span>
+                            </div>
+                          )}
+                        {/* Price pill — top right */}
+                        <div className="absolute top-2 right-2 px-2 py-1 rounded-full text-[11px] font-bold text-white"
+                          style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)' }}>
+                          K{walkerPrices[i] || 150}
+                        </div>
+                        {/* Rating — bottom left */}
+                        <div className="absolute bottom-2 left-2 flex items-center gap-0.5 px-1.5 py-0.5 rounded-full"
+                          style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)' }}>
+                          <Star className="w-2.5 h-2.5 fill-amber-400 text-amber-400" />
+                          <span className="text-[10px] font-bold text-white">{walkerRatings[i] || '4.8'}</span>
+                        </div>
                       </div>
-                      <p className="text-xs text-ink-muted mt-0.5 truncate">{walkerBios[i] || 'Experienced dog walker.'}</p>
+
+                      {/* Info area */}
+                      <div className="bg-white p-3 flex-1 flex flex-col gap-2">
+                        <div>
+                          <p className="font-bold text-ink text-sm truncate">{walker.name}</p>
+                          <p className="text-[11px] text-ink-muted mt-0.5 leading-snug line-clamp-2">{walkerBios[i] || 'Experienced dog walker.'}</p>
+                        </div>
+                        {earnedBadges.length > 0 && (
+                          <div className="flex gap-0.5">
+                            {earnedBadges.map(b => <span key={b.id} className="text-sm leading-none">{b.icon}</span>)}
+                          </div>
+                        )}
+                        <button
+                          onClick={() => { setSelectedWalkerId(walker.id); handleSubmit(walker.id); }}
+                          disabled={!dogId || !pickupReady}
+                          className="w-full py-2.5 rounded-xl text-xs font-bold text-white transition-colors disabled:opacity-40 active:scale-95"
+                          style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)' }}>
+                          Book Now
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex flex-col items-end gap-2 shrink-0">
-                      <span className="text-sm font-bold text-ink">K{walkerPrices[i] || 150}</span>
-                      <button
-                        onClick={() => { setSelectedWalkerId(walker.id); handleSubmit(walker.id); }}
-                        disabled={!dogId || !pickupReady}
-                        className="px-4 py-2 rounded-xl text-xs font-bold text-white transition-colors disabled:opacity-40"
-                        style={{ background: '#1B4332' }}>
-                        Book
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
 

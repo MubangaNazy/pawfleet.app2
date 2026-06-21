@@ -168,8 +168,9 @@ export default function WalkerLiveWalk() {
       {/* Header */}
       <div className="bg-white border-b border-surface-border px-4 py-3 flex items-center gap-3 shrink-0 z-[1001]">
         <button type="button" onClick={() => navigate('/walker/walks')}
-          className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-surface-hover text-ink-secondary">
-          <ArrowLeft className="w-5 h-5" />
+          className="w-10 h-10 flex items-center justify-center rounded-2xl transition-colors active:scale-95"
+          style={{ background: '#F3F4F6' }}>
+          <ArrowLeft className="w-5 h-5 text-ink" />
         </button>
         <div className="flex-1">
           <p className="text-sm font-bold text-ink">{dog?.name ? `${dog.name}'s Walk` : 'Live Walk'}</p>
@@ -252,10 +253,11 @@ export default function WalkerLiveWalk() {
       </div>
 
       {/* Action buttons */}
-      <div className="bg-white border-t border-surface-border px-4 py-4 flex gap-3 shrink-0 z-[1001]">
+      <div className="bg-white px-4 py-4 flex gap-2.5 shrink-0 z-[1001]"
+        style={{ borderTop: '1px solid rgba(0,0,0,0.06)', boxShadow: '0 -4px 16px rgba(0,0,0,0.06)' }}>
         {isAssigned && (
           <button type="button" onClick={handleStart} disabled={starting}
-            className="flex items-center gap-2 flex-1 justify-center text-white py-3 rounded-xl font-bold text-sm transition-colors disabled:opacity-60"
+            className="flex items-center gap-2 flex-1 justify-center text-white py-4 rounded-2xl font-bold text-sm transition-all active:scale-95 disabled:opacity-60 shadow-lg"
             style={{ background: 'linear-gradient(135deg,#1B4332,#2B8A50)' }}>
             {starting ? (
               <><div className="w-4 h-4 rounded-full border-2 border-white/40 border-t-white animate-spin" /> Starting…</>
@@ -268,18 +270,21 @@ export default function WalkerLiveWalk() {
           <>
             {owner?.phone && (
               <a href={`tel:${owner.phone}`}
-                className="flex items-center gap-2 flex-1 justify-center bg-primary-50 text-primary border border-primary/20 py-3 rounded-xl font-semibold text-sm hover:bg-primary/10 transition-colors">
+                className="flex items-center gap-2 flex-1 justify-center py-4 rounded-2xl font-bold text-sm transition-all active:scale-95"
+                style={{ background: '#EBF5EF', color: '#1B4332' }}>
                 <Phone className="w-4 h-4" />
                 Call
               </a>
             )}
             <Link to={`/walker/chat/${walkId}`}
-              className="flex items-center gap-2 flex-1 justify-center bg-surface-secondary text-ink border border-surface-border py-3 rounded-xl font-semibold text-sm hover:bg-surface-hover transition-colors">
+              className="flex items-center gap-2 flex-1 justify-center py-4 rounded-2xl font-bold text-sm transition-all active:scale-95"
+              style={{ background: '#F3F4F6', color: '#374151' }}>
               <MessageCircle className="w-4 h-4" />
               Chat
             </Link>
             <button type="button" onClick={handleEnd}
-              className="flex items-center gap-2 flex-1 justify-center bg-danger text-white py-3 rounded-xl font-semibold text-sm hover:bg-danger/90 transition-colors">
+              className="flex items-center gap-2 flex-1 justify-center text-white py-4 rounded-2xl font-bold text-sm transition-all active:scale-95"
+              style={{ background: '#DC2626' }}>
               <Square className="w-4 h-4" />
               End
             </button>

@@ -122,7 +122,7 @@ export default function OwnerDashboard() {
   }, []);
 
   return (
-    <div className="bg-white min-h-screen pb-24">
+    <div className="bg-white min-h-screen pb-28">
       <div className="max-w-lg mx-auto px-4 pt-5 space-y-6">
 
         {/* Greeting */}
@@ -151,8 +151,7 @@ export default function OwnerDashboard() {
 
           {/* CTA text */}
           <div className="absolute bottom-0 left-0 right-0 p-5">
-            <p className="text-white/70 text-[10px] font-bold uppercase tracking-widest mb-1"
-              style={{ transition: 'opacity 0.4s', opacity: 1 }}>
+            <p className="text-white/70 text-[10px] font-bold uppercase tracking-widest mb-1">
               {SLIDES[slide].tag}
             </p>
             <p className="text-white text-xl font-extrabold leading-tight">{SLIDES[slide].headline}</p>
@@ -183,12 +182,17 @@ export default function OwnerDashboard() {
 
         {/* ── Quick Actions ── */}
         <Reveal delay={50}>
-          <div className="grid grid-cols-5 gap-2">
+          <div className="grid grid-cols-5 gap-1">
             {quickActions.map((a) => (
-              <Link key={a.label} to={a.to} className="flex flex-col items-center gap-1.5">
+              <Link key={a.label} to={a.to} className="flex flex-col items-center gap-1.5 active:scale-95 transition-transform">
                 <div className="relative">
-                  <div className="w-12 h-12 rounded-full flex items-center justify-center text-xl shadow-sm hover:scale-105 transition-transform active:scale-95"
-                    style={{ background: '#1B4332' }}>
+                  <div
+                    className="w-14 h-14 rounded-full flex items-center justify-center text-2xl transition-transform hover:scale-105"
+                    style={{
+                      background: 'linear-gradient(145deg, #1B4332, #2B8A50)',
+                      boxShadow: '0 4px 12px rgba(27,67,50,0.28)',
+                    }}
+                  >
                     <span>{a.icon}</span>
                   </div>
                   {/* Badge: red number for Chat */}
@@ -199,10 +203,10 @@ export default function OwnerDashboard() {
                   )}
                   {/* Badge: green pulse dot for Groom / Track */}
                   {a.badge === 'pulse-green' && (
-                    <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-green-500 border-2 border-white animate-pulse" />
+                    <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-green-400 border-2 border-white animate-pulse" />
                   )}
                 </div>
-                <span className="text-xs font-semibold text-ink">{a.label}</span>
+                <span className="text-[11px] font-bold text-ink">{a.label}</span>
               </Link>
             ))}
           </div>
@@ -216,33 +220,41 @@ export default function OwnerDashboard() {
                 <h2 className="text-base font-bold text-ink">Upcoming walk</h2>
                 <Link to="/owner/history" className="text-sm text-ink-secondary hover:text-primary font-medium">See all</Link>
               </div>
-              <div className="bg-white border border-surface-border rounded-3xl p-4 shadow-sm">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-12 h-12 rounded-full overflow-hidden bg-primary-50 flex items-center justify-center shrink-0 border-2 border-primary/20">
+              <div className="bg-white rounded-3xl p-5"
+                style={{ boxShadow: '0 4px 20px rgba(0,0,0,0.08)', border: '1px solid rgba(0,0,0,0.04)' }}>
+                <div className="flex items-center gap-3.5 mb-4">
+                  {/* Walker avatar — larger */}
+                  <div className="w-14 h-14 rounded-2xl overflow-hidden bg-primary-50 flex items-center justify-center shrink-0"
+                    style={{ border: '2px solid rgba(43,138,80,0.2)' }}>
                     {nearestWalker.imageUrl
                       ? <img src={nearestWalker.imageUrl} alt={nearestWalker.name} className="w-full h-full object-cover" />
-                      : <span className="text-lg font-bold text-primary">{nearestWalker.name[0]}</span>}
+                      : (
+                        <div className="w-full h-full flex items-center justify-center"
+                          style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)' }}>
+                          <span className="text-xl font-bold text-white">{nearestWalker.name[0]}</span>
+                        </div>
+                      )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5">
-                      <p className="font-bold text-ink">{nearestWalker.name}</p>
-                      <div className="flex items-center gap-0.5 text-amber-500">
+                      <p className="font-bold text-ink text-[15px]">{nearestWalker.name}</p>
+                      <div className="flex items-center gap-0.5 bg-amber-50 px-1.5 py-0.5 rounded-full">
                         <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
-                        <span className="text-xs font-semibold text-ink-secondary">4.9</span>
+                        <span className="text-[11px] font-bold text-amber-600">4.9</span>
                       </div>
                     </div>
                     <p className="text-xs text-ink-secondary mt-0.5">Professional walker</p>
-                    <div className="flex items-center gap-1 mt-1 text-xs text-ink-muted">
+                    <div className="flex items-center gap-1 mt-1.5 text-xs text-ink-muted">
                       <span>
                         {activeWalk
                           ? `Active now · started ${nearestWalk.startTime ? format(new Date(nearestWalk.startTime), 'h:mm a') : ''}`
                           : `${format(new Date(nearestWalk.scheduledDate), 'EEE, MMM d')} · ${format(new Date(nearestWalk.scheduledDate), 'h:mm a')}`}
                       </span>
-                      {nearestDog && <><span>·</span><span>{nearestDog.name}</span></>}
+                      {nearestDog && <><span>·</span><span className="font-semibold text-ink">{nearestDog.name}</span></>}
                     </div>
                   </div>
                   {activeWalk && (
-                    <span className="flex items-center gap-1 text-[10px] font-bold text-success bg-success-light px-2 py-1 rounded-full shrink-0">
+                    <span className="flex items-center gap-1 text-[10px] font-bold text-success bg-success-light px-2.5 py-1 rounded-full shrink-0 border border-success/20">
                       <span className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" />
                       LIVE
                     </span>
@@ -250,12 +262,12 @@ export default function OwnerDashboard() {
                 </div>
                 <div className="flex items-center gap-3">
                   <Link to={`/owner/track/${nearestWalk.id}`}
-                    className="flex-1 flex items-center justify-center gap-2 text-white text-sm font-bold py-2.5 rounded-2xl hover:opacity-90 transition-opacity"
+                    className="flex-1 flex items-center justify-center gap-2 text-white text-sm font-bold py-3 rounded-2xl hover:opacity-90 transition-opacity active:scale-95"
                     style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)' }}>
                     <Navigation className="w-4 h-4" /> Live Track
                   </Link>
                   <Link to={`/owner/chat/${nearestWalk.id}`}
-                    className="flex-1 flex items-center justify-center gap-2 text-sm font-bold text-ink-secondary hover:text-primary transition-colors py-2.5">
+                    className="flex-1 flex items-center justify-center gap-2 text-sm font-bold text-ink-secondary border-2 border-surface-border hover:border-primary/30 hover:text-primary transition-colors py-3 rounded-2xl">
                     <MessageCircle className="w-4 h-4" /> Message
                   </Link>
                 </div>
@@ -267,8 +279,8 @@ export default function OwnerDashboard() {
         {/* ── Active Grooming Banner ── */}
         {activeGroomingWalks.length > 0 && (
           <Reveal delay={120}>
-            <div className="rounded-3xl overflow-hidden border border-blue-200 shadow-sm"
-              style={{ background: 'linear-gradient(135deg, #EFF6FF, #DBEAFE)' }}>
+            <div className="rounded-3xl overflow-hidden"
+              style={{ background: 'linear-gradient(135deg, #EFF6FF, #DBEAFE)', border: '1px solid #BFDBFE', boxShadow: '0 2px 12px rgba(14,116,144,0.1)' }}>
               {activeGroomingWalks.map(w => {
                 const dog   = data.dogs.find(d => d.id === w.dogId);
                 const label = (w.notes ?? '').split('\n')[0].replace('GROOMING: ', '');
@@ -304,8 +316,8 @@ export default function OwnerDashboard() {
         {/* ── Active Vet Banner ── */}
         {activeVetWalks.length > 0 && (
           <Reveal delay={130}>
-            <div className="rounded-3xl overflow-hidden border border-purple-200 shadow-sm"
-              style={{ background: 'linear-gradient(135deg, #F5F3FF, #EDE9FE)' }}>
+            <div className="rounded-3xl overflow-hidden"
+              style={{ background: 'linear-gradient(135deg, #F5F3FF, #EDE9FE)', border: '1px solid #DDD6FE', boxShadow: '0 2px 12px rgba(124,58,237,0.1)' }}>
               {activeVetWalks.map(w => {
                 const dog      = data.dogs.find(d => d.id === w.dogId);
                 const lines    = (w.notes ?? '').split('\n');
@@ -355,8 +367,10 @@ export default function OwnerDashboard() {
                   const ratings   = ['4.9', '5.0', '4.8'];
                   const distances = ['0.4 km', '0.8 km', '1.2 km'];
                   return (
-                    <div key={walker.id} className="shrink-0 w-36">
-                      <div className="w-36 h-28 rounded-2xl overflow-hidden bg-surface-secondary border border-surface-border mb-2 hover:scale-[1.02] transition-transform">
+                    <div key={walker.id} className="shrink-0 w-36 active:scale-95 transition-transform">
+                      {/* Image card */}
+                      <div className="relative w-36 h-32 rounded-2xl overflow-hidden mb-2.5"
+                        style={{ boxShadow: '0 4px 14px rgba(0,0,0,0.1)' }}>
                         {walker.imageUrl
                           ? <img src={walker.imageUrl} alt={walker.name} className="w-full h-full object-cover" />
                           : (
@@ -365,12 +379,20 @@ export default function OwnerDashboard() {
                               <span className="text-3xl font-bold text-white">{walker.name[0]}</span>
                             </div>
                           )}
+                        {/* Distance pill — top right corner */}
+                        <div className="absolute top-2 right-2 px-2 py-0.5 rounded-full text-[10px] font-bold text-white"
+                          style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
+                          {distances[i]}
+                        </div>
+                        {/* Rating pill — bottom left */}
+                        <div className="absolute bottom-2 left-2 flex items-center gap-0.5 px-1.5 py-0.5 rounded-full"
+                          style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
+                          <Star className="w-2.5 h-2.5 fill-amber-400 text-amber-400" />
+                          <span className="text-[10px] font-bold text-white">{ratings[i]}</span>
+                        </div>
                       </div>
-                      <p className="text-sm font-semibold text-ink truncate">{walker.name}</p>
-                      <div className="flex items-center gap-1 text-xs text-ink-secondary">
-                        <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
-                        <span>{ratings[i]} · {distances[i]}</span>
-                      </div>
+                      <p className="text-sm font-bold text-ink truncate px-0.5">{walker.name}</p>
+                      <p className="text-xs text-ink-muted px-0.5 mt-0.5">Professional walker</p>
                     </div>
                   );
                 })}
@@ -383,52 +405,77 @@ export default function OwnerDashboard() {
         <Reveal delay={200}>
           <div>
             <h2 className="text-base font-bold text-ink mb-3">Services</h2>
+
+            {/* 3-column service cards — image-forward with CTA */}
             <div className="grid grid-cols-3 gap-3">
+              {/* Dog Walking */}
               <Link to="/owner/request"
-                className="relative overflow-hidden rounded-3xl p-4 flex flex-col justify-between group hover:opacity-90 transition-opacity active:scale-95"
-                style={{ height: 120, background: '#1B4332' }}>
-                <div className="absolute top-0 right-0 w-16 h-16 rounded-full opacity-10"
-                  style={{ background: 'radial-gradient(circle, white, transparent)', transform: 'translate(35%,-35%)' }} />
-                <span className="text-2xl">🦮</span>
-                <div>
-                  <p className="text-white font-bold text-xs">Dog Walking</p>
-                  <p className="text-white/70 text-[10px]">From K150</p>
+                className="relative overflow-hidden rounded-2xl flex flex-col justify-between active:scale-95 transition-transform"
+                style={{ background: '#1B4332', boxShadow: '0 4px 14px rgba(27,67,50,0.25)', minHeight: 130 }}>
+                <div className="absolute top-0 right-0 w-20 h-20 rounded-full opacity-10"
+                  style={{ background: 'radial-gradient(circle, white, transparent)', transform: 'translate(40%,-40%)' }} />
+                <div className="p-3.5">
+                  <span className="text-2xl">🦮</span>
+                  <p className="text-white font-bold text-xs mt-2 leading-tight">Dog Walking</p>
+                </div>
+                <div className="px-3.5 pb-3 flex items-center justify-between">
+                  <p className="text-white/80 text-[10px] font-semibold">From K150</p>
+                  <div className="w-6 h-6 rounded-full flex items-center justify-center bg-white/20">
+                    <ChevronRight className="w-3.5 h-3.5 text-white" />
+                  </div>
                 </div>
               </Link>
 
+              {/* Grooming */}
               <Link to="/owner/services"
-                className="relative overflow-hidden rounded-3xl p-4 flex flex-col justify-between group hover:opacity-90 transition-opacity active:scale-95"
-                style={{ height: 120, background: '#2B8A50' }}>
-                <div className="absolute top-0 right-0 w-16 h-16 rounded-full opacity-10"
-                  style={{ background: 'radial-gradient(circle, white, transparent)', transform: 'translate(35%,-35%)' }} />
-                <span className="text-2xl">🛁</span>
-                <div>
-                  <p className="text-white font-bold text-xs">Grooming</p>
-                  <p className="text-white/70 text-[10px]">From K350</p>
+                className="relative overflow-hidden rounded-2xl flex flex-col justify-between active:scale-95 transition-transform"
+                style={{ background: '#2B8A50', boxShadow: '0 4px 14px rgba(43,138,80,0.25)', minHeight: 130 }}>
+                <div className="absolute top-0 right-0 w-20 h-20 rounded-full opacity-10"
+                  style={{ background: 'radial-gradient(circle, white, transparent)', transform: 'translate(40%,-40%)' }} />
+                <div className="p-3.5">
+                  <span className="text-2xl">🛁</span>
+                  <p className="text-white font-bold text-xs mt-2 leading-tight">Grooming</p>
+                </div>
+                <div className="px-3.5 pb-3 flex items-center justify-between">
+                  <p className="text-white/80 text-[10px] font-semibold">From K350</p>
+                  <div className="w-6 h-6 rounded-full flex items-center justify-center bg-white/20">
+                    <ChevronRight className="w-3.5 h-3.5 text-white" />
+                  </div>
                 </div>
               </Link>
 
+              {/* Vetting */}
               <Link to="/owner/services"
-                className="relative overflow-hidden rounded-3xl p-4 flex flex-col justify-between group hover:opacity-90 transition-opacity active:scale-95"
-                style={{ height: 120, background: '#52B788' }}>
-                <div className="absolute top-0 right-0 w-16 h-16 rounded-full opacity-10"
-                  style={{ background: 'radial-gradient(circle, white, transparent)', transform: 'translate(35%,-35%)' }} />
-                <span className="text-2xl">🩺</span>
-                <div>
-                  <p className="text-white font-bold text-xs">Vetting</p>
-                  <p className="text-white/70 text-[10px]">Book a vet visit</p>
+                className="relative overflow-hidden rounded-2xl flex flex-col justify-between active:scale-95 transition-transform"
+                style={{ background: '#52B788', boxShadow: '0 4px 14px rgba(82,183,136,0.3)', minHeight: 130 }}>
+                <div className="absolute top-0 right-0 w-20 h-20 rounded-full opacity-10"
+                  style={{ background: 'radial-gradient(circle, white, transparent)', transform: 'translate(40%,-40%)' }} />
+                <div className="p-3.5">
+                  <span className="text-2xl">🩺</span>
+                  <p className="text-white font-bold text-xs mt-2 leading-tight">Vetting</p>
+                </div>
+                <div className="px-3.5 pb-3 flex items-center justify-between">
+                  <p className="text-white/80 text-[10px] font-semibold">K250+</p>
+                  <div className="w-6 h-6 rounded-full flex items-center justify-center bg-white/20">
+                    <ChevronRight className="w-3.5 h-3.5 text-white" />
+                  </div>
                 </div>
               </Link>
             </div>
 
+            {/* Shop CTA — elevated card */}
             <Link to="/owner/shop"
-              className="mt-3 flex items-center gap-3 p-4 rounded-2xl bg-surface-secondary hover:bg-surface-hover transition-colors border border-surface-border active:scale-[0.98]">
-              <span className="text-xl">🛒</span>
-              <div className="flex-1">
-                <p className="text-sm font-semibold text-ink">Shop treats & gear</p>
-                <p className="text-xs text-ink-muted">Hand-picked goodies for your pup</p>
+              className="mt-3 flex items-center gap-4 p-4 rounded-2xl transition-all active:scale-[0.98]"
+              style={{ background: 'white', boxShadow: '0 2px 12px rgba(0,0,0,0.07)', border: '1px solid rgba(0,0,0,0.04)' }}>
+              <div className="w-11 h-11 rounded-2xl flex items-center justify-center text-xl shrink-0"
+                style={{ background: '#EBF5EF' }}>
+                🛒
               </div>
-              <ChevronRight className="w-4 h-4 text-ink-muted" />
+              <div className="flex-1">
+                <p className="text-sm font-bold text-ink">Shop treats & gear</p>
+                <p className="text-xs text-ink-muted mt-0.5">Hand-picked goodies for your pup</p>
+              </div>
+              <ChevronRight className="w-4 h-4 text-ink-muted shrink-0" />
             </Link>
           </div>
         </Reveal>

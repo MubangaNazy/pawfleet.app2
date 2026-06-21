@@ -200,9 +200,10 @@ export default function WalkerDashboard() {
             <div className="grid grid-cols-5 gap-3">
               {quickItems.map(({ to, emoji, label, badge, badgeType }) => (
                 <Link key={to} to={to}
-                  className="flex flex-col items-center gap-2 py-3 rounded-2xl bg-white border border-surface-border hover:shadow-md transition-all active:scale-95">
+                  className="flex flex-col items-center gap-2 py-3.5 rounded-2xl bg-white transition-all active:scale-95"
+                  style={{ boxShadow: '0 2px 10px rgba(0,0,0,0.07)' }}>
                   <div className="relative">
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl"
+                    <div className="w-11 h-11 rounded-2xl flex items-center justify-center text-xl"
                       style={{ background: '#EBF5EF' }}>
                       {emoji}
                     </div>
@@ -212,7 +213,7 @@ export default function WalkerDashboard() {
                       </span>
                     )}
                   </div>
-                  <span className="text-[11px] font-semibold text-ink-secondary">{label}</span>
+                  <span className="text-[11px] font-bold text-ink">{label}</span>
                 </Link>
               ))}
             </div>

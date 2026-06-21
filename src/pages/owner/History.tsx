@@ -38,7 +38,7 @@ export default function OwnerHistory() {
       </div>
 
       {/* Filter tabs */}
-      <div className="flex gap-1 p-1 bg-surface-secondary border border-surface-border rounded-xl overflow-x-auto flex-nowrap pb-1">
+      <div className="flex gap-1 p-1.5 bg-surface-secondary rounded-2xl overflow-x-auto flex-nowrap scrollbar-none" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
         {filterTabs.map(tab => {
           const count = tab.value === 'all' ? myWalks.length : myWalks.filter(w => w.status === tab.value).length;
           return (
@@ -55,7 +55,7 @@ export default function OwnerHistory() {
       </div>
 
       {filtered.length === 0 ? (
-        <div className="bg-white border border-surface-border rounded-2xl p-16 text-center shadow-card">
+        <div className="bg-white rounded-2xl p-16 text-center" style={{ boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
           <History className="w-10 h-10 text-ink-muted mx-auto mb-3" />
           <p className="font-medium text-ink">No walks found</p>
           <p className="text-ink-muted text-sm mt-1">{filter === 'all' ? "You haven't booked any walks yet." : `No ${filter} walks in your history.`}</p>
@@ -67,7 +67,7 @@ export default function OwnerHistory() {
             const walker = data.users.find(u => u.id === walk.walkerId);
 
             return (
-              <div key={walk.id} className="bg-white border border-surface-border rounded-xl p-4 hover:shadow-card-hover transition-all">
+              <div key={walk.id} className="bg-white rounded-2xl p-4 transition-all" style={{ boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
                 <div className="flex items-start gap-3">
                   <div className="w-10 h-10 rounded-xl bg-primary-50 flex items-center justify-center shrink-0 mt-0.5 overflow-hidden">
                     {dog?.imageUrl ? <img src={dog.imageUrl} alt={dog.name} className="w-10 h-10 object-cover" /> : <span className="text-lg">🐕</span>}

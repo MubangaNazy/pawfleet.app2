@@ -76,6 +76,7 @@ const WALK_SERVICES = [
     subtitle: 'One-time walk, no commitment',
     price: 'ZMW 150',
     cta: 'Try Now',
+    duration: 40,
   },
   {
     tag: null,
@@ -85,6 +86,7 @@ const WALK_SERVICES = [
     subtitle: 'Quick daily exercise sessions',
     price: 'from ZMW 103 / walk',
     cta: 'View Options',
+    duration: 20,
   },
   {
     tag: 'Bestseller',
@@ -95,6 +97,7 @@ const WALK_SERVICES = [
     subtitle: 'Most popular — full neighbourhood walk',
     price: 'from ZMW 120 / walk',
     cta: 'View Options',
+    duration: 40,
   },
 ];
 
@@ -209,7 +212,6 @@ function ServiceCard({ svc, onBook }: { svc: typeof GROOM_SERVICES[0]; onBook: (
         <div className="flex-1 min-w-0">
           <p className="font-bold text-ink text-sm leading-snug">{svc.title}</p>
           <p className="text-xs text-ink-muted mt-0.5">{svc.subtitle}</p>
-          <p className="text-sm font-bold mt-2" style={{ color: '#2B8A50' }}>{svc.price}</p>
         </div>
         <button onClick={onBook}
           className="shrink-0 px-4 py-2 rounded-xl text-xs font-bold text-white"
@@ -501,10 +503,6 @@ export default function Services() {
 
           {/* Intro */}
           <div className="px-4 pt-5 pb-1">
-            <div className="flex items-center gap-1 mb-1">
-              {[1,2,3,4,5].map(i => <Star key={i} className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />)}
-              <span className="text-xs text-ink-muted ml-1 font-medium">4.90 · 1,000+ sessions</span>
-            </div>
             <h2 className="text-xl font-extrabold text-ink">Grooming Services</h2>
             <p className="text-sm text-ink-secondary mt-1">At-home grooming — no stress, no travel. Your dog stays clean, healthy, and happy.</p>
           </div>
@@ -545,10 +543,7 @@ export default function Services() {
 
           {/* Reviews */}
           <div className="px-4 pt-6">
-            <div className="flex items-center gap-1 mb-1">
-              {[1,2,3,4,5].map(i => <Star key={i} className="w-4 h-4 fill-amber-400 text-amber-400" />)}
-            </div>
-            <p className="text-sm font-bold text-ink mb-4">12,000+ five-star reviews!</p>
+            <p className="text-sm font-bold text-ink mb-4">What our customers say</p>
             <div className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory scrollbar-none -mx-4 px-4">
               {REVIEWS.map(r => (
                 <div key={r.name} className="snap-start shrink-0 w-72 bg-white border border-surface-border rounded-2xl p-4 shadow-sm">
@@ -592,11 +587,8 @@ export default function Services() {
               alt="Dog walking" className="w-full h-full object-cover" />
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
             <div className="absolute bottom-4 left-4">
-              <div className="flex items-center gap-1 mb-1">
-                {[1,2,3,4,5].map(i => <Star key={i} className="w-3 h-3 fill-amber-300 text-amber-300" />)}
-                <span className="text-white/80 text-xs ml-1">4.95 · 500+ owners</span>
-              </div>
               <p className="text-white font-extrabold text-lg">Walking Plans</p>
+              <p className="text-white/70 text-xs mt-0.5">GPS-tracked · Trusted walkers · Lusaka</p>
             </div>
           </div>
 
@@ -609,7 +601,7 @@ export default function Services() {
           <div className="px-4 pt-4 space-y-3">
             <p className="text-sm font-bold text-ink-muted uppercase tracking-wider">Choose a Plan</p>
             {WALK_SERVICES.map(svc => (
-              <ServiceCard key={svc.title} svc={svc} onBook={() => navigate('/owner/request')} />
+              <ServiceCard key={svc.title} svc={svc} onBook={() => navigate(`/owner/request?duration=${svc.duration}`)} />
             ))}
           </div>
 

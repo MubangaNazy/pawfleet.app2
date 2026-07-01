@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Send, Phone, Mic, MicOff } from 'lucide-react';
+import { ArrowLeft, Send, Phone, Mic, MicOff, Trash2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useApp } from '../context/AppContext';
 import { format } from 'date-fns';
@@ -43,8 +43,10 @@ export default function Chat() {
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(true);
   const [listening, setListening] = useState(false);
+  const [selectedMsgId, setSelectedMsgId] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
+  const pressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const walk = data.walks.find(w => w.id === walkId);
   const walker = data.users.find(u => u.id === walk?.walkerId);
@@ -160,6 +162,19 @@ export default function Chat() {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
   };
 
+  const startLongPress = (id: string) => {
+    pressTimerRef.current = setTimeout(() => setSelectedMsgId(id), 500);
+  };
+  const cancelLongPress = () => {
+    if (pressTimerRef.current) clearTimeout(pressTimerRef.current);
+  };
+
+  const deleteMessage = async (id: string) => {
+    setMessages(prev => prev.filter(m => m.id !== id));
+    setSelectedMsgId(null);
+    await supabase.from('messages').delete().eq('id', id);
+  };
+
   return (
     <div className="flex flex-col h-screen bg-white">
       {/* Header */}
@@ -198,7 +213,8 @@ export default function Chat() {
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-5 space-y-4" style={{ background: '#F9FAFB' }}>
+      <div className="flex-1 overflow-y-auto px-4 py-5 space-y-4" style={{ background: '#F9FAFB' }}
+        onClick={() => { if (selectedMsgId) setSelectedMsgId(null); }}>
         {loading ? (
           <div className="flex justify-center py-10">
             <div className="w-6 h-6 rounded-full border-2 border-primary border-t-transparent animate-spin" />
@@ -217,22 +233,48 @@ export default function Chat() {
         ) : (
           messages.map(msg => {
             const isMine = msg.sender_id === currentUser?.id;
+            const isSelected = selectedMsgId === msg.id;
             return (
               <div key={msg.id} className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-[78%] flex flex-col ${isMine ? 'items-end' : 'items-start'} gap-1`}>
                   <div
-                    className={`px-4 py-3 text-sm leading-relaxed ${
+                    className={`px-4 py-3 text-sm leading-relaxed select-none transition-all ${
                       isMine
                         ? 'text-white rounded-3xl rounded-br-lg'
                         : 'text-ink bg-white border border-surface-border rounded-3xl rounded-bl-lg shadow-sm'
-                    }`}
-                    style={isMine ? { background: '#1B4332' } : {}}
+                    } ${isSelected ? 'opacity-70 scale-95' : ''}`}
+                    style={isMine ? { background: isSelected ? '#0F2D20' : '#1B4332', transform: isSelected ? 'scale(0.95)' : undefined } : {}}
+                    onTouchStart={() => isMine && startLongPress(msg.id)}
+                    onTouchEnd={cancelLongPress}
+                    onTouchMove={cancelLongPress}
+                    onMouseDown={() => isMine && startLongPress(msg.id)}
+                    onMouseUp={cancelLongPress}
+                    onMouseLeave={cancelLongPress}
                   >
                     {msg.text}
                   </div>
-                  <span className="text-[10px] text-ink-muted px-1">
-                    {format(new Date(msg.created_at), 'h:mm a')}
-                  </span>
+                  <div className="flex items-center gap-2 px-1">
+                    <span className="text-[10px] text-ink-muted">
+                      {format(new Date(msg.created_at), 'h:mm a')}
+                    </span>
+                    {isSelected && isMine && (
+                      <button
+                        onClick={() => deleteMessage(msg.id)}
+                        className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-500 text-white text-[10px] font-bold active:scale-95 transition-transform"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                        Delete
+                      </button>
+                    )}
+                    {isSelected && isMine && (
+                      <button
+                        onClick={() => setSelectedMsgId(null)}
+                        className="text-[10px] text-ink-muted font-semibold"
+                      >
+                        Cancel
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             );

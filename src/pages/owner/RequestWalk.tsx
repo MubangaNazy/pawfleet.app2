@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { CheckCircle, Star, MapPin, Zap, Calendar, Scissors, Loader2 } from 'lucide-react';
 import { ScalePop, FadeIn, StaggerList, StaggerItem } from '../../components/ui/Anim';
 import { SuccessDogIllustration, NoPetsIllustration } from '../../components/ui/Illustrations';
@@ -7,7 +7,7 @@ import { useApp } from '../../context/AppContext';
 import { supabase } from '../../lib/supabase';
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
-const DURATIONS = [15, 30, 45, 60];
+const DURATIONS = [20, 30, 40, 60];
 
 async function reverseGeocode(lat: number, lng: number): Promise<string> {
   try {
@@ -25,6 +25,7 @@ async function reverseGeocode(lat: number, lng: number): Promise<string> {
 export default function OwnerRequestWalk() {
   const { data, currentUser, createWalk } = useApp();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const walkersRef = useRef<HTMLDivElement>(null);
   const watchIdRef = useRef<number | null>(null);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
@@ -33,10 +34,13 @@ export default function OwnerRequestWalk() {
   const myDogs = data.dogs.filter(d => d.ownerId === currentUser?.id);
   const walkers = data.users.filter(u => u.role === 'walker');
 
+  const urlDuration = parseInt(searchParams.get('duration') ?? '', 10);
+  const initialDuration = DURATIONS.includes(urlDuration) ? urlDuration : 30;
+
   const [dogId, setDogId] = useState('');
   const [schedDate, setSchedDate] = useState(todayStr());
   const [schedTime, setSchedTime] = useState('09:00');
-  const [duration, setDuration] = useState(30);
+  const [duration, setDuration] = useState(initialDuration);
   const [isInstant, setIsInstant] = useState(true);
   const [addGrooming, setAddGrooming] = useState(false);
   const [selectedWalkerId, setSelectedWalkerId] = useState('');
@@ -281,13 +285,16 @@ export default function OwnerRequestWalk() {
   const step = !pickupReady ? 1 : !dogId ? 2 : 3;
 
   return (
-    <div className="bg-white min-h-screen pb-28">
-      <div className="max-w-lg mx-auto px-4 pt-5 space-y-5">
+    <div className="bg-[#F4F9F6] min-h-screen pb-28">
+      <div className="max-w-lg mx-auto px-4 pt-5 space-y-4">
 
         {/* Header */}
         <div>
-          <h1 className="pf-heading">Book a Walk</h1>
-          <p className="pf-subtitle">Find a trusted walker near you</p>
+          <h1 className="text-3xl font-extrabold italic"
+            style={{ background: 'linear-gradient(135deg, #1B4332, #52B788)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+            Book a Walk
+          </h1>
+          <p className="text-sm font-medium mt-1" style={{ color: '#5A8A70' }}>Find a trusted walker near you</p>
         </div>
 
         {/* Step progress */}
@@ -312,7 +319,7 @@ export default function OwnerRequestWalk() {
         </div>
 
         {/* ── Pickup location ── */}
-        <div className="space-y-2.5">
+        <div className="bg-white rounded-2xl shadow-sm border border-[#DDE9E2] p-4 space-y-3">
           <div className="flex items-center justify-between">
             <p className="text-xs font-bold text-ink-muted uppercase tracking-wider">Where to pick up your dog</p>
             {pickupMode && !gpsLoading && (
@@ -403,8 +410,8 @@ export default function OwnerRequestWalk() {
 
         {/* Dog selector */}
         {myDogs.length > 1 && (
-          <div>
-            <p className="text-xs font-bold text-ink-muted uppercase tracking-wider mb-2">Which dog?</p>
+          <div className="bg-white rounded-2xl shadow-sm border border-[#DDE9E2] p-4">
+            <p className="text-xs font-bold text-ink-muted uppercase tracking-wider mb-3">Which dog?</p>
             <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
               {myDogs.map(dog => (
                 <button key={dog.id} onClick={() => setDogId(dog.id)}
@@ -424,51 +431,57 @@ export default function OwnerRequestWalk() {
           </div>
         )}
 
-        {/* Instant / Scheduled */}
-        <div className="flex gap-2 p-1.5 rounded-2xl bg-surface-secondary border border-surface-border">
-          <button onClick={() => setIsInstant(true)}
-            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all ${
-              isInstant ? 'bg-white text-ink shadow-sm' : 'text-ink-muted hover:text-ink'
-            }`}>
-            <Zap className={`w-4 h-4 ${isInstant ? 'text-amber-500' : ''}`} /> Instant
-          </button>
-          <button onClick={() => setIsInstant(false)}
-            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all ${
-              !isInstant ? 'bg-white text-ink shadow-sm' : 'text-ink-muted hover:text-ink'
-            }`}>
-            <Calendar className="w-4 h-4" /> Scheduled
-          </button>
-        </div>
+        {/* ── When & how long card ── */}
+        <div className="bg-white rounded-2xl shadow-sm border border-[#DDE9E2] p-4 space-y-4">
+          <p className="text-xs font-bold text-ink-muted uppercase tracking-wider">When & how long?</p>
 
-        {/* Date/time */}
-        {!isInstant && (
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-bold text-ink-muted uppercase tracking-wider mb-1.5">Date</label>
-              <input type="date" value={schedDate} min={todayStr()} onChange={e => setSchedDate(e.target.value)}
-                className="w-full border border-surface-border rounded-xl px-3 py-2.5 text-sm text-ink focus:outline-none focus:border-primary" />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-ink-muted uppercase tracking-wider mb-1.5">Time</label>
-              <input type="time" value={schedTime} onChange={e => setSchedTime(e.target.value)}
-                className="w-full border border-surface-border rounded-xl px-3 py-2.5 text-sm text-ink focus:outline-none focus:border-primary" />
-            </div>
+          {/* Instant / Scheduled toggle */}
+          <div className="flex gap-2 p-1.5 rounded-2xl bg-[#F4F9F6] border border-[#DDE9E2]">
+            <button onClick={() => setIsInstant(true)}
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all ${
+                isInstant ? 'bg-white text-ink shadow-md' : 'text-ink-muted hover:text-ink'
+              }`}>
+              <Zap className={`w-4 h-4 ${isInstant ? 'text-amber-500' : ''}`} /> Instant
+            </button>
+            <button onClick={() => setIsInstant(false)}
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all ${
+                !isInstant ? 'bg-white text-ink shadow-md' : 'text-ink-muted hover:text-ink'
+              }`}>
+              <Calendar className={`w-4 h-4 ${!isInstant ? 'text-primary' : ''}`} /> Scheduled
+            </button>
           </div>
-        )}
 
-        {/* Duration */}
-        <div>
-          <p className="text-xs font-bold text-ink-muted uppercase tracking-wider mb-2">Duration</p>
-          <div className="flex gap-2">
-            {DURATIONS.map(d => (
-              <button key={d} onClick={() => setDuration(d)}
-                className={`flex-1 py-3 rounded-2xl text-sm font-bold transition-all ${
-                  duration === d ? 'text-white shadow-sm' : 'text-ink bg-surface-secondary hover:bg-surface-hover border border-surface-border'
-                }`}
-                style={duration === d ? { background: '#1B4332' } : {}}>
-                {d}m
-              </button>
-            ))}
+          {/* Date/time */}
+          {!isInstant && (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-bold text-ink-muted uppercase tracking-wider mb-1.5">Date</label>
+                <input type="date" value={schedDate} min={todayStr()} onChange={e => setSchedDate(e.target.value)}
+                  className="w-full border border-[#DDE9E2] rounded-xl px-3 py-2.5 text-sm text-ink focus:outline-none focus:border-primary bg-[#F4F9F6]" />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-ink-muted uppercase tracking-wider mb-1.5">Time</label>
+                <input type="time" value={schedTime} onChange={e => setSchedTime(e.target.value)}
+                  className="w-full border border-[#DDE9E2] rounded-xl px-3 py-2.5 text-sm text-ink focus:outline-none focus:border-primary bg-[#F4F9F6]" />
+              </div>
+            </div>
+          )}
+
+          {/* Duration */}
+          <div>
+            <p className="text-xs font-bold text-ink-muted uppercase tracking-wider mb-3">Duration</p>
+            <div className="flex gap-2">
+              {DURATIONS.map(d => (
+                <button key={d} onClick={() => setDuration(d)}
+                  className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-4 rounded-2xl font-bold transition-all ${
+                    duration === d ? 'text-white shadow-md' : 'text-ink bg-[#F4F9F6] hover:bg-[#EBF5EF] border border-[#DDE9E2]'
+                  }`}
+                  style={duration === d ? { background: 'linear-gradient(135deg, #1B4332, #2B8A50)' } : {}}>
+                  <span className="text-base font-extrabold leading-none">{d}</span>
+                  <span className={`text-[10px] font-semibold leading-none mt-0.5 ${duration === d ? 'opacity-75' : 'text-ink-muted'}`}>min</span>
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -497,10 +510,14 @@ export default function OwnerRequestWalk() {
         </button>
 
         {/* Price summary */}
-        <div className="flex items-center justify-between px-4 py-3 rounded-2xl border border-surface-border bg-surface-secondary">
+        <div className="bg-white rounded-2xl shadow-sm border border-[#DDE9E2] px-4 py-3.5 flex items-center justify-between">
           <div>
             <p className="text-xs text-ink-muted font-medium">Estimated total</p>
-            {addGrooming && <p className="text-[10px] text-ink-muted mt-0.5">Walk K150 + Grooming K249</p>}
+            {addGrooming ? (
+              <p className="text-[10px] text-ink-muted mt-0.5">Walk K150 + Grooming K249</p>
+            ) : (
+              <p className="text-[10px] text-ink-muted mt-0.5">{duration} min walk · standard rate</p>
+            )}
           </div>
           <span className="text-2xl font-extrabold" style={{ color: '#1B4332' }}>
             K{addGrooming ? 150 + 249 : 150}

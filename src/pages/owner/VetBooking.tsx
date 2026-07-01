@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { ArrowLeft, AlertTriangle, Check, Navigation, MapPin, ChevronRight } from 'lucide-react';
+import { ArrowLeft, AlertTriangle, Check, Navigation, MapPin, ChevronRight, Search } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { supabase } from '../../lib/supabase';
 
@@ -97,6 +97,7 @@ export default function VetBooking() {
     const id = setInterval(() => setHeroSlide(s => (s + 1) % VET_HERO_SLIDES.length), 4500);
     return () => clearInterval(id);
   }, []);
+  const [clinicSearch,    setClinicSearch]   = useState('');
   const [isAggressive,    setIsAggressive]   = useState(false);
   const [needsTransport,  setNeedsTransport] = useState(false);
   const [bookingDate,     setBookingDate]    = useState('');
@@ -349,8 +350,22 @@ export default function VetBooking() {
         {/* ── Clinic selection ── */}
         <div>
           <p className="text-xs font-bold text-ink-muted uppercase tracking-wider mb-3">Select a Clinic</p>
+          {/* Search */}
+          <div className="relative mb-3">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-muted pointer-events-none" />
+            <input
+              type="text"
+              placeholder="Search clinics by name or area…"
+              value={clinicSearch}
+              onChange={e => setClinicSearch(e.target.value)}
+              className="w-full border border-surface-border rounded-2xl pl-10 pr-4 py-2.5 text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-primary bg-white"
+            />
+          </div>
           <div className="space-y-2">
-            {VET_CLINICS.map(c => (
+            {VET_CLINICS.filter(c => {
+              const q = clinicSearch.toLowerCase().trim();
+              return !q || c.name.toLowerCase().includes(q) || c.address.toLowerCase().includes(q);
+            }).map(c => (
               <button key={c.id} type="button" onClick={() => setSelectedClinic(c.id)}
                 className={`w-full flex items-center gap-3 p-3.5 rounded-2xl border-2 text-left transition-all ${
                   selectedClinic === c.id

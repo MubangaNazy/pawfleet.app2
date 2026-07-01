@@ -90,7 +90,7 @@ export default function Landing() {
                 ))}
               </div>
               <p className="text-sm" style={{ color: 'rgba(255,255,255,0.85)' }}>
-                <span className="font-bold text-white">500+ walks</span> completed by happy dogs
+                Zambia's fastest-growing pet care platform
               </p>
             </div>
           </div>

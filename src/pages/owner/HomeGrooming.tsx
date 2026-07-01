@@ -6,11 +6,14 @@ import { useApp } from '../../context/AppContext';
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
 const PACKAGES = [
-  { id: 'bath_brush', label: 'Bath & Brush', desc: 'Shampoo, blow-dry, brush-out', price: 249, icon: '🛁' },
-  { id: 'full_groom', label: 'Full Groom', desc: 'Bath, trim, nail clip, ear clean', price: 399, icon: '💅' },
-  { id: 'nail_trim',  label: 'Nail Trim Only', desc: 'Quick nail clip & file',        price: 99,  icon: '✂️' },
-  { id: 'spa',        label: 'Pamper Spa',  desc: 'Full groom + teeth clean + paw massage', price: 599, icon: '✨' },
+  { id: 'bath_brush', label: 'Bath & Brush',      desc: 'Shampoo, blow-dry, brush-out',                      price: 249, icon: '🛁',  isVet: false },
+  { id: 'full_groom', label: 'Full Groom',         desc: 'Bath, trim, nail clip, ear clean',                  price: 399, icon: '💅',  isVet: false },
+  { id: 'nail_trim',  label: 'Nail Trim Only',     desc: 'Quick nail clip & file',                            price: 99,  icon: '✂️', isVet: false },
+  { id: 'spa',        label: 'Pamper Spa',         desc: 'Full groom + teeth clean + paw massage',            price: 599, icon: '✨',  isVet: false },
+  { id: 'vet_groom',  label: 'Vet Clinic Grooming', desc: 'Professional grooming at a partner vet clinic — includes a health check', price: 450, icon: '🏥', isVet: true },
 ];
+
+const SEDATION_FEE = 180;
 
 export default function HomeGrooming() {
   const { currentUser, data, createWalk } = useApp();
@@ -25,24 +28,28 @@ export default function HomeGrooming() {
   const [address, setAddress]   = useState('');
   const [notes, setNotes]       = useState('');
   const [temperament, setTemperament] = useState<'calm' | 'nervous' | 'aggressive' | ''>('');
+  const [needsSedation, setNeedsSedation] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
   const selectedPkg = PACKAGES.find(p => p.id === pkg)!;
+  const isVetGrooming = selectedPkg?.isVet;
+  const totalPrice = selectedPkg ? selectedPkg.price + (needsSedation && isVetGrooming ? SEDATION_FEE : 0) : 0;
   const canSubmit = dogId && pkg && date && time && address.trim().length > 3 && temperament !== '';
 
   const handleBook = () => {
     if (!canSubmit || !currentUser) return;
     const dog = data.dogs.find(d => d.id === dogId);
     const scheduledDate = new Date(`${date}T${time}:00`).toISOString();
+    const sedationNote = (needsSedation && isVetGrooming) ? '\nSedation: Required (animal is vicious)' : '';
     createWalk({
       dogId,
       ownerId: currentUser.id,
       status: 'pending',
       scheduledDate,
       duration: 60,
-      price: selectedPkg.price,
-      walkerEarning: Math.round(selectedPkg.price * 0.75),
-      notes: `HOME_GROOMING: ${selectedPkg.label} — ${dog?.name ?? 'Dog'}\nAddress: ${address}\nTemperament: ${temperament}${notes ? `\nNotes: ${notes}` : ''}`,
+      price: totalPrice,
+      walkerEarning: Math.round(totalPrice * 0.75),
+      notes: `${isVetGrooming ? 'VET_GROOMING' : 'HOME_GROOMING'}: ${selectedPkg.label} — ${dog?.name ?? 'Dog'}\nAddress: ${address}\nTemperament: ${temperament}${sedationNote}${notes ? `\nNotes: ${notes}` : ''}`,
     });
     setSubmitted(true);
   };
@@ -152,9 +159,11 @@ export default function HomeGrooming() {
         {/* Grooming package */}
         <div>
           <p className="text-sm font-bold text-ink mb-3">Choose a package</p>
-          <div className="space-y-2">
-            {PACKAGES.map(p => (
-              <button key={p.id} type="button" onClick={() => setPkg(p.id)}
+
+          {/* Home grooming packages */}
+          <div className="space-y-2 mb-4">
+            {PACKAGES.filter(p => !p.isVet).map(p => (
+              <button key={p.id} type="button" onClick={() => { setPkg(p.id); setNeedsSedation(false); }}
                 className={`w-full flex items-center gap-4 p-4 rounded-2xl border-2 text-left transition-all ${
                   pkg === p.id ? 'border-primary bg-primary/5' : 'border-surface-border bg-white hover:bg-surface-hover'
                 }`}>
@@ -172,6 +181,77 @@ export default function HomeGrooming() {
               </button>
             ))}
           </div>
+
+          {/* Vet clinic grooming divider + option */}
+          <div className="flex items-center gap-3 mb-3">
+            <div className="flex-1 h-px bg-surface-border" />
+            <span className="text-[10px] font-bold text-ink-muted uppercase tracking-wider shrink-0">Or at a vet clinic</span>
+            <div className="flex-1 h-px bg-surface-border" />
+          </div>
+          {PACKAGES.filter(p => p.isVet).map(p => (
+            <div key={p.id}>
+              <button type="button" onClick={() => setPkg(p.id)}
+                className={`w-full flex items-center gap-4 p-4 rounded-2xl border-2 text-left transition-all ${
+                  pkg === p.id ? 'border-purple-500 bg-purple-50' : 'border-surface-border bg-white hover:bg-surface-hover'
+                }`}>
+                <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl shrink-0"
+                  style={{ background: pkg === p.id ? '#F5F3FF' : '#F9FAFB' }}>
+                  {p.icon}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className={`font-bold text-sm ${pkg === p.id ? 'text-purple-700' : 'text-ink'}`}>{p.label}</p>
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700">Vet</span>
+                  </div>
+                  <p className="text-xs text-ink-muted">{p.desc}</p>
+                </div>
+                <p className="font-extrabold text-sm shrink-0" style={{ color: pkg === p.id ? '#6B21A8' : '#374151' }}>
+                  K{p.price}
+                </p>
+              </button>
+
+              {/* Sedation toggle — only when vet grooming selected */}
+              {pkg === p.id && (
+                <div className="mt-3 rounded-2xl border-2 overflow-hidden"
+                  style={{ borderColor: needsSedation ? '#DC2626' : '#DDE9E2' }}>
+                  <div className="px-4 py-3 flex items-start gap-3">
+                    <span className="text-2xl mt-0.5">⚠️</span>
+                    <div className="flex-1">
+                      <p className="font-bold text-sm text-ink">Is your animal vicious or aggressive?</p>
+                      <p className="text-xs text-ink-muted mt-0.5 leading-relaxed">
+                        If yes, the vet clinic will administer a safe sedative before grooming so your pet is calm and safe throughout.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 border-t border-[#DDE9E2]">
+                    <button type="button" onClick={() => setNeedsSedation(false)}
+                      className="py-2.5 text-sm font-bold transition-all"
+                      style={{
+                        background: !needsSedation ? '#EBF5EF' : 'white',
+                        color: !needsSedation ? '#1B4332' : '#6B7280',
+                      }}>
+                      😊 No, calm/nervous
+                    </button>
+                    <button type="button" onClick={() => setNeedsSedation(true)}
+                      className="py-2.5 text-sm font-bold transition-all border-l border-[#DDE9E2]"
+                      style={{
+                        background: needsSedation ? '#FEF2F2' : 'white',
+                        color: needsSedation ? '#DC2626' : '#6B7280',
+                      }}>
+                      ⚠️ Yes — needs sedation
+                    </button>
+                  </div>
+                  {needsSedation && (
+                    <div className="px-4 py-2.5 bg-red-50 border-t border-red-100">
+                      <p className="text-xs text-red-700 font-medium">
+                        Sedation fee: <strong>+K{SEDATION_FEE}</strong> — administered by a licensed vet before grooming begins.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
         </div>
 
         {/* Date & time */}
@@ -212,18 +292,28 @@ export default function HomeGrooming() {
 
         {/* Price summary */}
         <div className="rounded-2xl p-4 border border-surface-border bg-white">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-sm font-bold text-ink">Total</p>
-            <p className="text-xl font-extrabold" style={{ color: '#1B4332' }}>K{selectedPkg.price}</p>
+          <div className="flex items-center justify-between mb-1">
+            <p className="text-sm font-bold text-ink">{isVetGrooming ? 'Vet Clinic Grooming' : 'Home Grooming'}</p>
+            <p className="text-sm font-semibold text-ink-muted">K{selectedPkg.price}</p>
           </div>
-          <p className="text-xs text-ink-muted">Pay the groomer directly on the day. Cash or mobile money accepted.</p>
+          {needsSedation && isVetGrooming && (
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-sm text-ink-muted">Sedation fee</p>
+              <p className="text-sm font-semibold text-red-600">+K{SEDATION_FEE}</p>
+            </div>
+          )}
+          <div className="flex items-center justify-between pt-2 border-t border-surface-border mt-1">
+            <p className="text-sm font-bold text-ink">Total</p>
+            <p className="text-xl font-extrabold" style={{ color: '#1B4332' }}>K{totalPrice}</p>
+          </div>
+          <p className="text-xs text-ink-muted mt-2">Pay the groomer directly on the day. Cash or mobile money accepted.</p>
         </div>
 
         {/* Book button */}
         <button type="button" onClick={handleBook} disabled={!canSubmit}
           className="w-full py-4 rounded-2xl font-extrabold text-white text-base disabled:opacity-40 active:scale-95 transition-all shadow-lg"
-          style={{ background: 'linear-gradient(135deg,#1B4332,#2B8A50)', boxShadow: '0 8px 24px rgba(27,67,50,0.3)' }}>
-          Book Home Grooming · K{selectedPkg.price}
+          style={{ background: isVetGrooming ? 'linear-gradient(135deg,#4C1D95,#7C3AED)' : 'linear-gradient(135deg,#1B4332,#2B8A50)', boxShadow: '0 8px 24px rgba(27,67,50,0.3)' }}>
+          Book {isVetGrooming ? 'Vet Clinic Grooming' : 'Home Grooming'} · K{totalPrice}
         </button>
       </div>
     </div>

@@ -88,7 +88,10 @@ export function BottomNav() {
                     className={`relative flex flex-col items-center gap-0.5 transition-all active:scale-95 ${
                       isWalker ? 'px-2 py-1.5' : 'px-3.5 py-1.5'
                     } rounded-2xl`}
-                    style={isActive ? { background: '#1B4332' } : {}}
+                    style={isActive ? {
+                      background: 'linear-gradient(145deg, #1B4332, #2B8A50)',
+                      boxShadow: '0 3px 10px rgba(27,67,50,0.32)',
+                    } : {}}
                   >
                     <div className="relative">
                       <item.icon

@@ -2,7 +2,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { format } from 'date-fns';
-import { Navigation, MessageCircle, ChevronRight, Star } from 'lucide-react';
+import { Navigation, MessageCircle, ChevronRight, Star, Users } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
 // ── Scroll-reveal wrapper ────────────────────────────────────
@@ -88,6 +88,7 @@ export default function OwnerDashboard() {
   const nearestWalker = nearestWalk ? data.users.find(u => u.id === nearestWalk.walkerId) : null;
 
   const walkers = data.users.filter(u => u.role === 'walker').slice(0, 3);
+  const myDogs  = data.dogs.filter(d => d.ownerId === currentUser?.id);
 
   const hour      = new Date().getHours();
   const greeting  = hour < 12 ? 'Good morning,' : hour < 17 ? 'Good afternoon,' : 'Good evening,';
@@ -173,11 +174,8 @@ export default function OwnerDashboard() {
 
           {/* PawFleet brand watermark */}
           <div className="absolute top-4 left-4 flex items-center gap-1.5">
-            <div className="w-6 h-6 rounded-full flex items-center justify-center"
-              style={{ background: 'rgba(255,255,255,0.2)', backdropFilter: 'blur(4px)' }}>
-              <span className="text-sm">🐾</span>
-            </div>
-            <span className="text-white text-xs font-bold opacity-80">PawFleet</span>
+            <img src="/logo.png" alt="PawFleet" className="w-6 h-6 rounded-full object-cover opacity-90 drop-shadow" />
+            <span className="text-xs font-bold drop-shadow" style={{ color: '#52B788', textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>PawFleet</span>
           </div>
         </Link>
 
@@ -419,8 +417,7 @@ export default function OwnerDashboard() {
                   <span className="text-2xl">🦮</span>
                   <p className="text-white font-bold text-xs mt-2 leading-tight">Dog Walking</p>
                 </div>
-                <div className="px-3.5 pb-3 flex items-center justify-between">
-                  <p className="text-white/80 text-[10px] font-semibold">From K150</p>
+                <div className="px-3.5 pb-3 flex items-center justify-end">
                   <div className="w-6 h-6 rounded-full flex items-center justify-center bg-white/20">
                     <ChevronRight className="w-3.5 h-3.5 text-white" />
                   </div>
@@ -437,8 +434,7 @@ export default function OwnerDashboard() {
                   <span className="text-2xl">🛁</span>
                   <p className="text-white font-bold text-xs mt-2 leading-tight">Grooming</p>
                 </div>
-                <div className="px-3.5 pb-3 flex items-center justify-between">
-                  <p className="text-white/80 text-[10px] font-semibold">From K350</p>
+                <div className="px-3.5 pb-3 flex items-center justify-end">
                   <div className="w-6 h-6 rounded-full flex items-center justify-center bg-white/20">
                     <ChevronRight className="w-3.5 h-3.5 text-white" />
                   </div>
@@ -455,8 +451,7 @@ export default function OwnerDashboard() {
                   <span className="text-2xl">🩺</span>
                   <p className="text-white font-bold text-xs mt-2 leading-tight">Vetting</p>
                 </div>
-                <div className="px-3.5 pb-3 flex items-center justify-between">
-                  <p className="text-white/80 text-[10px] font-semibold">K250+</p>
+                <div className="px-3.5 pb-3 flex items-center justify-end">
                   <div className="w-6 h-6 rounded-full flex items-center justify-center bg-white/20">
                     <ChevronRight className="w-3.5 h-3.5 text-white" />
                   </div>
@@ -478,8 +473,86 @@ export default function OwnerDashboard() {
               </div>
               <ChevronRight className="w-4 h-4 text-ink-muted shrink-0" />
             </Link>
+
+            {/* Community CTA */}
+            <Link to="/owner/community"
+              className="mt-3 flex items-center gap-4 p-4 rounded-2xl transition-all active:scale-[0.98]"
+              style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)', boxShadow: '0 4px 16px rgba(27,67,50,0.28)' }}>
+              <div className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 bg-white/20">
+                <Users className="w-5 h-5 text-white" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-bold text-white">PawFleet Community</p>
+                <p className="text-xs text-white/70 mt-0.5">Connect with pet owners in Zambia</p>
+              </div>
+              <ChevronRight className="w-4 h-4 text-white/60 shrink-0" />
+            </Link>
           </div>
         </Reveal>
+
+        {/* ── Pet Care Reminders ── */}
+        {myDogs.length > 0 && (
+          <Reveal delay={250}>
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-base font-bold text-ink">Pet Care</h2>
+                <Link to="/owner/dogs" className="text-sm font-medium" style={{ color: '#2B8A50' }}>
+                  All pets →
+                </Link>
+              </div>
+              <div className="flex gap-3 overflow-x-auto pb-1 -mx-4 px-4 scrollbar-none">
+                {myDogs.map(dog => {
+                  const lastGroom = [...myWalks]
+                    .filter(w => w.dogId === dog.id && w.status === 'completed' &&
+                      (w.notes?.includes('GROOMING') || w.notes?.includes('HOME_GROOMING')))
+                    .sort((a, b) => new Date(b.scheduledDate).getTime() - new Date(a.scheduledDate).getTime())[0];
+                  const daysSince = lastGroom
+                    ? Math.floor((Date.now() - new Date(lastGroom.scheduledDate).getTime()) / 86400000)
+                    : null;
+                  const daysUntil = daysSince !== null ? Math.max(0, 30 - daysSince) : null;
+                  const groomDue = daysUntil !== null && daysUntil <= 7;
+
+                  return (
+                    <div key={dog.id} className="shrink-0 w-44 bg-white rounded-2xl p-3.5 border border-[#DDE9E2]"
+                      style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+                      <div className="flex items-center gap-2 mb-3">
+                        <div className="w-10 h-10 rounded-xl overflow-hidden bg-[#EBF5EF] shrink-0">
+                          {dog.imageUrl
+                            ? <img src={dog.imageUrl} alt={dog.name} className="w-full h-full object-cover" />
+                            : <div className="w-full h-full flex items-center justify-center text-lg">{dog.animalType === 'cat' ? '🐈' : '🐕'}</div>}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-bold text-ink text-sm truncate">{dog.name}</p>
+                          {dog.breed && <p className="text-[10px] text-ink-muted truncate">{dog.breed}</p>}
+                        </div>
+                      </div>
+
+                      <div className={`rounded-xl p-2.5 mb-2.5 ${groomDue ? 'bg-amber-50' : 'bg-[#F4F9F6]'}`}>
+                        <div className="flex items-center gap-1.5 mb-0.5">
+                          <span className="text-xs">✂️</span>
+                          <p className="text-[10px] font-bold text-ink-muted uppercase tracking-wide">Grooming</p>
+                        </div>
+                        {daysUntil !== null ? (
+                          <p className={`text-xs font-bold ${groomDue ? 'text-amber-600' : 'text-ink'}`}>
+                            {daysUntil === 0 ? 'Due today!' : `Due in ${daysUntil} days`}
+                          </p>
+                        ) : (
+                          <p className="text-xs text-ink-muted">Not yet booked</p>
+                        )}
+                      </div>
+
+                      <Link to="/owner/services"
+                        className="flex items-center justify-center gap-1 w-full py-1.5 rounded-xl text-[10px] font-bold text-white transition-all active:scale-95"
+                        style={{ background: groomDue ? 'linear-gradient(135deg,#D97706,#F59E0B)' : 'linear-gradient(135deg,#1B4332,#2B8A50)' }}>
+                        {groomDue ? '⚠️ Book Grooming' : '+ Schedule'}
+                      </Link>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </Reveal>
+        )}
 
       </div>
     </div>

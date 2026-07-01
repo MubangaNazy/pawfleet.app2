@@ -15,17 +15,6 @@ export interface ShopProduct {
   shopOwnerId?: string;
 }
 
-// Default products — always visible to everyone, never deleted
-const DEFAULT_PRODUCTS: ShopProduct[] = [
-  { id: 'tr1', name: 'Star Biscuits',  price: 120, badge: 'Bestseller', img: 'https://images.unsplash.com/photo-1568640347023-a616a30bc3bd?w=400&q=80', category: 'treats', description: 'Oven-baked star shaped biscuits, 250g' },
-  { id: 'tr2', name: 'Chicken Chews',  price: 180, badge: 'New',        img: 'https://images.unsplash.com/photo-1611501275019-9b5cda994e8d?w=400&q=80', category: 'treats', description: 'Air-dried chicken strips, 200g' },
-  { id: 'tr3', name: 'Peanut Bites',   price: 90,  badge: null,         img: 'https://images.unsplash.com/photo-1601758228041-f3b2795255f1?w=400&q=80', category: 'treats', description: 'Peanut butter training treats, 150g' },
-  { id: 'tr4', name: 'Salmon Sticks',  price: 140, badge: null,         img: 'https://images.unsplash.com/photo-1574158622682-e40e69881006?w=400&q=80', category: 'treats', description: 'Omega-rich salmon sticks, 180g' },
-  { id: 'ac1', name: 'Dog Harness',    price: 380, badge: 'Popular',    img: 'https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=400&q=80', category: 'accessories', description: 'No-pull adjustable harness, S/M/L' },
-  { id: 'ac2', name: 'Water Bottle',   price: 220, badge: 'New',        img: 'https://images.unsplash.com/photo-1541781774459-bb2af2f05b55?w=400&q=80', category: 'accessories', description: 'Leak-proof travel water bottle, 750ml' },
-  { id: 'ac3', name: 'Retract Leash',  price: 290, badge: null,         img: 'https://images.unsplash.com/photo-1560807707-8cc77767d783?w=400&q=80', category: 'accessories', description: '5m retractable leash with brake' },
-  { id: 'ac4', name: 'Poop Bags',      price: 45,  badge: 'Bestseller', img: 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=400&q=80', category: 'accessories', description: 'Biodegradable poop bags, 100 pack' },
-];
 
 interface CartItem { product: ShopProduct; qty: number; }
 
@@ -111,8 +100,7 @@ export function ShopProvider({ children }: { children: React.ReactNode }) {
     return () => { supabase.removeChannel(channel); };
   }, []);
 
-  // All products: defaults + shop-owner-added (from Supabase)
-  const products = [...DEFAULT_PRODUCTS, ...customProducts];
+  const products = customProducts;
 
   const addProduct = (p: Omit<ShopProduct, 'id'>) => {
     const id = `prod_${Date.now()}`;

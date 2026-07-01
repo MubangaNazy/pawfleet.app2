@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   PawPrint, Eye, EyeOff, Phone, Lock, Mail, User as UserIcon,
-  ArrowRight, Check, MapPin, DollarSign, Shield, Zap, Camera, CreditCard, Hash,
+  ArrowRight, Check, MapPin, DollarSign, Shield, Zap, Camera, CreditCard,
 } from 'lucide-react';
 import PawFleetLogo from '../components/ui/PawFleetLogo';
 import { useApp } from '../context/AppContext';
@@ -70,9 +70,8 @@ export default function Register() {
   const [email, setEmail]           = useState('');
   const [password, setPassword]     = useState('');
   const [confirmPw, setConfirmPw]   = useState('');
-  const [nrc, setNrc]               = useState('');
-  const [referralCode, setReferral] = useState('');
-  const [photoUrl, setPhotoUrl]     = useState('');
+  const [nrc, setNrc]           = useState('');
+  const [photoUrl, setPhotoUrl] = useState('');
   const [showPw, setShowPw]           = useState(false);
   const [error, setError]             = useState('');
   const [loading, setLoading]         = useState(false);
@@ -95,13 +94,11 @@ export default function Register() {
     if (role === 'walker') {
       if (!photoUrl) { setError('A profile photo is required for walkers.'); return; }
       if (!nrc.trim()) { setError('NRC number is required for walkers.'); return; }
-      if (!referralCode.trim()) { setError('A referral code from your admin is required.'); return; }
     }
     setLoading(true);
     const result = await register(name, phone, email, password, role, {
-      photoUrl: role === 'walker' ? photoUrl : undefined,
+      photoUrl: photoUrl || undefined,
       nrc: role === 'walker' ? nrc.trim() : undefined,
-      referralCode: role === 'walker' ? referralCode.trim().toUpperCase() : undefined,
     });
     setLoading(false);
     if (result.success) {
@@ -155,11 +152,19 @@ export default function Register() {
             style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)' }}>
             <Check className="w-10 h-10 text-white" />
           </div>
-          <h2 className="text-2xl font-bold text-ink mb-2">Check your email!</h2>
-          <p className="text-ink-secondary text-sm mb-2 leading-relaxed">We sent a confirmation link to</p>
-          <p className="font-semibold text-ink mb-6">{email}</p>
-          <p className="text-ink-muted text-xs mb-6">Click the link in the email to activate your account, then sign in.</p>
-          <Link to="/login" className="inline-flex items-center gap-2 text-primary font-semibold text-sm hover:underline">
+          <h2 className="text-2xl font-bold text-ink mb-2">Account Created!</h2>
+          <p className="text-ink-secondary text-sm mb-2 leading-relaxed">A confirmation email was sent to</p>
+          <p className="font-semibold text-ink mb-4">{email}</p>
+          <div className="bg-amber-50 border border-amber-100 rounded-2xl p-4 mb-6 text-left text-xs text-amber-800">
+            <p className="font-bold mb-1">Didn't get the email?</p>
+            <p>Check your spam folder. If you still don't see it, sign in directly — the admin may have disabled email confirmation.</p>
+          </div>
+          <Link to="/login"
+            className="w-full block py-3 rounded-xl font-bold text-white text-sm text-center mb-3"
+            style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)' }}>
+            Sign In Now
+          </Link>
+          <Link to="/login" className="inline-flex items-center gap-2 text-ink-muted font-semibold text-xs hover:underline">
             ← Back to Sign In
           </Link>
         </div>
@@ -267,30 +272,31 @@ export default function Register() {
 
           <form onSubmit={handleSubmit} className="space-y-4 fade-in-up-3">
 
-            {/* Walker photo upload */}
-            {role === 'walker' && (
-              <div>
-                <label className="block text-sm font-medium text-ink-secondary mb-1.5">
-                  Profile Photo <span className="text-danger text-xs">*required</span>
-                </label>
-                <div className="flex items-center gap-3">
-                  <div className="w-16 h-16 rounded-2xl border-2 border-dashed border-surface-border overflow-hidden flex items-center justify-center bg-surface-secondary shrink-0 cursor-pointer hover:border-primary/50 transition-colors"
-                    onClick={() => fileRef.current?.click()}>
-                    {photoUrl
-                      ? <img src={photoUrl} alt="Preview" className="w-full h-full object-cover" />
-                      : <Camera className="w-6 h-6 text-ink-muted" />}
-                  </div>
-                  <div className="flex-1">
-                    <button type="button" onClick={() => fileRef.current?.click()}
-                      className="w-full py-2 rounded-xl border border-surface-border text-sm font-medium text-ink-secondary hover:bg-surface-hover transition-colors">
-                      {photoUrl ? 'Change Photo' : 'Upload Photo'}
-                    </button>
-                    <p className="text-[11px] text-ink-muted mt-1">Clear face photo required for verification</p>
-                  </div>
+            {/* Profile photo — for all roles; required for walkers */}
+            <div>
+              <label className="block text-sm font-medium text-ink-secondary mb-1.5">
+                Profile Photo{role === 'walker' && <span className="text-danger text-xs ml-1">*required</span>}
+                {role === 'owner' && <span className="text-ink-muted text-xs ml-1">(optional)</span>}
+              </label>
+              <div className="flex items-center gap-3">
+                <div className="w-16 h-16 rounded-2xl border-2 border-dashed border-surface-border overflow-hidden flex items-center justify-center bg-surface-secondary shrink-0 cursor-pointer hover:border-primary/50 transition-colors"
+                  onClick={() => fileRef.current?.click()}>
+                  {photoUrl
+                    ? <img src={photoUrl} alt="Preview" className="w-full h-full object-cover" />
+                    : <Camera className="w-6 h-6 text-ink-muted" />}
                 </div>
-                <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handlePhoto} />
+                <div className="flex-1">
+                  <button type="button" onClick={() => fileRef.current?.click()}
+                    className="w-full py-2 rounded-xl border border-surface-border text-sm font-medium text-ink-secondary hover:bg-surface-hover transition-colors">
+                    {photoUrl ? 'Change Photo' : 'Upload Photo'}
+                  </button>
+                  <p className="text-[11px] text-ink-muted mt-1">
+                    {role === 'walker' ? 'Clear face photo required for identity verification' : 'Helps walkers recognise you'}
+                  </p>
+                </div>
               </div>
-            )}
+              <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handlePhoto} />
+            </div>
 
             {/* Name */}
             <div>
@@ -325,37 +331,20 @@ export default function Register() {
               </div>
             </div>
 
-            {/* Walker-only fields */}
+            {/* Walker-only: NRC */}
             {role === 'walker' && (
-              <>
-                {/* NRC */}
-                <div>
-                  <label className="block text-sm font-medium text-ink-secondary mb-1.5">
-                    NRC Number <span className="text-danger text-xs">*required</span>
-                  </label>
-                  <div className="relative group">
-                    <CreditCard className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-muted group-focus-within:text-primary transition-colors" />
-                    <input type="text" value={nrc} onChange={e => setNrc(e.target.value)}
-                      placeholder="e.g. 123456/78/9" required={role === 'walker'}
-                      className="w-full h-11 pl-10 pr-4 rounded-xl border border-surface-border bg-white text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-primary transition-all" />
-                  </div>
-                  <p className="text-[11px] text-ink-muted mt-1">Your National Registration Card number for identity verification</p>
+              <div>
+                <label className="block text-sm font-medium text-ink-secondary mb-1.5">
+                  NRC Number <span className="text-danger text-xs">*required</span>
+                </label>
+                <div className="relative group">
+                  <CreditCard className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-muted group-focus-within:text-primary transition-colors" />
+                  <input type="text" value={nrc} onChange={e => setNrc(e.target.value)}
+                    placeholder="e.g. 123456/78/9" required={role === 'walker'}
+                    className="w-full h-11 pl-10 pr-4 rounded-xl border border-surface-border bg-white text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-primary transition-all" />
                 </div>
-
-                {/* Referral code */}
-                <div>
-                  <label className="block text-sm font-medium text-ink-secondary mb-1.5">
-                    Admin Referral Code <span className="text-danger text-xs">*required</span>
-                  </label>
-                  <div className="relative group">
-                    <Hash className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-muted group-focus-within:text-primary transition-colors" />
-                    <input type="text" value={referralCode} onChange={e => setReferral(e.target.value.toUpperCase())}
-                      placeholder="e.g. PAW-A1B2C3D4" required={role === 'walker'}
-                      className="w-full h-11 pl-10 pr-4 rounded-xl border border-surface-border bg-white text-sm text-ink uppercase placeholder:uppercase placeholder:text-ink-muted focus:outline-none focus:border-primary transition-all font-mono tracking-wider" />
-                  </div>
-                  <p className="text-[11px] text-ink-muted mt-1">Get this code from your PawFleet admin. Your application will be reviewed before approval.</p>
-                </div>
-              </>
+                <p className="text-[11px] text-ink-muted mt-1">Your National Registration Card number for identity verification</p>
+              </div>
             )}
 
             {/* Password */}

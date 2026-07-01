@@ -224,7 +224,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const [u, d, w, p, s, n] = await Promise.race([fetchAll, timeout]);
       const rawDogs = (d.data || []).map(toDog);
       setData({
-        users:         (u.data || []).map(toUser),
+        users:         mergeUserImages((u.data || []).map(toUser)),
         dogs:          mergeDogImages(rawDogs),
         walks:         (w.data || []).map(toWalk),
         payments:      (p.data || []).map(toPayment),
@@ -442,26 +442,35 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return null;
   };
 
+  // Upload a base64 data-URL photo to Supabase Storage and return its public URL.
+  // Falls back to localStorage if the upload fails (e.g. bucket not created yet).
+  const uploadProfilePhoto = async (userId: string, dataUrl: string): Promise<string> => {
+    try {
+      const res  = await fetch(dataUrl);
+      const blob = await res.blob();
+      const ext  = blob.type.split('/')[1] || 'jpg';
+      const path = `${userId}.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from('avatars')
+        .upload(path, blob, { upsert: true, contentType: blob.type });
+      if (!upErr) {
+        const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path);
+        return urlData.publicUrl;
+      }
+    } catch { /* fall through to localStorage */ }
+    // Fallback: store base64 locally so at least this device sees the photo
+    try {
+      const imgs = JSON.parse(localStorage.getItem('pawfleet_user_images') || '{}');
+      imgs[userId] = dataUrl;
+      localStorage.setItem('pawfleet_user_images', JSON.stringify(imgs));
+    } catch { /* ignore */ }
+    return dataUrl;
+  };
+
   const register = async (
     name: string, phone: string, email: string, password: string,
     role: 'owner' | 'walker', extras?: RegisterExtras
   ): Promise<{ success: boolean; error?: string; user?: User; pendingApproval?: boolean }> => {
-
-    // Validate referral code for walkers
-    let referredAdminId: string | undefined;
-    if (role === 'walker' && extras?.referralCode) {
-      const demoCode = adminReferralCode('11111111-1111-1111-1111-111111111111');
-      if (extras.referralCode === demoCode) {
-        referredAdminId = '11111111-1111-1111-1111-111111111111';
-      } else {
-        const admins = data.users.filter(u => u.role === 'admin');
-        const matchingAdmin = admins.find(a => adminReferralCode(a.id) === extras.referralCode);
-        if (!matchingAdmin) {
-          return { success: false, error: 'Invalid referral code. Please get the correct code from your admin.' };
-        }
-        referredAdminId = matchingAdmin.id;
-      }
-    }
 
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email, password,
@@ -474,28 +483,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const now = new Date().toISOString();
     const walkerStatus: 'pending_approval' | undefined = role === 'walker' ? 'pending_approval' : undefined;
 
-    // Save profile photo to localStorage
+    // Upload photo to Supabase Storage (so it's visible to everyone, not just this device)
+    let publicImageUrl: string | undefined;
     if (extras?.photoUrl) {
-      try {
-        const imgs = JSON.parse(localStorage.getItem('pawfleet_user_images') || '{}');
-        imgs[userId] = extras.photoUrl;
-        localStorage.setItem('pawfleet_user_images', JSON.stringify(imgs));
-      } catch { /* ignore */ }
+      publicImageUrl = await uploadProfilePhoto(userId, extras.photoUrl);
     }
 
     const newUser: User = {
       id: userId, name, phone, email, password: '', role, createdAt: now,
-      imageUrl: extras?.photoUrl,
+      imageUrl: publicImageUrl,
       nrc: extras?.nrc,
       walkerStatus,
-      referredByAdminId: referredAdminId,
     };
 
     await supabase.from('users').upsert({
       id: userId, name, phone, email: email || null, password: '', role,
+      image_url: publicImageUrl ?? null,
       nrc: extras?.nrc ?? null,
       walker_status: walkerStatus ?? null,
-      referred_by_admin_id: referredAdminId ?? null,
     }, { onConflict: 'id' }).then(({ error }) => { if (error) console.error('register insert:', error); });
 
     if (role === 'walker') {
@@ -821,6 +826,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }));
     supabase.from('payments').update({ walker_confirmed: true }).eq('id', paymentId)
       .then(({ error }) => { if (error) console.warn('confirmPaymentReceived (column may not exist yet):', error); });
+  };
+
+  // ── User images (localStorage fallback for legacy/offline users) ────
+  const USER_IMAGES_KEY = 'pawfleet_user_images';
+  const mergeUserImages = (users: User[]): User[] => {
+    try {
+      const imgs = JSON.parse(localStorage.getItem(USER_IMAGES_KEY) || '{}');
+      return users.map(u => (!u.imageUrl && imgs[u.id]) ? { ...u, imageUrl: imgs[u.id] } : u);
+    } catch { return users; }
   };
 
   // ── Dogs ─────────────────────────────────────────────────

@@ -49,6 +49,8 @@ const ownerNav = [
 const vetNav = [
   { to: '/vet',              icon: LayoutDashboard, label: 'Dashboard',     exact: true },
   { to: '/vet/appointments', icon: ClipboardList,   label: 'Appointments' },
+  { to: '/vet/schedule',     icon: Calendar,        label: 'Schedule' },
+  { to: '/vet/analytics',    icon: TrendingUp,      label: 'Analytics' },
   { to: '/vet/profile',      icon: User,            label: 'Clinic Profile' },
 ];
 

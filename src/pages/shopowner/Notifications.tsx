@@ -1,16 +1,22 @@
+import { useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { format } from 'date-fns';
-import { Bell, Check, ShoppingBag } from 'lucide-react';
+import { Bell, ShoppingBag, ChevronRight } from 'lucide-react';
 
 export default function ShopOwnerNotifications() {
   const { currentUser, data, markNotificationRead } = useApp();
+  const navigate = useNavigate();
 
-  // Use Supabase-backed notifications so orders from other users' sessions are visible
   const myNotifs = data.notifications
     .filter(n => n.userId === currentUser?.id && n.type === 'shop_order')
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 
   const unreadCount = myNotifs.filter(n => !n.read).length;
+
+  const handleClick = (notifId: string) => {
+    markNotificationRead(notifId);
+    navigate(`/shopowner/orders?orderId=${notifId}`);
+  };
 
   return (
     <div className="max-w-xl mx-auto pb-24">
@@ -38,53 +44,77 @@ export default function ShopOwnerNotifications() {
         )}
 
         {myNotifs.map(notif => {
-          const earned = notif.data?.earned ? `K${notif.data.earned}` : '';
-          const buyer = notif.data?.buyerName || 'A customer';
-          const items = notif.data?.itemSummary || '';
-          const deliverTo = notif.data?.address || '';
+          const earned    = notif.data?.earned    ? `K${notif.data.earned}` : '';
+          const buyer     = notif.data?.buyerName || 'A customer';
+          const items     = notif.data?.itemSummary || '';
+          const deliverTo = notif.data?.address  || '';
+          const phone     = notif.data?.phone    || '';
+          const payMethod = notif.data?.paymentMethod || '';
+          const payOnDel  = notif.data?.payOnDelivery === 'true';
+          const status    = notif.data?.deliveryStatus || 'pending';
+
+          const statusColor = status === 'delivered' ? '#52B788' : status === 'confirmed' ? '#2B8A50' : '#E67E22';
+          const statusLabel = status === 'delivered' ? '✅ Delivered' : status === 'confirmed' ? '🚚 On the Way' : '⏳ Pending';
 
           return (
-            <div key={notif.id}
-              className="bg-white border rounded-2xl overflow-hidden transition-all"
-              style={{ borderColor: notif.read ? '#F3F4F6' : '#52B788' }}>
+            <button
+              key={notif.id}
+              type="button"
+              onClick={() => handleClick(notif.id)}
+              className="w-full text-left bg-white border rounded-2xl overflow-hidden transition-all hover:shadow-md active:scale-[0.99]"
+              style={{ borderColor: !notif.read ? '#52B788' : '#E5E7EB' }}
+            >
               <div className="flex items-start gap-3 p-4">
                 <div className="w-12 h-12 rounded-xl bg-[#EBF5EF] flex items-center justify-center shrink-0 text-2xl">
                   🛍️
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <p className="font-bold text-ink text-sm">New Order! 🎉</p>
-                      <p className="text-xs text-ink-secondary mt-0.5">
-                        <span className="font-semibold">{buyer}</span> ordered {items}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="font-bold text-ink text-sm">New Order!</p>
+                        {!notif.read && (
+                          <span className="w-2 h-2 rounded-full shrink-0" style={{ background: '#2B8A50' }} />
+                        )}
+                      </div>
+                      <p className="text-xs text-ink-secondary mt-0.5 truncate">
+                        <span className="font-semibold">{buyer}</span>
+                        {items ? ` — ${items}` : ''}
                       </p>
                       {earned && (
-                        <p className="text-xs font-bold mt-1" style={{ color: '#2B8A50' }}>
-                          {earned} earned
-                        </p>
+                        <p className="text-xs font-bold mt-1" style={{ color: '#2B8A50' }}>{earned} earned</p>
                       )}
-                      {deliverTo && (
-                        <p className="text-xs text-ink-muted mt-0.5">📍 Deliver to: {deliverTo}</p>
+                      <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                        {deliverTo && (
+                          <span className="text-[10px] text-ink-muted truncate max-w-[160px]">📍 {deliverTo}</span>
+                        )}
+                        {phone && (
+                          <span className="text-[10px] text-ink-muted">📞 {phone}</span>
+                        )}
+                      </div>
+                      {payOnDel && (
+                        <span className="inline-block mt-1 text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-md">
+                          💵 Pay on Delivery
+                        </span>
                       )}
+                      <span className="inline-block mt-1.5 text-[10px] font-bold px-2 py-0.5 rounded-full"
+                        style={{ background: `${statusColor}18`, color: statusColor }}>
+                        {statusLabel}
+                      </span>
                     </div>
-                    <div className="text-right shrink-0">
-                      <p className="text-[10px] text-ink-muted">
+                    <div className="text-right shrink-0 flex flex-col items-end gap-1">
+                      <p className="text-[10px] text-ink-muted whitespace-nowrap">
                         {format(new Date(notif.createdAt), 'MMM d, h:mm a')}
                       </p>
-                      {!notif.read && (
-                        <span className="inline-block w-2 h-2 rounded-full mt-1" style={{ background: '#2B8A50' }} />
-                      )}
+                      <ChevronRight className="w-4 h-4 text-ink-muted" />
                     </div>
                   </div>
-                  {!notif.read && (
-                    <button type="button" onClick={() => markNotificationRead(notif.id)}
-                      className="mt-2 flex items-center gap-1.5 text-[11px] font-medium text-ink-secondary hover:text-primary transition-colors">
-                      <Check className="w-3 h-3" /> Mark as read
-                    </button>
-                  )}
+                  <p className="text-[10px] text-primary font-semibold mt-2">
+                    Tap to view full order details →
+                  </p>
                 </div>
               </div>
-            </div>
+            </button>
           );
         })}
       </div>

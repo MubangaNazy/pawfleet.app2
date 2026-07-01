@@ -314,7 +314,16 @@ export default function Landing() {
             <span className="text-sm font-bold" style={{ color: '#1B4332' }}>PawFleet</span>
             <span className="text-xs" style={{ color: '#999' }}>· Lusaka, Zambia</span>
           </div>
-          <p className="text-xs" style={{ color: '#999' }}>© 2026 PawFleet. All rights reserved.</p>
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => navigate('/privacy-policy')}
+              className="text-xs hover:underline"
+              style={{ color: '#2B8A50' }}
+            >
+              Privacy & Terms
+            </button>
+            <p className="text-xs" style={{ color: '#999' }}>© 2026 PawFleet. All rights reserved.</p>
+          </div>
         </div>
       </footer>
     </div>

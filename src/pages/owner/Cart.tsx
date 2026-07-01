@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, ShoppingCart, Minus, Plus, Trash2, CheckCircle, Package, Truck, MapPin, Loader2 } from 'lucide-react';
+import { ArrowLeft, ShoppingCart, Minus, Plus, Trash2, CheckCircle, Package, Truck, MapPin, Loader2, CreditCard } from 'lucide-react';
 import { useCart } from '../../context/CartContext';
 import { useShop } from '../../context/ShopContext';
 import PaymentModal from '../../components/ui/PaymentModal';
@@ -28,7 +28,7 @@ export default function Cart() {
   const [ordered, setOrdered] = useState(false);
   const [address, setAddress] = useState('');
   const [phone, setPhone] = useState('');
-  const [payOnDelivery, setPayOnDelivery] = useState(false);
+  const [payMethod, setPayMethod] = useState<'online' | 'pod'>('online');
   const [showPayment, setShowPayment] = useState(false);
   const [gpsLoading, setGpsLoading] = useState(false);
   const [gpsError, setGpsError] = useState('');
@@ -54,7 +54,7 @@ export default function Cart() {
 
   const handleCheckout = () => {
     if (!address.trim()) return;
-    if (payOnDelivery) {
+    if (payMethod === 'pod') {
       confirmOrder('pay_on_delivery');
     } else {
       setShowPayment(true);
@@ -68,7 +68,7 @@ export default function Cart() {
         return product ? [{ product, qty: cartItem.qty }] : [];
       });
       if (purchaseItems.length > 0) {
-        createPurchase(purchaseItems, currentUser.id, currentUser.name);
+        createPurchase(purchaseItems, currentUser.id, currentUser.name, address, method);
 
         // Group by shop owner and send Supabase-backed notifications
         const byOwner: Record<string, typeof purchaseItems> = {};
@@ -96,13 +96,28 @@ export default function Cart() {
               itemSummary,
               phone: phone || currentUser.phone || '',
               paymentMethod: method,
-              payOnDelivery: method === 'pay_on_delivery' ? 'true' : 'false',
+              payOnDelivery: method === 'pay_on_delivery' || payMethod === 'pod' ? 'true' : 'false',
               totalQty: String(qty),
               deliveryStatus: 'pending',
             }
           );
         });
       }
+    }
+    // Send receipt email for online payments
+    if (method !== 'pay_on_delivery' && currentUser?.email) {
+      fetch('/api/send-receipt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: currentUser.email,
+          name: currentUser.name,
+          amount: total,
+          description: `Shop order (${items.reduce((s, i) => s + i.qty, 0)} items)`,
+          reference: method,
+          operator: method,
+        }),
+      }).catch(() => {});
     }
     clearCart();
     setShowPayment(false);
@@ -258,31 +273,48 @@ export default function Cart() {
             />
           </div>
 
-          {/* Pay on Delivery toggle */}
-          <button
-            type="button"
-            onClick={() => setPayOnDelivery(p => !p)}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border-2 transition-all text-left ${
-              payOnDelivery
-                ? 'border-primary bg-primary-50/60'
-                : 'border-surface-border bg-white hover:border-primary/30'
-            }`}
-          >
-            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all ${
-              payOnDelivery ? 'border-primary bg-primary' : 'border-surface-border'
-            }`}>
-              {payOnDelivery && <CheckCircle className="w-3.5 h-3.5 text-white" />}
+          {/* Payment method selection */}
+          <div>
+            <p className="text-xs font-bold text-ink-muted mb-2">Payment Method</p>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setPayMethod('online')}
+                className={`flex flex-col items-center gap-2 p-3.5 rounded-2xl border-2 transition-all text-center ${
+                  payMethod === 'online'
+                    ? 'border-primary bg-primary/5'
+                    : 'border-surface-border hover:border-primary/30'
+                }`}
+              >
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${payMethod === 'online' ? 'bg-primary' : 'bg-surface-secondary'}`}>
+                  <CreditCard className={`w-5 h-5 ${payMethod === 'online' ? 'text-white' : 'text-ink-muted'}`} />
+                </div>
+                <div>
+                  <p className={`text-xs font-bold ${payMethod === 'online' ? 'text-primary' : 'text-ink'}`}>Pay Online</p>
+                  <p className="text-[10px] text-ink-muted leading-tight">Mobile Money / Card</p>
+                </div>
+                {payMethod === 'online' && <CheckCircle className="w-3.5 h-3.5 text-primary" />}
+              </button>
+              <button
+                type="button"
+                onClick={() => setPayMethod('pod')}
+                className={`flex flex-col items-center gap-2 p-3.5 rounded-2xl border-2 transition-all text-center ${
+                  payMethod === 'pod'
+                    ? 'border-amber-500 bg-amber-50/60'
+                    : 'border-surface-border hover:border-amber-300'
+                }`}
+              >
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${payMethod === 'pod' ? 'bg-amber-500' : 'bg-surface-secondary'}`}>
+                  <Truck className={`w-5 h-5 ${payMethod === 'pod' ? 'text-white' : 'text-ink-muted'}`} />
+                </div>
+                <div>
+                  <p className={`text-xs font-bold ${payMethod === 'pod' ? 'text-amber-700' : 'text-ink'}`}>Pay on Delivery</p>
+                  <p className="text-[10px] text-ink-muted leading-tight">Cash when it arrives</p>
+                </div>
+                {payMethod === 'pod' && <CheckCircle className="w-3.5 h-3.5 text-amber-500" />}
+              </button>
             </div>
-            <div>
-              <p className="text-sm font-semibold text-ink">Pay on Delivery</p>
-              <p className="text-xs text-ink-muted">Pay cash when your order arrives</p>
-            </div>
-            {payOnDelivery && (
-              <span className="ml-auto text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
-                Selected
-              </span>
-            )}
-          </button>
+          </div>
         </div>
 
         {/* Order Summary */}
@@ -302,8 +334,8 @@ export default function Cart() {
           </div>
           <div className="flex justify-between text-sm text-ink-secondary border-t border-surface-border pt-3">
             <span>Payment</span>
-            <span className={`font-semibold ${payOnDelivery ? 'text-amber-600' : 'text-ink'}`}>
-              {payOnDelivery ? '💵 Pay on Delivery' : '📱 Online / Card'}
+            <span className={`font-semibold ${payMethod === 'pod' ? 'text-amber-600' : 'text-primary'}`}>
+              {payMethod === 'pod' ? '🚚 Pay on Delivery' : '📱 Pay Online'}
             </span>
           </div>
           <div className="flex justify-between font-bold text-ink border-t border-surface-border pt-3">
@@ -322,7 +354,7 @@ export default function Cart() {
           style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)', display: 'flex' }}
         >
           <span className="font-semibold">
-            {payOnDelivery ? 'Place Order (Pay on Delivery)' : 'Place Order & Pay'}
+            {payMethod === 'pod' ? 'Place Order — Pay on Delivery' : 'Place Order & Pay Online'}
           </span>
           <span className="font-bold">ZMW {total.toLocaleString()} →</span>
         </button>

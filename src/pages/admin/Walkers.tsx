@@ -1,7 +1,71 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Phone, Activity, Flame, Plus, X, UserPlus, Eye, EyeOff, CheckCircle, XCircle, Clock, CreditCard, Copy, Check, ChevronDown, ChevronUp } from 'lucide-react';
+import { Phone, Activity, Flame, Plus, X, UserPlus, Eye, EyeOff, CheckCircle, XCircle, Clock, CreditCard, Copy, Check, ChevronDown, ChevronUp, ZoomIn, Info, Ban } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import type { User } from '../../types';
+
+function PhotoModal({ url, name, onClose }: { url: string; name: string; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+      onClick={onClose}>
+      <div className="relative max-w-sm w-full" onClick={e => e.stopPropagation()}>
+        <img src={url} alt={name} className="w-full rounded-3xl object-cover shadow-2xl" />
+        <button type="button" onClick={onClose}
+          className="absolute top-3 right-3 w-9 h-9 rounded-full bg-black/60 flex items-center justify-center text-white hover:bg-black/80">
+          <X className="w-4 h-4" />
+        </button>
+        <p className="text-center text-white font-bold mt-3 text-sm">{name}</p>
+      </div>
+    </div>
+  );
+}
+
+function ApplicationModal({ walker, onClose }: { walker: User; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm px-4 pb-4"
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden">
+        <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-surface-border">
+          <h2 className="font-bold text-ink">Application Details</h2>
+          <button type="button" onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-surface-hover text-ink-muted">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="p-5 space-y-4">
+          {/* Profile photo */}
+          {walker.imageUrl && (
+            <div className="flex justify-center">
+              <img src={walker.imageUrl} alt={walker.name}
+                className="w-24 h-24 rounded-3xl object-cover border-2 border-surface-border shadow-md" />
+            </div>
+          )}
+          <div className="space-y-3">
+            {[
+              { label: 'Full Name',     value: walker.name },
+              { label: 'Phone',         value: walker.phone },
+              { label: 'Email',         value: walker.email || '—' },
+              { label: 'NRC Number',    value: walker.nrc || '—' },
+              { label: 'Referral Code', value: walker.referralCode ? `Used: ${walker.referralCode}` : '—' },
+              { label: 'Applied On',    value: new Date(walker.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) },
+              { label: 'Status',        value: walker.walkerStatus?.replace('_', ' ') ?? 'active' },
+            ].map(({ label, value }) => (
+              <div key={label} className="flex items-start gap-3">
+                <p className="text-xs text-ink-muted w-28 shrink-0 pt-0.5">{label}</p>
+                <p className="text-sm font-semibold text-ink flex-1 break-all">{value}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="px-5 pb-5">
+          <button type="button" onClick={onClose}
+            className="w-full py-3 rounded-2xl border border-surface-border text-sm font-semibold text-ink-secondary hover:bg-surface-hover">
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 interface NewWalkerForm {
   name: string;
@@ -14,7 +78,7 @@ const BLANK: NewWalkerForm = { name: '', phone: '', email: '', password: '' };
 type Tab = 'active' | 'pending' | 'suspended';
 
 export default function AdminWalkers() {
-  const { data, getWalkerStats, addUser, approveWalker, rejectWalker, currentUser, getAdminReferralCode } = useApp();
+  const { data, getWalkerStats, addUser, approveWalker, rejectWalker, updateUser, currentUser, getAdminReferralCode } = useApp();
 
   const [tab, setTab]         = useState<Tab>('active');
   const [showAdd, setShowAdd] = useState(false);
@@ -24,6 +88,9 @@ export default function AdminWalkers() {
   const [error, setError]     = useState('');
   const [saving, setSaving]   = useState(false);
   const [codeCopied, setCodeCopied] = useState(false);
+  const [photoModal, setPhotoModal] = useState<{ url: string; name: string } | null>(null);
+  const [appModal, setAppModal]     = useState<User | null>(null);
+  const [suspendId, setSuspendId]   = useState<string | null>(null);
 
   const walkers = data.users.filter(u => u.role === 'walker');
   const activeWalkers  = walkers.filter(w => !w.walkerStatus || w.walkerStatus === 'active');
@@ -33,6 +100,11 @@ export default function AdminWalkers() {
   const displayWalkers = tab === 'active' ? activeWalkers : tab === 'pending' ? pendingWalkers : suspendedWalkers;
 
   const myCode = currentUser ? getAdminReferralCode(currentUser.id) : '';
+
+  const handleSuspend = (walkerId: string) => {
+    updateUser(walkerId, { walkerStatus: 'suspended' });
+    setSuspendId(null);
+  };
 
   const copyCode = () => {
     navigator.clipboard.writeText(myCode).catch(() => {});
@@ -182,9 +254,16 @@ export default function AdminWalkers() {
                     onClick={() => setExpandedId(isExpanded ? null : walker.id)}
                   >
                     <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-2xl overflow-hidden shrink-0">
+                      <div className="w-12 h-12 rounded-2xl overflow-hidden shrink-0 relative group/photo">
                         {walker.imageUrl
-                          ? <img src={walker.imageUrl} alt={walker.name} className="w-full h-full object-cover" />
+                          ? <>
+                              <img src={walker.imageUrl} alt={walker.name} className="w-full h-full object-cover" />
+                              <button type="button"
+                                onClick={e => { e.stopPropagation(); setPhotoModal({ url: walker.imageUrl!, name: walker.name }); }}
+                                className="absolute inset-0 bg-black/40 opacity-0 group-hover/photo:opacity-100 transition-opacity flex items-center justify-center">
+                                <ZoomIn className="w-4 h-4 text-white" />
+                              </button>
+                            </>
                           : <div className="w-full h-full flex items-center justify-center font-bold text-white"
                               style={{ background: 'linear-gradient(135deg,#1B4332,#2B8A50)' }}>
                               {walker.name.split(' ').map(x => x[0]).join('').slice(0, 2).toUpperCase()}
@@ -210,6 +289,30 @@ export default function AdminWalkers() {
                         )}
                       </div>
                       <div className="flex flex-col items-end gap-1.5 shrink-0">
+                        <div className="flex items-center gap-1.5">
+                          <button type="button"
+                            onClick={e => { e.stopPropagation(); setAppModal(walker); }}
+                            className="w-7 h-7 flex items-center justify-center rounded-lg border border-surface-border hover:bg-surface-hover text-ink-muted"
+                            title="View application">
+                            <Info className="w-3.5 h-3.5" />
+                          </button>
+                          {!isPending && walker.walkerStatus !== 'suspended' && (
+                            <button type="button"
+                              onClick={e => { e.stopPropagation(); setSuspendId(walker.id); }}
+                              className="w-7 h-7 flex items-center justify-center rounded-lg border border-red-200 hover:bg-red-50 text-danger"
+                              title="Suspend walker">
+                              <Ban className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                          {walker.walkerStatus === 'suspended' && (
+                            <button type="button"
+                              onClick={e => { e.stopPropagation(); updateUser(walker.id, { walkerStatus: 'active' }); }}
+                              className="w-7 h-7 flex items-center justify-center rounded-lg border border-success/30 hover:bg-green-50 text-success"
+                              title="Reactivate walker">
+                              <CheckCircle className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
                         {stats.activeWalk && (
                           <Link
                             to="/admin/walks"
@@ -394,6 +497,31 @@ export default function AdminWalkers() {
                 style={{ background: '#1B4332' }}>
                 {saving ? 'Adding…' : 'Add Walker'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Photo zoom modal */}
+      {photoModal && <PhotoModal url={photoModal.url} name={photoModal.name} onClose={() => setPhotoModal(null)} />}
+
+      {/* Application detail modal */}
+      {appModal && <ApplicationModal walker={appModal} onClose={() => setAppModal(null)} />}
+
+      {/* Suspend confirm modal */}
+      {suspendId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
+          <div className="w-full max-w-sm bg-white rounded-3xl p-6 shadow-2xl text-center">
+            <div className="w-14 h-14 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-4">
+              <Ban className="w-7 h-7 text-danger" />
+            </div>
+            <h3 className="font-bold text-ink mb-2">Suspend Walker?</h3>
+            <p className="text-sm text-ink-muted mb-6">This walker won't be able to accept new walks. You can reactivate them at any time.</p>
+            <div className="flex gap-3">
+              <button type="button" onClick={() => setSuspendId(null)}
+                className="flex-1 py-3 rounded-2xl border border-surface-border text-sm font-semibold text-ink-secondary">Cancel</button>
+              <button type="button" onClick={() => handleSuspend(suspendId)}
+                className="flex-1 py-3 rounded-2xl bg-danger text-white text-sm font-bold">Suspend</button>
             </div>
           </div>
         </div>

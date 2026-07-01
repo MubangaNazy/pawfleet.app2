@@ -1,6 +1,7 @@
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { format, parseISO } from 'date-fns';
-import { ArrowLeft, CheckCircle2, Phone, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Phone, AlertTriangle, FileText, Save } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
 const SERVICE_INCLUDES: Record<string, string[]> = {
@@ -45,12 +46,38 @@ const STATUS_DISPLAY: Record<string, { label: string; color: string; bg: string 
   cancelled: { label: 'Cancelled',            color: '#DC2626', bg: '#FEF2F2' },
 };
 
+const VET_NOTE_PREFIX = '\n---VET_NOTES---\n';
+
+function extractVetNotes(rawNotes: string): { bookingPart: string; vetNotesPart: string } {
+  const idx = rawNotes.indexOf(VET_NOTE_PREFIX);
+  if (idx === -1) return { bookingPart: rawNotes, vetNotesPart: '' };
+  return { bookingPart: rawNotes.slice(0, idx), vetNotesPart: rawNotes.slice(idx + VET_NOTE_PREFIX.length) };
+}
+
 export default function VetAppointmentDetail() {
   const { walkId } = useParams<{ walkId: string }>();
   const navigate   = useNavigate();
   const { data, updateWalk } = useApp();
 
   const walk = data.walks.find(w => w.id === walkId);
+  const { vetNotesPart } = walk ? extractVetNotes(walk.notes || '') : { vetNotesPart: '' };
+  const [vetNotes, setVetNotes] = useState(vetNotesPart);
+  const [saving,   setSaving]   = useState(false);
+  const [saved,    setSaved]    = useState(false);
+
+  const saveVetNotes = async () => {
+    if (!walk) return;
+    setSaving(true);
+    const { bookingPart } = extractVetNotes(walk.notes || '');
+    const newNotes = vetNotes.trim()
+      ? `${bookingPart}${VET_NOTE_PREFIX}${vetNotes.trim()}`
+      : bookingPart;
+    updateWalk(walk.id, { notes: newNotes });
+    await new Promise(r => setTimeout(r, 300));
+    setSaving(false);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  };
 
   if (!walk) {
     return (
@@ -229,6 +256,32 @@ export default function VetAppointmentDetail() {
               <span>K{walk.price}</span>
             </div>
           </div>
+        </div>
+
+        {/* Vet clinical notes */}
+        <div className="bg-white border border-surface-border rounded-2xl p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ background: '#F0FDFA' }}>
+              <FileText className="w-4 h-4" style={{ color: '#0891B2' }} />
+            </div>
+            <p className="text-[11px] font-bold text-ink-muted uppercase tracking-wider flex-1">Vet Clinical Notes</p>
+          </div>
+          <textarea
+            value={vetNotes}
+            onChange={e => setVetNotes(e.target.value)}
+            placeholder="Add examination findings, prescriptions, follow-up instructions…"
+            rows={4}
+            className="w-full px-3 py-2.5 text-sm text-ink bg-surface-secondary rounded-xl border border-surface-border focus:outline-none focus:border-teal-400 resize-none placeholder:text-ink-muted"
+          />
+          <button type="button" onClick={saveVetNotes} disabled={saving}
+            className="mt-2 w-full py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+            style={{ background: saved ? '#10B981' : 'linear-gradient(135deg,#0F766E,#0891B2)', color: 'white' }}>
+            {saving
+              ? <><div className="w-3.5 h-3.5 rounded-full border-2 border-white/40 border-t-white animate-spin" /> Saving…</>
+              : saved
+              ? <><CheckCircle2 className="w-3.5 h-3.5" /> Saved!</>
+              : <><Save className="w-3.5 h-3.5" /> Save Notes</>}
+          </button>
         </div>
 
         {/* Actions */}

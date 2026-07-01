@@ -64,6 +64,8 @@ const ShopOwnerAnalytics     = lazy(() => import('./pages/shopowner/Analytics'))
 const VetDashboard          = lazy(() => import('./pages/vet/Dashboard'));
 const VetAppointments       = lazy(() => import('./pages/vet/Appointments'));
 const VetAppointmentDetail  = lazy(() => import('./pages/vet/AppointmentDetail'));
+const VetSchedule           = lazy(() => import('./pages/vet/Schedule'));
+const VetAnalytics          = lazy(() => import('./pages/vet/Analytics'));
 const VetProfile            = lazy(() => import('./pages/vet/Profile'));
 
 const NotificationsPage = lazy(() => import('./pages/Notifications'));
@@ -255,6 +257,8 @@ function AppRoutes() {
         <Route index                          element={<VetDashboard />} />
         <Route path="appointments"            element={<VetAppointments />} />
         <Route path="appointments/:walkId"    element={<VetAppointmentDetail />} />
+        <Route path="schedule"               element={<VetSchedule />} />
+        <Route path="analytics"              element={<VetAnalytics />} />
         <Route path="profile"                 element={<VetProfile />} />
         <Route path="notifications"           element={<NotificationsPage />} />
       </Route>

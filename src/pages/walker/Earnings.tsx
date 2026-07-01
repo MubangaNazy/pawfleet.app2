@@ -110,7 +110,7 @@ export default function WalkerEarnings() {
                   {unconfirmed.length} payment{unconfirmed.length > 1 ? 's' : ''} awaiting your confirmation
                 </p>
                 <p className="text-xs text-blue-700/75 mt-0.5">
-                  Tap "Confirm Received" below once you've collected the cash from your admin.
+                  Tap "Confirm Received" below once you've received payment from the pet owner.
                 </p>
               </div>
             </div>
@@ -148,7 +148,7 @@ export default function WalkerEarnings() {
             <Clock className="w-5 h-5 text-amber-500 shrink-0" />
             <div>
               <p className="text-sm font-semibold text-amber-800">K{totalUnpaid} pending payment</p>
-              <p className="text-xs text-amber-700/70 mt-0.5">Your admin will process your payment soon.</p>
+              <p className="text-xs text-amber-700/70 mt-0.5">The pet owner will pay you directly after the walk.</p>
             </div>
           </div>
         )}

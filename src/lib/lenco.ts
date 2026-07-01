@@ -1,22 +1,19 @@
-// Lenco payment integration — frontend calls our own Vercel API routes
-// Secret key lives server-side only in LENCO_SECRET_KEY env variable
-// Public key (not needed on frontend — kept for reference only)
+// Lenco mobile money collection — calls our Vercel serverless proxy
+// Secret key stays server-side; browser only calls /api/create-payment
 
-export interface LencoPaymentLink {
-  url: string;
+export interface LencoCollectionResult {
+  id: string;
   reference: string;
+  status: string;
+  message: string;
 }
 
-export async function createPaymentLink(params: {
+export async function initiateMobileMoneyPayment(params: {
   amount: number;
-  description: string;
-  customerName: string;
-  customerEmail?: string;
-  customerPhone?: string;
+  phone: string;
+  operator: 'airtel' | 'mtn' | 'zamtel';
   reference?: string;
-  redirectUrl?: string;
-  metadata?: Record<string, string>;
-}): Promise<LencoPaymentLink | null> {
+}): Promise<LencoCollectionResult | null> {
   try {
     const reference = params.reference || `PAW-${Date.now()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
     const res = await fetch('/api/create-payment', {
@@ -31,7 +28,7 @@ export async function createPaymentLink(params: {
     }
     return await res.json();
   } catch (err) {
-    console.warn('createPaymentLink error:', err);
+    console.warn('initiateMobileMoneyPayment error:', err);
     return null;
   }
 }

@@ -131,9 +131,9 @@ export default function WalkerProfile() {
   const handleLogout = () => { logout(); navigate('/login'); };
 
   const menuItems = [
-    { icon: Bell,     label: 'Notifications' },
-    { icon: Shield,   label: 'Privacy & safety' },
-    { icon: Settings, label: 'App settings' },
+    { icon: Bell,     label: 'Notifications',    onClick: () => navigate('/walker/notifications') },
+    { icon: Shield,   label: 'Privacy & safety', onClick: () => navigate('/walker/privacy') },
+    { icon: Settings, label: 'App settings',     onClick: () => navigate('/walker/settings') },
   ];
 
   return (
@@ -211,7 +211,7 @@ export default function WalkerProfile() {
         {/* Settings menu */}
         <div className="bg-white border border-surface-border rounded-2xl overflow-hidden">
           {menuItems.map((item, i) => (
-            <button key={item.label} type="button"
+            <button key={item.label} type="button" onClick={item.onClick}
               className={`w-full flex items-center gap-3 px-4 py-4 hover:bg-surface-secondary transition-colors text-left ${i > 0 ? 'border-t border-surface-border' : ''}`}>
               <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: '#EBF5EF' }}>
                 <item.icon className="w-4 h-4" style={{ color: '#2B8A50' }} />

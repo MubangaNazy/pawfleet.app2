@@ -406,11 +406,17 @@ export default function WalkerWalkDetail() {
                         {/* Navigate button */}
                         {(displayAddr || hasCoords) && (
                           <a
-                            href={
-                              hasCoords
-                                ? `https://www.google.com/maps?q=${displayLat},${displayLng}`
-                                : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(displayAddr!)}`
-                            }
+                            href={(() => {
+                              const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+                              if (hasCoords) {
+                                return isIOS
+                                  ? `maps.apple.com/?daddr=${displayLat},${displayLng}&dirflg=d`
+                                  : `https://www.google.com/maps/dir/?api=1&destination=${displayLat},${displayLng}`;
+                              }
+                              return isIOS
+                                ? `maps.apple.com/?q=${encodeURIComponent(displayAddr!)}`
+                                : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(displayAddr!)}`;
+                            })()}
                             target="_blank" rel="noopener noreferrer"
                             className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl text-white font-bold text-base transition-all"
                             style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)' }}

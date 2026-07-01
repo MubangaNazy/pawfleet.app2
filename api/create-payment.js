@@ -1,51 +1,63 @@
-// Vercel serverless function — secret key stays server-side only
-// Frontend calls POST /api/create-payment
+// Lenco mobile money collection — pushes payment prompt to customer's phone
+// POST /api/create-payment   { amount, phone, operator, reference }
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const SECRET_KEY = process.env.LENCO_SECRET_KEY;
+  const raw = process.env.LENCO_SECRET_KEY || '';
+  const SECRET_KEY = raw.split('').filter(c => c.charCodeAt(0) !== 0xFEFF).join('').trim();
   if (!SECRET_KEY) {
-    return res.status(500).json({ error: 'Payment service not configured' });
+    return res.status(500).json({ error: 'LENCO_SECRET_KEY not configured' });
   }
 
-  try {
-    const { amount, description, customerName, customerPhone, customerEmail, reference, redirectUrl, metadata } = req.body;
+  const { amount, phone, operator, reference, country } = req.body;
 
-    const lencoRes = await fetch('https://api.lenco.co/access/v2/payment-links', {
+  if (!amount || !phone || !operator || !reference) {
+    return res.status(400).json({ error: 'amount, phone, operator and reference are required' });
+  }
+
+  // Normalise phone: ensure it has Zambia country code 260 (no +)
+  const normPhone = phone.replace(/\D/g, '').replace(/^0/, '260').replace(/^\+/, '');
+
+  const body = {
+    amount: Number(amount),           // Lenco expects ZMW (major unit)
+    reference,
+    phone: normPhone,
+    operator,                         // airtel | mtn | zamtel
+    country: country || 'zm',
+    bearer: 'customer',               // customer pays any fees
+  };
+
+  console.log('Lenco collections request:', JSON.stringify(body));
+
+  try {
+    const lencoRes = await fetch('https://api.lenco.co/access/v2/collections/mobile-money', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
         'Authorization': `Bearer ${SECRET_KEY}`,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
       },
-      body: JSON.stringify({
-        amount: Math.round(amount * 100), // convert to lowest denomination
-        currency: 'ZMW',
-        description,
-        customer: {
-          name: customerName,
-          phone: customerPhone || undefined,
-          email: customerEmail || undefined,
-        },
-        reference: reference || `PAW-${Date.now()}`,
-        redirect_url: redirectUrl || 'https://pawfleetapp2.vercel.app',
-        metadata: metadata || {},
-      }),
+      body: JSON.stringify(body),
     });
 
     const data = await lencoRes.json();
+    console.log('Lenco response:', lencoRes.status, JSON.stringify(data));
 
     if (!lencoRes.ok) {
-      console.error('Lenco error:', data);
-      return res.status(lencoRes.status).json({ error: data?.message || 'Payment failed' });
+      return res.status(lencoRes.status).json({
+        error: data?.message || 'Lenco request failed',
+        details: data,
+      });
     }
 
-    // Return only what the frontend needs
     return res.status(200).json({
-      url: data?.data?.link || data?.link || data?.url || '',
+      id: data?.data?.id || '',
       reference: data?.data?.reference || reference,
+      status: data?.data?.status || 'pending',
+      message: data?.message || 'Payment prompt sent to your phone',
     });
   } catch (err) {
     console.error('create-payment error:', err);

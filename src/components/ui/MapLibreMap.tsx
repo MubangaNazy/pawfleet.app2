@@ -28,7 +28,6 @@ export default function MapLibreMap({ lat, lng, endLat, endLng, trail, zoom = 15
       zoom,
       attributionControl: false,
     });
-    map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right');
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
     mapRef.current = map;
 

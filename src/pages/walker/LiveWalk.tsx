@@ -27,7 +27,7 @@ function totalDistance(pts: LatLng[]): number {
 
 export default function WalkerLiveWalk() {
   const { walkId } = useParams<{ walkId: string }>();
-  const { data, endWalk, startWalk } = useApp();
+  const { data, endWalk, startWalk, currentUser } = useApp();
   const navigate = useNavigate();
 
   const [myPos, setMyPos]     = useState<LatLng | null>(null);
@@ -41,6 +41,8 @@ export default function WalkerLiveWalk() {
   const [payMethod, setPayMethod]       = useState('');
   const channelRef  = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
+  const [chatPopup, setChatPopup] = useState<{ senderName: string; text: string } | null>(null);
+  const popupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const walk  = data.walks.find(w => w.id === walkId);
   const dog   = data.dogs.find(d => d.id === walk?.dogId);
@@ -69,6 +71,30 @@ export default function WalkerLiveWalk() {
     })();
     return () => { wakeLockRef.current?.release(); wakeLockRef.current = null; };
   }, [isActive]);
+
+  // Chat message subscription — show floating popup when owner sends a message
+  useEffect(() => {
+    if (!walkId || !currentUser) return;
+    const ch = supabase
+      .channel(`chat-popup-walker-${walkId}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `walk_id=eq.${walkId}` },
+        (payload) => {
+          const msg = payload.new as { sender_id?: string; user_id?: string; content?: string; text?: string };
+          const senderId = msg.sender_id || msg.user_id;
+          if (senderId === currentUser.id) return; // ignore own messages
+          const sender = data.users.find(u => u.id === senderId);
+          const text = (msg.content || msg.text || '').slice(0, 80);
+          if (!text) return;
+          if (popupTimerRef.current) clearTimeout(popupTimerRef.current);
+          setChatPopup({ senderName: sender?.name || 'Owner', text });
+          popupTimerRef.current = setTimeout(() => setChatPopup(null), 5000);
+        })
+      .subscribe();
+    return () => {
+      supabase.removeChannel(ch);
+      if (popupTimerRef.current) clearTimeout(popupTimerRef.current);
+    };
+  }, [walkId, currentUser?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // GPS + Supabase broadcast (only when active)
   useEffect(() => {
@@ -213,6 +239,32 @@ export default function WalkerLiveWalk() {
             </div>
           )}
         </div>
+
+        {/* Chat popup */}
+        {chatPopup && (
+          <div className="absolute top-3 left-3 right-3 z-[1002] flex items-center gap-3 bg-white rounded-2xl shadow-xl px-4 py-3"
+            style={{ animation: 'slideDown 0.25s ease-out', border: '1px solid rgba(0,0,0,0.08)' }}>
+            <style>{`@keyframes slideDown{from{transform:translateY(-20px);opacity:0}to{transform:translateY(0);opacity:1}}`}</style>
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold text-white shrink-0"
+              style={{ background: 'linear-gradient(135deg,#1B4332,#2B8A50)' }}>
+              {chatPopup.senderName[0]}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-bold text-ink">{chatPopup.senderName}</p>
+              <p className="text-xs text-ink-muted truncate">{chatPopup.text}</p>
+            </div>
+            <button type="button"
+              onClick={() => { setChatPopup(null); navigate(`/chat/${walkId}`); }}
+              className="text-xs font-bold px-3 py-1.5 rounded-xl text-white shrink-0"
+              style={{ background: 'linear-gradient(135deg,#1B4332,#2B8A50)' }}>
+              Reply
+            </button>
+            <button type="button" onClick={() => setChatPopup(null)}
+              className="w-6 h-6 flex items-center justify-center rounded-full shrink-0 text-ink-muted hover:bg-gray-100">
+              ✕
+            </button>
+          </div>
+        )}
 
         {/* Overlays sit on top of the map */}
         {gpsError && (

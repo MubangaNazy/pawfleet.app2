@@ -47,7 +47,6 @@ function VetMap({ userLat, userLng }: { userLat: number | null; userLng: number 
       zoom:      11.5,
       attributionControl: false,
     });
-    map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right');
     mapRef.current = map;
 
     map.on('load', () => {

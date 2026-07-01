@@ -389,41 +389,17 @@ export default function WalkerWalkDetail() {
                           </div>
                         </div>
 
-                        {/* Live map embed — shown when coordinates are available */}
-                        {hasCoords && (
-                          <div className="rounded-2xl overflow-hidden border border-surface-border shadow-sm">
-                            <iframe
-                              key={`map-${displayLat?.toFixed(4)}-${displayLng?.toFixed(4)}`}
-                              src={`https://www.openstreetmap.org/export/embed.html?bbox=${(displayLng! - 0.007).toFixed(6)},${(displayLat! - 0.007).toFixed(6)},${(displayLng! + 0.007).toFixed(6)},${(displayLat! + 0.007).toFixed(6)}&layer=mapnik&marker=${displayLat!.toFixed(6)},${displayLng!.toFixed(6)}`}
-                              className="w-full h-44"
-                              title="Pickup location"
-                              style={{ border: 0 }}
-                              loading="lazy"
-                            />
-                          </div>
-                        )}
-
-                        {/* Navigate button */}
+                        {/* Navigate button — in-app MapLibre navigation */}
                         {(displayAddr || hasCoords) && (
-                          <a
-                            href={(() => {
-                              const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-                              if (hasCoords) {
-                                return isIOS
-                                  ? `maps.apple.com/?daddr=${displayLat},${displayLng}&dirflg=d`
-                                  : `https://www.google.com/maps/dir/?api=1&destination=${displayLat},${displayLng}`;
-                              }
-                              return isIOS
-                                ? `maps.apple.com/?q=${encodeURIComponent(displayAddr!)}`
-                                : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(displayAddr!)}`;
-                            })()}
-                            target="_blank" rel="noopener noreferrer"
-                            className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl text-white font-bold text-base transition-all"
+                          <button
+                            type="button"
+                            onClick={() => navigate(`/walker/nav/${walkId}`)}
+                            className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl text-white font-bold text-base transition-all active:scale-[0.98]"
                             style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)' }}
                           >
                             <Navigation className="w-5 h-5" />
                             Navigate to Pickup
-                          </a>
+                          </button>
                         )}
 
                         <button

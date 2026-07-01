@@ -23,6 +23,7 @@ const AdminShopManager = lazy(() => import('./pages/admin/ShopManager'));
 const AdminAnalytics   = lazy(() => import('./pages/admin/Analytics'));
 const AdminProfitMgmt  = lazy(() => import('./pages/admin/ProfitManagement'));
 
+const WalkerNav        = lazy(() => import('./pages/walker/WalkerNav'));
 const WalkerDashboard  = lazy(() => import('./pages/walker/Dashboard'));
 const WalkerMyWalks    = lazy(() => import('./pages/walker/MyWalks'));
 const WalkerEarnings   = lazy(() => import('./pages/walker/Earnings'));
@@ -37,6 +38,7 @@ const WalkerSettings   = lazy(() => import('./pages/walker/Settings'));
 const WalkerPrivacy    = lazy(() => import('./pages/walker/Privacy'));
 
 const AdminProfile     = lazy(() => import('./pages/admin/Profile'));
+const AdminDogs        = lazy(() => import('./pages/admin/Dogs'));
 
 const OwnerDashboard   = lazy(() => import('./pages/owner/Dashboard'));
 const OwnerRequestWalk = lazy(() => import('./pages/owner/RequestWalk'));
@@ -251,6 +253,7 @@ function AppRoutes() {
         <Route path="shop"        element={<AdminShopManager />} />
         <Route path="analytics"   element={<AdminAnalytics />} />
         <Route path="profit"      element={<AdminProfitMgmt />} />
+        <Route path="dogs"        element={<AdminDogs />} />
         <Route path="notifications" element={<NotificationsPage />} />
         <Route path="profile"       element={<AdminProfile />} />
         <Route path="dashboard"   element={<Navigate to="/admin" replace />} />
@@ -279,6 +282,7 @@ function AppRoutes() {
       <Route path="/walker/live/:walkId"  element={<ProtectedRoute role="walker"><WalkerLiveWalk /></ProtectedRoute>} />
       <Route path="/walker/chat/:walkId"  element={<ProtectedRoute role="walker"><Chat /></ProtectedRoute>} />
       <Route path="/walker/walk/:walkId"  element={<ProtectedRoute role="walker"><WalkerWalkDetail /></ProtectedRoute>} />
+      <Route path="/walker/nav/:walkId"   element={<ProtectedRoute role="walker"><WalkerNav /></ProtectedRoute>} />
 
       {/* ── Shop Owner ── */}
       <Route path="/shopowner" element={<ProtectedRoute role="shopowner"><Layout /></ProtectedRoute>}>

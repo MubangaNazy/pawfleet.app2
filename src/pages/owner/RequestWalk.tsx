@@ -266,13 +266,37 @@ export default function OwnerRequestWalk() {
     );
   }
 
+  const step = !pickupReady ? 1 : !dogId ? 2 : 3;
+
   return (
     <div className="bg-white min-h-screen pb-28">
       <div className="max-w-lg mx-auto px-4 pt-5 space-y-5">
 
+        {/* Header */}
         <div>
-          <h1 className="text-2xl font-extrabold text-ink">Book a walk</h1>
+          <h1 className="text-2xl font-extrabold text-ink">Book a Walk</h1>
           <p className="text-ink-secondary text-sm mt-1">Find a trusted walker near you</p>
+        </div>
+
+        {/* Step progress */}
+        <div className="flex items-center gap-2">
+          {[
+            { n: 1, label: 'Location' },
+            { n: 2, label: 'Dog' },
+            { n: 3, label: 'Schedule' },
+          ].map(({ n, label }, i) => (
+            <React.Fragment key={n}>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
+                  step > n ? 'text-white' : step === n ? 'text-white' : 'text-ink-muted bg-surface-secondary border border-surface-border'
+                }`} style={step >= n ? { background: step > n ? '#52B788' : '#1B4332' } : {}}>
+                  {step > n ? '✓' : n}
+                </div>
+                <span className={`text-xs font-semibold ${step >= n ? 'text-ink' : 'text-ink-muted'}`}>{label}</span>
+              </div>
+              {i < 2 && <div className="flex-1 h-px rounded-full transition-all" style={{ background: step > n ? '#52B788' : '#E5E7EB' }} />}
+            </React.Fragment>
+          ))}
         </div>
 
         {/* ── Pickup location ── */}
@@ -461,11 +485,13 @@ export default function OwnerRequestWalk() {
         </button>
 
         {/* Price summary */}
-        <div className="flex items-center justify-between px-1">
-          <span className="text-sm text-ink-muted">Total estimate</span>
-          <span className="text-lg font-extrabold text-ink">
+        <div className="flex items-center justify-between px-4 py-3 rounded-2xl border border-surface-border bg-surface-secondary">
+          <div>
+            <p className="text-xs text-ink-muted font-medium">Estimated total</p>
+            {addGrooming && <p className="text-[10px] text-ink-muted mt-0.5">Walk K150 + Grooming K249</p>}
+          </div>
+          <span className="text-2xl font-extrabold" style={{ color: '#1B4332' }}>
             K{addGrooming ? 150 + 249 : 150}
-            {addGrooming && <span className="text-xs font-normal text-ink-muted ml-1">(walk + groom)</span>}
           </span>
         </div>
 

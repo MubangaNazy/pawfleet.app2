@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import { Play, Square, MapPin, Navigation, AlertCircle, MessageCircle, CheckCircle2, X } from 'lucide-react';
@@ -6,6 +6,7 @@ import { useApp } from '../../context/AppContext';
 import { StatusBadge, PaymentBadge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { GeoLocation, WalkStatus } from '../../types';
+import { supabase } from '../../lib/supabase';
 
 const CANCEL_REASONS = [
   { id: 'not_home',  label: 'Owner not home',        icon: '🏠' },
@@ -38,6 +39,7 @@ export default function WalkerMyWalks() {
   const [accepting, setAccepting] = useState<string | null>(null);
   const [cancelTarget, setCancelTarget] = useState<string | null>(null);
   const [cancelReason, setCancelReason] = useState('');
+  const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
 
   const availableWalks = data.walks
     .filter(w => w.status === 'pending' && !w.walkerId)
@@ -46,6 +48,47 @@ export default function WalkerMyWalks() {
   const myWalks = data.walks
     .filter(w => w.walkerId === currentUser?.id)
     .sort((a, b) => new Date(b.scheduledDate).getTime() - new Date(a.scheduledDate).getTime());
+
+  // Fetch unread message counts for all relevant walks
+  useEffect(() => {
+    if (!currentUser) return;
+    const walkIds = [
+      ...myWalks.filter(w => w.status === 'assigned' || w.status === 'active').map(w => w.id),
+      ...availableWalks.map(w => w.id),
+    ];
+    if (!walkIds.length) return;
+
+    const fetchCounts = async () => {
+      const counts: Record<string, number> = {};
+      await Promise.all(walkIds.map(async walkId => {
+        const lastSeen = localStorage.getItem(`chat_seen_${walkId}`) || '1970-01-01T00:00:00Z';
+        const { data: msgs } = await supabase
+          .from('messages')
+          .select('sender_id, user_id, created_at')
+          .eq('walk_id', walkId)
+          .gt('created_at', lastSeen);
+        counts[walkId] = (msgs || []).filter(
+          m => (m.sender_id || m.user_id) !== currentUser.id
+        ).length;
+      }));
+      setUnreadCounts(counts);
+    };
+    fetchCounts();
+
+    // Real-time: increment badge on new incoming messages
+    const channels = walkIds.map(walkId =>
+      supabase.channel(`unread-badge-${walkId}`)
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `walk_id=eq.${walkId}` },
+          payload => {
+            const msg = payload.new as { sender_id?: string; user_id?: string };
+            if ((msg.sender_id || msg.user_id) !== currentUser.id) {
+              setUnreadCounts(prev => ({ ...prev, [walkId]: (prev[walkId] || 0) + 1 }));
+            }
+          }
+        ).subscribe()
+    );
+    return () => { channels.forEach(ch => supabase.removeChannel(ch)); };
+  }, [currentUser?.id, myWalks.length, availableWalks.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const filtered = filter === 'available'
     ? availableWalks
@@ -191,7 +234,7 @@ export default function WalkerMyWalks() {
                 )}
 
                 {filter === 'available' && walk.status === 'pending' && !walk.walkerId && (
-                  <div className="flex items-center gap-3 pt-3 border-t border-surface-border">
+                  <div className="flex items-center gap-3 pt-3 border-t border-surface-border flex-wrap">
                     <button
                       type="button"
                       onClick={() => handleAccept(walk.id)}
@@ -214,7 +257,20 @@ export default function WalkerMyWalks() {
                         </>
                       )}
                     </button>
-                    <p className="text-xs text-ink-muted">Walk will be added to your schedule</p>
+                    {/* Pre-booking chat */}
+                    <Link
+                      to={`/walker/chat/${walk.id}`}
+                      className="relative flex items-center gap-2 bg-surface-secondary text-ink text-sm font-semibold px-4 py-2 rounded-xl hover:bg-surface-hover border border-surface-border transition-colors"
+                    >
+                      <MessageCircle className="w-4 h-4" />
+                      Message Owner
+                      {(unreadCounts[walk.id] || 0) > 0 && (
+                        <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] flex items-center justify-center rounded-full text-[10px] font-bold text-white px-1"
+                          style={{ background: '#DC2626' }}>
+                          {unreadCounts[walk.id]}
+                        </span>
+                      )}
+                    </Link>
                   </div>
                 )}
 
@@ -225,10 +281,16 @@ export default function WalkerMyWalks() {
                     </Button>
                     <Link
                       to={`/walker/chat/${walk.id}`}
-                      className="flex items-center gap-2 bg-surface-secondary text-ink text-sm font-semibold px-4 py-2 rounded-xl hover:bg-surface-hover border border-surface-border transition-colors"
+                      className="relative flex items-center gap-2 bg-surface-secondary text-ink text-sm font-semibold px-4 py-2 rounded-xl hover:bg-surface-hover border border-surface-border transition-colors"
                     >
                       <MessageCircle className="w-4 h-4" />
                       Chat
+                      {(unreadCounts[walk.id] || 0) > 0 && (
+                        <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] flex items-center justify-center rounded-full text-[10px] font-bold text-white px-1"
+                          style={{ background: '#DC2626' }}>
+                          {unreadCounts[walk.id]}
+                        </span>
+                      )}
                     </Link>
                     <button
                       type="button"
@@ -254,10 +316,16 @@ export default function WalkerMyWalks() {
                     </Link>
                     <Link
                       to={`/walker/chat/${walk.id}`}
-                      className="flex items-center gap-2 bg-surface-secondary text-ink text-sm font-semibold px-4 py-2 rounded-xl hover:bg-surface-hover border border-surface-border transition-colors"
+                      className="relative flex items-center gap-2 bg-surface-secondary text-ink text-sm font-semibold px-4 py-2 rounded-xl hover:bg-surface-hover border border-surface-border transition-colors"
                     >
                       <MessageCircle className="w-4 h-4" />
                       Chat
+                      {(unreadCounts[walk.id] || 0) > 0 && (
+                        <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] flex items-center justify-center rounded-full text-[10px] font-bold text-white px-1"
+                          style={{ background: '#DC2626' }}>
+                          {unreadCounts[walk.id]}
+                        </span>
+                      )}
                     </Link>
                     <Button variant="danger" size="md" icon={<Square className="w-4 h-4" />} loading={isGpsLoading} onClick={() => handleEnd(walk.id)}>
                       {isGpsLoading ? 'Getting GPS...' : 'End Walk'}

@@ -17,6 +17,7 @@ const adminNav = [
   { to: '/admin/map',         icon: Map,             label: 'Live Map' },
   { to: '/admin/walkers',     icon: UserCog,         label: 'Walkers' },
   { to: '/admin/owners',      icon: Users,           label: 'Owners' },
+  { to: '/admin/dogs',        icon: Dog,             label: 'All Pets' },
   { to: '/admin/payments',    icon: CreditCard,      label: 'Payments' },
   { to: '/admin/shop',        icon: ShoppingBag,     label: 'Shop Manager' },
   { to: '/admin/analytics',   icon: Activity,        label: 'Analytics' },

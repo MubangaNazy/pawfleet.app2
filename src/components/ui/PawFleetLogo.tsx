@@ -17,20 +17,12 @@ export default function PawFleetLogo({ size = 40, showText = false, textWhite = 
       />
 
       {showText && (
-        <div>
-          <span
-            className="font-bold text-xl tracking-tight block leading-tight"
-            style={{ color: textWhite ? '#ffffff' : '#1B4332' }}
-          >
-            PawFleet
-          </span>
-          <span
-            className="text-[11px] leading-none"
-            style={{ color: textWhite ? 'rgba(255,255,255,0.65)' : '#4B5563' }}
-          >
-            Dog Walking Management
-          </span>
-        </div>
+        <span
+          className="font-extrabold text-2xl tracking-tight"
+          style={{ color: textWhite ? '#ffffff' : '#1B4332' }}
+        >
+          PawFleet
+        </span>
       )}
     </div>
   );

@@ -74,6 +74,108 @@ const Chat              = lazy(() => import('./pages/Chat'));
 const Community         = lazy(() => import('./pages/Community'));
 const PrivacyPolicy     = lazy(() => import('./pages/PrivacyPolicy'));
 
+// ── Splash screen shown while Supabase connects ──────────────────────────────
+function WalkerSVG() {
+  return (
+    <svg width="200" height="108" viewBox="0 0 200 108" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <ellipse cx="105" cy="104" rx="82" ry="4" fill="rgba(0,0,0,0.15)"/>
+      {/* Person — head */}
+      <circle cx="30" cy="14" r="12" fill="rgba(255,255,255,0.92)"/>
+      {/* Person — torso */}
+      <path d="M22 27 Q30 31 38 27 L41 55 Q30 58 19 55 Z" fill="rgba(255,255,255,0.92)"/>
+      {/* Person — arm forward (holding leash) */}
+      <path d="M38 35 L58 44" stroke="rgba(255,255,255,0.92)" strokeWidth="6" strokeLinecap="round"/>
+      {/* Person — arm back */}
+      <path d="M22 35 L11 48" stroke="rgba(255,255,255,0.92)" strokeWidth="6" strokeLinecap="round"/>
+      {/* Person — leg forward */}
+      <path d="M24 55 L16 86 L23 86 L30 60" fill="rgba(255,255,255,0.92)"/>
+      {/* Person — leg back */}
+      <path d="M36 55 L45 83 L38 84 L30 59" fill="rgba(255,255,255,0.92)"/>
+      {/* Leash */}
+      <path d="M58 44 Q86 32 110 54" stroke="rgba(255,255,255,0.6)" strokeWidth="2.5" strokeLinecap="round"/>
+      {/* Dog — body */}
+      <ellipse cx="148" cy="72" rx="28" ry="15" fill="rgba(255,255,255,0.92)"/>
+      {/* Dog — neck */}
+      <path d="M164 60 Q170 66 170 72" stroke="rgba(255,255,255,0.92)" strokeWidth="11" strokeLinecap="round"/>
+      {/* Dog — head */}
+      <ellipse cx="166" cy="56" rx="16" ry="14" fill="rgba(255,255,255,0.92)"/>
+      {/* Dog — ear */}
+      <path d="M174 46 C183 38 187 49 182 59 Q177 67 170 59 Z" fill="rgba(255,255,255,0.8)"/>
+      {/* Dog — snout */}
+      <ellipse cx="178" cy="62" rx="9" ry="6" fill="rgba(255,255,255,0.92)"/>
+      {/* Dog — nose */}
+      <ellipse cx="185" cy="59" rx="4" ry="3" fill="#0d3322"/>
+      {/* Dog — tail */}
+      <path d="M120 66 Q107 50 113 37" stroke="rgba(255,255,255,0.92)" strokeWidth="5.5" strokeLinecap="round"/>
+      {/* Dog — front legs */}
+      <path d="M154 87 L149 102" stroke="rgba(255,255,255,0.92)" strokeWidth="6.5" strokeLinecap="round"/>
+      <path d="M164 87 L170 102" stroke="rgba(255,255,255,0.92)" strokeWidth="6.5" strokeLinecap="round"/>
+      {/* Dog — back legs */}
+      <path d="M128 83 L121 99" stroke="rgba(255,255,255,0.92)" strokeWidth="6.5" strokeLinecap="round"/>
+      <path d="M140 85 L143 101" stroke="rgba(255,255,255,0.92)" strokeWidth="6.5" strokeLinecap="round"/>
+    </svg>
+  );
+}
+
+function AppLoadingScreen() {
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 50, overflow: 'hidden', background: 'white' }}>
+      <style>{`
+        @keyframes pf-logo-pop {
+          0%   { opacity: 0; transform: scale(0.25) translateY(50px); }
+          55%  { opacity: 1; transform: scale(1.1) translateY(-10px); }
+          78%  { transform: scale(0.97) translateY(3px); }
+          100% { transform: scale(1) translateY(0); opacity: 1; }
+        }
+        @keyframes pf-fade-up {
+          from { opacity: 0; transform: translateY(18px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes pf-walker-slide {
+          from { transform: translateX(-240px); }
+          to   { transform: translateX(calc(100vw + 240px)); }
+        }
+        @keyframes pf-green-exit {
+          0%,55%  { transform: translateY(0); }
+          100%    { transform: translateY(-108%); }
+        }
+        .pf-logo-pop   { animation: pf-logo-pop 0.85s cubic-bezier(0.34,1.56,0.64,1) 0.3s both; }
+        .pf-text       { animation: pf-fade-up 0.5s ease 1.05s both; }
+        .pf-tag        { animation: pf-fade-up 0.5s ease 1.28s both; }
+        .pf-walker     { animation: pf-walker-slide 3s ease-in-out 0.5s both; }
+        .pf-green-exit { animation: pf-green-exit 1s cubic-bezier(0.76,0,0.24,1) 2.4s both; }
+      `}</style>
+
+      {/* White base — revealed when green lifts */}
+      <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+        <img src="/logo.png" alt="PawFleet" style={{ width: 80, height: 80, borderRadius: '22%' }}/>
+        <p style={{ fontWeight: 800, fontSize: 38, color: '#1B4332', marginTop: 18, letterSpacing: '-0.025em' }}>PawFleet</p>
+      </div>
+
+      {/* Forest green overlay — springs logo, walks figure, then slides up */}
+      <div className="pf-green-exit" style={{ position: 'absolute', inset: 0, background: '#1B4332', overflow: 'hidden', zIndex: 10 }}>
+        {/* Decorative radial glows */}
+        <div style={{ position: 'absolute', top: '-25%', right: '-15%', width: '65vw', height: '65vw', borderRadius: '50%', background: 'radial-gradient(circle, rgba(82,183,136,0.22) 0%, transparent 70%)' }}/>
+        <div style={{ position: 'absolute', bottom: '-20%', left: '-20%', width: '55vw', height: '55vw', borderRadius: '50%', background: 'radial-gradient(circle, rgba(43,138,80,0.28) 0%, transparent 70%)' }}/>
+
+        {/* Logo + name centred */}
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+          <div className="pf-logo-pop">
+            <img src="/logo.png" alt="PawFleet" style={{ width: 104, height: 104, borderRadius: '22%', boxShadow: '0 16px 56px rgba(0,0,0,0.35)' }}/>
+          </div>
+          <p className="pf-text" style={{ fontWeight: 800, fontSize: 44, color: 'white', marginTop: 22, letterSpacing: '-0.025em' }}>PawFleet</p>
+          <p className="pf-tag" style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, marginTop: 6, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Zambia</p>
+        </div>
+
+        {/* Person + dog walking across the bottom */}
+        <div className="pf-walker" style={{ position: 'absolute', bottom: 40, left: 0 }}>
+          <WalkerSVG />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Page fallback while chunks load ─────────────────────────────────────────
 function PageLoader() {
   return (
@@ -110,53 +212,14 @@ function RoleRedirect() {
 
 function AppContent() {
   const { loading } = useApp();
-  if (loading) {
-    return (
-      <div className="fixed inset-0 bg-white flex flex-col items-center justify-center gap-4 z-50">
-        <div className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg" style={{ background: 'linear-gradient(135deg, #1A572F, #2B8A50)' }}>
-          <svg viewBox="0 0 24 24" fill="none" className="w-7 h-7 text-white" stroke="currentColor" strokeWidth={2}>
-            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" strokeLinecap="round" />
-            <path d="M8 12s1.5 2 4 2 4-2 4-2" strokeLinecap="round" />
-            <circle cx="9" cy="9" r="1" fill="currentColor" stroke="none" />
-            <circle cx="15" cy="9" r="1" fill="currentColor" stroke="none" />
-          </svg>
-        </div>
-        <p className="text-base font-bold text-ink">PawFleet</p>
-        <div className="flex gap-1.5">
-          {[0, 1, 2].map(i => (
-            <div key={i} className="w-2 h-2 rounded-full bg-primary animate-bounce"
-              style={{ animationDelay: `${i * 0.15}s` }} />
-          ))}
-        </div>
-        <p className="text-xs text-ink-muted">Starting up PawFleet…</p>
+  const [minDone, setMinDone] = React.useState(false);
+  React.useEffect(() => {
+    const t = setTimeout(() => setMinDone(true), 2900);
+    return () => clearTimeout(t);
+  }, []);
 
-        <style>{`
-          @keyframes dogWalk {
-            0%   { left: 4%;  transform: scaleX(1); }
-            44%  { left: 78%; transform: scaleX(1); }
-            50%  { left: 78%; transform: scaleX(-1); }
-            94%  { left: 4%;  transform: scaleX(-1); }
-            100% { left: 4%;  transform: scaleX(1); }
-          }
-          @keyframes trailGrow {
-            0%   { width: 4%; }
-            44%  { width: 82%; }
-            50%  { width: 82%; }
-            94%  { width: 4%; }
-            100% { width: 4%; }
-          }
-        `}</style>
-        <div style={{ position: 'relative', width: 160, height: 40 }}>
-          <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 5, borderRadius: 999, background: '#EBF5EF', overflow: 'hidden' }}>
-            <div style={{ height: '100%', borderRadius: 999, background: 'linear-gradient(90deg, #1B4332, #52B788)', animation: 'trailGrow 2.4s ease-in-out infinite' }} />
-          </div>
-          <div style={{ position: 'absolute', bottom: 7, fontSize: 22, lineHeight: 1, animation: 'dogWalk 2.4s linear infinite', display: 'inline-block' }}>🐕</div>
-        </div>
+  if (loading || !minDone) return <AppLoadingScreen />;
 
-        <p className="text-[10px] text-ink-muted/50 mt-1">Made by Pegasus AI</p>
-      </div>
-    );
-  }
   return (
     <Suspense fallback={<PageLoader />}>
       <AppRoutes />

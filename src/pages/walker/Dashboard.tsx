@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import React, { useEffect, useState } from 'react';
 import { format, isToday } from 'date-fns';
 import { CheckCircle, DollarSign, Clock, ArrowRight, Flame, Star, TrendingUp, ChevronRight } from 'lucide-react';
+import SubscriptionBanner from '../../components/ui/SubscriptionBanner';
 import { useApp } from '../../context/AppContext';
 import { StatusBadge } from '../../components/ui/Badge';
 import WalkRequestPopup, { getDeclinedWalks, addDeclinedWalk } from '../../components/ui/WalkRequestPopup';
@@ -91,6 +92,7 @@ export default function WalkerDashboard() {
 
   return (
     <div className="max-w-2xl mx-auto pb-24">
+      <SubscriptionBanner />
       {/* Hero */}
       <div className="relative overflow-hidden px-5 pt-8 pb-0 mb-5"
         style={{ background: 'linear-gradient(135deg, #1B4332 0%, #2B8A50 60%, #52B788 100%)' }}>

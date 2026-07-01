@@ -20,6 +20,8 @@ export interface User {
   referredByAdminId?: string;          // Which admin's referral code was used
   referralCode?: string;               // Admin's own referral code (admins only)
   fcmToken?: string;                   // Firebase Cloud Messaging push token
+  subscriptionPaidUntil?: string;      // ISO date — subscription active until this date
+  trialEndsAt?: string;                // ISO date — free trial expiry
 }
 
 export interface AppNotification {

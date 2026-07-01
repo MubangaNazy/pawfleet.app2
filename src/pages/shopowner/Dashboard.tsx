@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Package, Bell, ShoppingBag, TrendingUp, Clock, Truck, CheckCircle2, ChevronRight, MessageCircle } from 'lucide-react';
+import SubscriptionBanner from '../../components/ui/SubscriptionBanner';
 import { useApp } from '../../context/AppContext';
 import { useShop } from '../../context/ShopContext';
 import { isToday, isThisWeek } from 'date-fns';
@@ -62,6 +63,7 @@ export default function ShopOwnerDashboard() {
 
   return (
     <div className="max-w-xl mx-auto pb-24">
+      <SubscriptionBanner />
       {/* Hero */}
       <div className="px-5 pt-8 pb-6 text-white relative overflow-hidden"
         style={{ background: 'linear-gradient(135deg, #1B4332 0%, #2B8A50 70%, #52B788 100%)' }}>

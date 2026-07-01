@@ -17,6 +17,8 @@ const toUser = (r: any): User => ({
   referralCode: r.referral_code ?? undefined,
   referredByAdminId: r.referred_by_admin_id ?? undefined,
   fcmToken: r.fcm_token ?? undefined,
+  subscriptionPaidUntil: r.subscription_paid_until ?? undefined,
+  trialEndsAt: r.trial_ends_at ?? undefined,
 });
 
 const toNotification = (r: any): AppNotification => ({
@@ -87,6 +89,7 @@ interface AppContextType {
   data: AppData;
   login: (id: string, pw: string) => Promise<User | null>;
   register: (name: string, phone: string, email: string, password: string, role: 'owner' | 'walker', extras?: RegisterExtras) => Promise<{ success: boolean; error?: string; user?: User; pendingApproval?: boolean }>;
+  activateSubscription: (userId: string, months?: number) => void;
   logout: () => void;
   createWalk: (walk: Omit<Walk, 'id' | 'createdAt'>) => Walk;
   updateWalk: (id: string, updates: Partial<Walk>) => void;
@@ -887,10 +890,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (updates.name !== undefined)     dbFields.name     = updates.name;
     if (updates.phone !== undefined)    dbFields.phone    = updates.phone;
     if (updates.email !== undefined)    dbFields.email    = updates.email;
-    if (updates.imageUrl !== undefined)       dbFields.image_url       = updates.imageUrl;
-    if (updates.businessName !== undefined)    dbFields.business_name    = updates.businessName;
-    if (updates.businessAddress !== undefined) dbFields.business_address = updates.businessAddress;
-    if (updates.businessType !== undefined)    dbFields.business_type    = updates.businessType;
+    if (updates.imageUrl !== undefined)             dbFields.image_url             = updates.imageUrl;
+    if (updates.businessName !== undefined)          dbFields.business_name          = updates.businessName;
+    if (updates.businessAddress !== undefined)       dbFields.business_address       = updates.businessAddress;
+    if (updates.businessType !== undefined)          dbFields.business_type          = updates.businessType;
+    if (updates.subscriptionPaidUntil !== undefined) dbFields.subscription_paid_until = updates.subscriptionPaidUntil;
+    if (updates.trialEndsAt !== undefined)           dbFields.trial_ends_at          = updates.trialEndsAt;
     if (Object.keys(dbFields).length > 0) {
       supabase.from('users').update(dbFields).eq('id', userId)
         .then(({ error }) => { if (error) console.error('updateUser:', error); });
@@ -898,6 +903,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const refreshData = () => { loadData(); };
+
+  const activateSubscription = (userId: string, months = 1) => {
+    const user = data.users.find(u => u.id === userId);
+    const base = user?.subscriptionPaidUntil && new Date(user.subscriptionPaidUntil) > new Date()
+      ? new Date(user.subscriptionPaidUntil)
+      : new Date();
+    base.setMonth(base.getMonth() + months);
+    const until = base.toISOString();
+    updateUser(userId, { subscriptionPaidUntil: until });
+  };
 
   const approveWalker = (walkerId: string) => {
     setData(prev => ({
@@ -932,6 +947,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       assignWalker, cancelWalk, markPaymentPaid, confirmPaymentReceived,
       createDog, updateDog, logHealth,
       addUser, updateUser, getWalkerStats, refreshData,
+      activateSubscription,
       approveWalker, rejectWalker,
       markNotificationRead, markAllNotificationsRead, sendNotification,
       getAdminReferralCode, addRating, declineWalk, updateOrderStatus,

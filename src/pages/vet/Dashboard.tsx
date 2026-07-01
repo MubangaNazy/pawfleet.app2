@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { Calendar, ClipboardList, TrendingUp, Clock, CheckCircle2, BarChart2 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import SubscriptionBanner from '../../components/ui/SubscriptionBanner';
 import { format, isToday, parseISO, startOfWeek, endOfWeek, isTomorrow } from 'date-fns';
 
 const SERVICE_ICON: Record<string, string> = {
@@ -64,6 +65,7 @@ export default function VetDashboard() {
 
   return (
     <div className="max-w-2xl mx-auto pb-16 p-4 space-y-5">
+      <SubscriptionBanner />
 
       {/* Hero */}
       <div className="rounded-3xl overflow-hidden relative"

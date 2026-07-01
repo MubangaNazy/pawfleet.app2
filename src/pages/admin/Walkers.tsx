@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Phone, Activity, Flame, Plus, X, UserPlus, Eye, EyeOff, CheckCircle, XCircle, Clock, CreditCard, Copy, Check, ChevronDown, ChevronUp, ZoomIn, Info, Ban } from 'lucide-react';
+import { Phone, Activity, Flame, Plus, X, UserPlus, Eye, EyeOff, CheckCircle, XCircle, Clock, CreditCard, Copy, Check, ChevronDown, ChevronUp, ZoomIn, Info, Ban, RefreshCw } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import type { User } from '../../types';
+import { getSubscriptionStatus, SUBSCRIPTION_PRICE } from '../../components/ui/SubscriptionBanner';
+import { format, parseISO } from 'date-fns';
 
 function PhotoModal({ url, name, onClose }: { url: string; name: string; onClose: () => void }) {
   return (
@@ -78,7 +80,7 @@ const BLANK: NewWalkerForm = { name: '', phone: '', email: '', password: '' };
 type Tab = 'active' | 'pending' | 'suspended';
 
 export default function AdminWalkers() {
-  const { data, getWalkerStats, addUser, approveWalker, rejectWalker, updateUser, currentUser, getAdminReferralCode } = useApp();
+  const { data, getWalkerStats, addUser, approveWalker, rejectWalker, updateUser, activateSubscription, currentUser, getAdminReferralCode } = useApp();
 
   const [tab, setTab]         = useState<Tab>('active');
   const [showAdd, setShowAdd] = useState(false);
@@ -378,6 +380,43 @@ export default function AdminWalkers() {
                           <p className="text-xs text-ink-muted italic">No badges yet</p>
                         )}
                       </div>
+
+                      {/* Subscription row */}
+                      {(() => {
+                        const sub = getSubscriptionStatus(walker);
+                        const price = SUBSCRIPTION_PRICE[walker.role] ?? 100;
+                        const subColor = sub.status === 'active' ? '#2B8A50'
+                          : sub.status === 'trial' ? '#0891B2'
+                          : sub.status === 'expiring' ? '#D97706'
+                          : '#DC2626';
+                        const subLabel = sub.status === 'trial'    ? `Trial · ${sub.daysLeft}d left`
+                          : sub.status === 'active'    ? `Active · ${sub.daysLeft}d left`
+                          : sub.status === 'expiring'  ? `Expiring · ${sub.daysLeft}d`
+                          : sub.status === 'grace'     ? 'Grace period'
+                          : 'Expired';
+                        return (
+                          <div className="px-5 py-3 border-t border-surface-border flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] font-bold px-2 py-1 rounded-full"
+                                style={{ color: subColor, background: `${subColor}15` }}>
+                                {subLabel}
+                              </span>
+                              {sub.expiryDate && (
+                                <span className="text-[10px] text-ink-muted">
+                                  {sub.status === 'expired' ? 'expired' : 'until'} {format(sub.expiryDate, 'dd MMM yyyy')}
+                                </span>
+                              )}
+                            </div>
+                            <button type="button"
+                              onClick={() => activateSubscription(walker.id, 1)}
+                              className="flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-xl text-white shrink-0"
+                              style={{ background: 'linear-gradient(135deg,#1B4332,#2B8A50)' }}
+                              title={`Activate 1 month (K${price})`}>
+                              <RefreshCw className="w-3 h-3" /> +1 Month
+                            </button>
+                          </div>
+                        );
+                      })()}
 
                       {isExpanded && (
                         <div className="border-t border-surface-border px-5 py-4 space-y-3">

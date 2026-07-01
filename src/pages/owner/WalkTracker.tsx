@@ -16,9 +16,10 @@ export default function WalkTracker() {
   const { walkId } = useParams<{ walkId: string }>();
   const { data }   = useApp();
   const navigate   = useNavigate();
-  const [elapsed, setElapsed]     = useState(0);
-  const [livePos, setLivePos]     = useState<LatLng | null>(null);
-  const [sheetOpen, setSheetOpen] = useState(false);
+  const [elapsed, setElapsed]       = useState(0);
+  const [livePos, setLivePos]       = useState<LatLng | null>(null);
+  const [liveDistKm, setLiveDistKm] = useState(0);
+  const [sheetOpen, setSheetOpen]   = useState(false);
 
   // Drag state
   const dragStartY  = useRef<number | null>(null);
@@ -28,11 +29,14 @@ export default function WalkTracker() {
   const dog    = data.dogs.find(d => d.id === walk?.dogId);
   const walker = data.users.find(u => u.id === walk?.walkerId);
 
+  // Elapsed — starts from actual walk start time so opening page mid-walk is accurate
   useEffect(() => {
     if (walk?.status !== 'active') return;
+    const startMs = walk.startTime ? new Date(walk.startTime).getTime() : Date.now();
+    setElapsed(Math.floor((Date.now() - startMs) / 1000));
     const interval = setInterval(() => setElapsed(e => e + 1), 1000);
     return () => clearInterval(interval);
-  }, [walk?.status]);
+  }, [walk?.status]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!walkId) return;
@@ -41,6 +45,8 @@ export default function WalkTracker() {
       .on('broadcast', { event: 'location' }, ({ payload }) => {
         if (payload?.lat != null && payload?.lng != null) {
           setLivePos([payload.lat, payload.lng]);
+          if (payload.distKm != null) setLiveDistKm(payload.distKm);
+          if (payload.elapsedSec != null) setElapsed(payload.elapsedSec);
         }
       })
       .subscribe();
@@ -192,7 +198,7 @@ export default function WalkTracker() {
         {/* Stats row */}
         <div className="grid grid-cols-3 divide-x divide-surface-border pt-10">
           {[
-            { label: 'DISTANCE', value: '—' },
+            { label: 'DISTANCE', value: liveDistKm > 0 ? (liveDistKm < 1 ? `${(liveDistKm * 1000).toFixed(0)}m` : `${liveDistKm.toFixed(2)}km`) : '—' },
             { label: 'DURATION', value: durationDisplay },
             { label: 'STATUS',   value: isActive ? 'Active' : isCompleted ? 'Done' : '—' },
           ].map(({ label, value }) => (

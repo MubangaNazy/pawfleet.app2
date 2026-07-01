@@ -1,23 +1,22 @@
 import { NavLink, useNavigate } from 'react-router-dom';
-import { Home, ShoppingBag, User, Calendar, Navigation, DollarSign, MapPin, BarChart2, BookOpen } from 'lucide-react';
+import { Home, ShoppingBag, User, Calendar, Navigation, DollarSign, MapPin, BookOpen } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useCart } from '../../context/CartContext';
 
 const ownerNav = [
-  { to: '/owner',          icon: Home,        label: 'Home',     exact: true },
+  { to: '/owner',          icon: Home,        label: 'Home',    exact: true },
   { to: '/owner/schedule', icon: Calendar,    label: 'Schedule' },
-  { to: '/owner/history',  icon: Navigation,  label: 'Track',   center: true },
+  { to: '/owner/track',    icon: Navigation,  label: 'Track',   center: true },
   { to: '/owner/shop',     icon: ShoppingBag, label: 'Shop' },
   { to: '/owner/profile',  icon: User,        label: 'Profile' },
 ];
 
 const walkerNav = [
-  { to: '/walker',           icon: Home,       label: 'Home',    exact: true },
-  { to: '/walker/walks',     icon: MapPin,     label: 'Walks' },
-  { to: '/walker/history',   icon: BarChart2,  label: 'History' },
-  { to: '/walker/earnings',  icon: DollarSign, label: 'Earnings' },
-  { to: '/walker/guide',     icon: BookOpen,   label: 'Guide' },
-  { to: '/walker/profile',   icon: User,       label: 'Profile' },
+  { to: '/walker',          icon: Home,       label: 'Home',    exact: true },
+  { to: '/walker/walks',    icon: MapPin,     label: 'Walks' },
+  { to: '/walker/guide',    icon: BookOpen,   label: 'Guide',   center: true },
+  { to: '/walker/earnings', icon: DollarSign, label: 'Earn' },
+  { to: '/walker/profile',  icon: User,       label: 'Profile' },
 ];
 
 export function BottomNav() {
@@ -37,7 +36,7 @@ export function BottomNav() {
     : null;
 
   const handleNavClick = (to: string, e: React.MouseEvent) => {
-    if (isOwner && to === '/owner/history' && activeOwnerWalk) {
+    if (isOwner && to === '/owner/track' && activeOwnerWalk) {
       e.preventDefault();
       navigate(`/owner/track/${activeOwnerWalk.id}`);
     }

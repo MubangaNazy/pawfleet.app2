@@ -33,6 +33,7 @@ export default function WalkerLiveWalk() {
   const [myPos, setMyPos]     = useState<LatLng | null>(null);
   const [route, setRoute]     = useState<LatLng[]>([]);
   const [elapsed, setElapsed] = useState(0);
+  const routeRef = useRef<LatLng[]>([]);
   const [gpsError, setGpsError] = useState(false);
   const [starting, setStarting] = useState(false);
   const [showPayModal, setShowPayModal] = useState(false);
@@ -48,12 +49,14 @@ export default function WalkerLiveWalk() {
   const isActive   = walk?.status === 'active';
   const isAssigned = walk?.status === 'assigned';
 
-  // Elapsed timer (only when active)
+  // Elapsed timer — starts from actual walk start time so re-opening the page shows correct time
   useEffect(() => {
     if (!isActive) return;
+    const startMs = walk?.startTime ? new Date(walk.startTime).getTime() : Date.now();
+    setElapsed(Math.floor((Date.now() - startMs) / 1000));
     const t = setInterval(() => setElapsed(e => e + 1), 1000);
     return () => clearInterval(t);
-  }, [isActive]);
+  }, [isActive]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Wake lock
   useEffect(() => {
@@ -81,9 +84,15 @@ export default function WalkerLiveWalk() {
       watchId = navigator.geolocation.watchPosition(
         pos => {
           const pt: LatLng = [pos.coords.latitude, pos.coords.longitude];
+          routeRef.current = [...routeRef.current, pt];
           setMyPos(pt);
-          setRoute(prev => [...prev, pt]);
-          channel.send({ type: 'broadcast', event: 'location', payload: { lat: pt[0], lng: pt[1] } });
+          setRoute(routeRef.current);
+          const distKm = totalDistance(routeRef.current);
+          const startMs = walk?.startTime ? new Date(walk.startTime).getTime() : Date.now();
+          channel.send({
+            type: 'broadcast', event: 'location',
+            payload: { lat: pt[0], lng: pt[1], distKm, elapsedSec: Math.floor((Date.now() - startMs) / 1000) },
+          });
         },
         () => setGpsError(true),
         { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },

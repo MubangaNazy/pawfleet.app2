@@ -96,7 +96,7 @@ interface AppContextType {
   startWalk: (walkId: string, loc: { lat: number; lng: number }) => void;
   endWalk: (walkId: string, loc: { lat: number; lng: number }) => void;
   assignWalker: (walkId: string, walkerId: string) => void;
-  cancelWalk: (walkId: string) => void;
+  cancelWalk: (walkId: string, reason?: string) => void;
   markPaymentPaid: (paymentId: string, method?: 'cash' | 'mobile_money' | 'bank' | 'online') => void;
   confirmPaymentReceived: (paymentId: string) => void;
   createDog: (dog: Omit<Dog, 'id'>) => Dog;
@@ -717,7 +717,37 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       );
     }
   };
-  const cancelWalk = (walkId: string) => updateWalk(walkId, { status: 'cancelled' });
+  const cancelWalk = (walkId: string, reason?: string) => {
+    const walk = data.walks.find(w => w.id === walkId);
+    const reasonLabels: Record<string, string> = {
+      not_home: 'Owner not home',
+      dog_ill: 'Dog is ill or injured',
+      emergency: 'Personal emergency',
+      aggressive: 'Dog too aggressive',
+      weather: 'Bad weather conditions',
+      timeout: 'No response from walker',
+      other: 'Other reason',
+    };
+    const cancelNote = reason ? `CANCEL_REASON: ${reasonLabels[reason] || reason}` : null;
+    const updatedNotes = [cancelNote, walk?.notes].filter(Boolean).join('\n') || undefined;
+    updateWalk(walkId, { status: 'cancelled', ...(updatedNotes ? { notes: updatedNotes } : {}) });
+    // Notify owner when walker cancels
+    if (walk?.ownerId && reason && reason !== 'timeout') {
+      sendNotification(walk.ownerId, 'walk_cancelled',
+        '⚠️ Walk Cancelled by Walker',
+        `Your walker cancelled: ${reasonLabels[reason] || reason}. Tap to rebook anytime.`,
+        { walkId }
+      );
+    }
+    // Notify walker when owner cancels
+    if (walk?.walkerId && (!reason || reason === 'timeout')) {
+      sendNotification(walk.walkerId, 'walk_cancelled',
+        '⚠️ Walk Cancelled by Owner',
+        'The owner cancelled this booking.',
+        { walkId }
+      );
+    }
+  };
 
   // Walker declines an assigned walk — returns it to pending for other walkers
   const declineWalk = (walkId: string) => {

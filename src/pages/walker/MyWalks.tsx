@@ -1,11 +1,20 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
-import { Play, Square, MapPin, Navigation, AlertCircle, MessageCircle, CheckCircle2, XCircle } from 'lucide-react';
+import { Play, Square, MapPin, Navigation, AlertCircle, MessageCircle, CheckCircle2, X } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { StatusBadge, PaymentBadge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { GeoLocation, WalkStatus } from '../../types';
+
+const CANCEL_REASONS = [
+  { id: 'not_home',  label: 'Owner not home',        icon: '🏠' },
+  { id: 'dog_ill',   label: 'Dog is ill / injured',   icon: '🤒' },
+  { id: 'emergency', label: 'Personal emergency',     icon: '🚨' },
+  { id: 'aggressive',label: 'Dog too aggressive',     icon: '⚠️' },
+  { id: 'weather',   label: 'Bad weather',            icon: '🌧️' },
+  { id: 'other',     label: 'Other reason',           icon: '📝' },
+];
 
 type Filter = 'available' | 'all' | WalkStatus;
 
@@ -23,10 +32,12 @@ async function getGPS(): Promise<GeoLocation> {
 }
 
 export default function WalkerMyWalks() {
-  const { data, currentUser, startWalk, endWalk, assignWalker, declineWalk } = useApp();
+  const { data, currentUser, startWalk, endWalk, assignWalker, cancelWalk } = useApp();
   const [filter, setFilter] = useState<Filter>('available');
   const [gpsLoading, setGpsLoading] = useState<string | null>(null);
   const [accepting, setAccepting] = useState<string | null>(null);
+  const [cancelTarget, setCancelTarget] = useState<string | null>(null);
+  const [cancelReason, setCancelReason] = useState('');
 
   const availableWalks = data.walks
     .filter(w => w.status === 'pending' && !w.walkerId)
@@ -221,10 +232,10 @@ export default function WalkerMyWalks() {
                     </Link>
                     <button
                       type="button"
-                      onClick={() => declineWalk(walk.id)}
+                      onClick={() => { setCancelTarget(walk.id); setCancelReason(''); }}
                       className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-danger border border-danger/30 bg-danger/5 hover:bg-danger/10 transition-colors"
                     >
-                      <XCircle className="w-3.5 h-3.5" /> Decline
+                      <X className="w-3.5 h-3.5" /> Cancel Walk
                     </button>
                     <div className="flex items-center gap-1.5 text-xs text-ink-muted">
                       <AlertCircle className="w-3 h-3" /> GPS captured on start
@@ -263,6 +274,52 @@ export default function WalkerMyWalks() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Cancel walk reason modal */}
+      {cancelTarget && (
+        <div className="fixed inset-0 z-[2000] flex items-end justify-center"
+          style={{ background: 'rgba(0,0,0,0.55)' }}
+          onClick={e => { if (e.target === e.currentTarget) setCancelTarget(null); }}>
+          <div className="bg-white w-full max-w-md rounded-t-3xl px-5 pt-5 pb-10 shadow-2xl"
+            style={{ animation: 'slideUp 0.25s ease-out' }}>
+            <style>{`@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }`}</style>
+            <div className="w-10 h-1 rounded-full bg-gray-200 mx-auto mb-5" />
+            <p className="text-base font-extrabold text-ink mb-1">Cancel Walk</p>
+            <p className="text-sm text-ink-muted mb-5">Please tell us why you're cancelling so we can notify the owner.</p>
+            <div className="space-y-2 mb-6">
+              {CANCEL_REASONS.map(r => (
+                <button key={r.id} type="button"
+                  onClick={() => setCancelReason(r.id)}
+                  className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl border-2 text-left transition-all ${
+                    cancelReason === r.id
+                      ? 'border-danger bg-danger/5'
+                      : 'border-surface-border bg-white hover:bg-surface-hover'
+                  }`}>
+                  <span className="text-xl">{r.icon}</span>
+                  <span className={`font-semibold text-sm ${cancelReason === r.id ? 'text-danger' : 'text-ink'}`}>{r.label}</span>
+                </button>
+              ))}
+            </div>
+            <button type="button"
+              disabled={!cancelReason}
+              onClick={() => {
+                if (cancelTarget && cancelReason) {
+                  cancelWalk(cancelTarget, cancelReason);
+                  setCancelTarget(null);
+                  setFilter('all');
+                }
+              }}
+              className="w-full py-4 rounded-2xl font-bold text-white text-sm disabled:opacity-40 active:scale-95 transition-all"
+              style={{ background: '#DC2626' }}>
+              Confirm Cancellation
+            </button>
+            <button type="button" onClick={() => setCancelTarget(null)}
+              className="w-full mt-3 py-3 rounded-2xl text-sm font-medium text-ink-muted hover:text-ink transition-colors">
+              Keep this walk
+            </button>
+          </div>
         </div>
       )}
     </div>

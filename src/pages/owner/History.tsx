@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { format } from 'date-fns';
-import { Clock, MapPin, History, Star } from 'lucide-react';
+import { format, differenceInMinutes } from 'date-fns';
+import { Clock, MapPin, History, Star, X, RefreshCw } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { StatusBadge } from '../../components/ui/Badge';
 import { WalkStatus } from '../../types';
@@ -19,10 +19,11 @@ const filterTabs: { label: string; value: Filter }[] = [
 ];
 
 export default function OwnerHistory() {
-  const { data, currentUser, markPaymentPaid } = useApp();
+  const { data, currentUser, markPaymentPaid, cancelWalk, createWalk } = useApp();
   const [filter, setFilter] = useState<Filter>('all');
   const [ratingWalkId, setRatingWalkId] = useState<string | null>(null);
   const [confirmWalkId, setConfirmWalkId] = useState<string | null>(null);
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
 
   const myWalks = data.walks
     .filter(w => w.ownerId === currentUser?.id)
@@ -110,6 +111,57 @@ export default function OwnerHistory() {
                     )}
                     {walk.notes && <p className="mt-2 text-xs text-ink-muted italic">"{walk.notes}"</p>}
 
+                    {/* Owner cancel (pending = no response in 10 min; assigned = hasn't started) */}
+                    {(walk.status === 'pending' || walk.status === 'assigned') && (() => {
+                      const waitMin = differenceInMinutes(new Date(), new Date(walk.createdAt));
+                      const canCancel = walk.status === 'assigned' || waitMin >= 10;
+                      const isPending = walk.status === 'pending';
+                      if (!canCancel) return (
+                        <p className="mt-2 text-xs text-amber-600 font-medium">
+                          ⏳ Waiting for walker — auto-cancel in {10 - waitMin}m if no response
+                        </p>
+                      );
+                      return (
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <button type="button"
+                            onClick={() => setCancellingId(walk.id)}
+                            disabled={cancellingId === walk.id}
+                            className="flex items-center gap-1.5 text-xs font-bold text-danger px-3 py-1.5 rounded-xl border border-danger/30 bg-danger/5 hover:bg-danger/10 transition-colors active:scale-95">
+                            <X className="w-3.5 h-3.5" />
+                            {isPending ? 'Cancel — No Response' : 'Cancel Walk'}
+                          </button>
+                        </div>
+                      );
+                    })()}
+
+                    {/* Rebook CTA for cancelled walks */}
+                    {walk.status === 'cancelled' && (
+                      <div className="mt-3">
+                        <p className="text-xs text-ink-muted mb-2">
+                          {walk.notes?.startsWith('CANCEL_REASON:')
+                            ? `Cancelled: ${walk.notes.split('\n')[0].replace('CANCEL_REASON: ', '')}`
+                            : 'This walk was cancelled'}
+                        </p>
+                        <button type="button"
+                          onClick={() => {
+                            const dog = data.dogs.find(d => d.id === walk.dogId);
+                            if (!currentUser || !dog) return;
+                            createWalk({
+                              dogId: walk.dogId, ownerId: currentUser.id,
+                              status: 'pending',
+                              scheduledDate: new Date(Date.now() + 86400000).toISOString(),
+                              duration: walk.duration || 30,
+                              price: walk.price, walkerEarning: walk.walkerEarning,
+                              notes: walk.notes?.includes('CANCEL_REASON') ? '' : walk.notes,
+                            });
+                          }}
+                          className="flex items-center gap-1.5 text-xs font-bold text-white px-3 py-1.5 rounded-xl transition-colors active:scale-95"
+                          style={{ background: 'linear-gradient(135deg,#1B4332,#2B8A50)' }}>
+                          <RefreshCw className="w-3.5 h-3.5" /> Rebook Walk
+                        </button>
+                      </div>
+                    )}
+
                     {/* Payment confirm CTA */}
                     {walk.status === 'completed' && (() => {
                       const payment = data.payments.find(p => p.walkId === walk.id);
@@ -152,6 +204,34 @@ export default function OwnerHistory() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Owner cancel confirm */}
+      {cancellingId && (
+        <div className="fixed inset-0 z-[2000] flex items-end justify-center"
+          style={{ background: 'rgba(0,0,0,0.55)' }}
+          onClick={e => { if (e.target === e.currentTarget) setCancellingId(null); }}>
+          <div className="bg-white w-full max-w-md rounded-t-3xl px-5 pt-5 pb-10 shadow-2xl"
+            style={{ animation: 'slideUp 0.25s ease-out' }}>
+            <style>{`@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }`}</style>
+            <div className="w-10 h-1 rounded-full bg-gray-200 mx-auto mb-5" />
+            <div className="text-center mb-6">
+              <div className="text-4xl mb-3">⚠️</div>
+              <p className="text-base font-extrabold text-ink">Cancel this walk?</p>
+              <p className="text-sm text-ink-muted mt-2">The walker (if assigned) will be notified. You can rebook anytime.</p>
+            </div>
+            <button type="button"
+              onClick={() => { cancelWalk(cancellingId, 'timeout'); setCancellingId(null); }}
+              className="w-full py-4 rounded-2xl font-bold text-white text-sm active:scale-95 transition-all mb-3"
+              style={{ background: '#DC2626' }}>
+              Yes, Cancel Walk
+            </button>
+            <button type="button" onClick={() => setCancellingId(null)}
+              className="w-full py-3 rounded-2xl text-sm font-medium text-ink-muted hover:text-ink transition-colors">
+              Keep it
+            </button>
+          </div>
         </div>
       )}
 

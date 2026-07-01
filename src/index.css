@@ -20,6 +20,9 @@
 
 * { box-sizing: border-box; }
 
+/* Hide Leaflet/OSM attribution branding across all maps */
+.leaflet-control-attribution { display: none !important; }
+
 html, body, #root {
   height: 100%;
   font-family: 'Inter', system-ui, sans-serif;

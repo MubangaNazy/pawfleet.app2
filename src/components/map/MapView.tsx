@@ -30,9 +30,10 @@ export function MapView({ walks, center = [-15.4167, 28.2833], zoom = 13, height
 
   return (
     <div style={{ height }} className="w-full rounded-2xl overflow-hidden border border-surface-border shadow-card">
+      <style>{`.leaflet-control-attribution { display: none !important; }`}</style>
       <MapContainer center={center} zoom={zoom} style={{ height: '100%', width: '100%' }} zoomControl={true}>
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+          attribution=""
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         {activeWalks.map(({ walk, walker, dog, owner }) => {

@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { format } from 'date-fns';
@@ -75,6 +75,7 @@ const SLIDES = [
 
 export default function OwnerDashboard() {
   const { data, currentUser } = useApp();
+  const navigate = useNavigate();
 
   const myWalks      = data.walks.filter(w => w.ownerId === currentUser?.id);
   const activeWalk   = myWalks.find(w => w.status === 'active');
@@ -358,7 +359,7 @@ export default function OwnerDashboard() {
             <div>
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-base font-bold text-ink">Top walkers nearby</h2>
-                <button className="text-sm font-medium flex items-center gap-0.5 hover:underline" style={{ color: '#2B8A50' }}>
+                <button onClick={() => navigate('/owner/walker-map')} className="text-sm font-medium flex items-center gap-0.5 hover:underline" style={{ color: '#2B8A50' }}>
                   View map
                 </button>
               </div>

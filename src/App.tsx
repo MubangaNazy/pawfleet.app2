@@ -51,6 +51,7 @@ const VetBooking       = lazy(() => import('./pages/owner/VetBooking'));
 const WalkTracker      = lazy(() => import('./pages/owner/WalkTracker'));
 const TrackHub         = lazy(() => import('./pages/owner/TrackHub'));
 const HomeGrooming     = lazy(() => import('./pages/owner/HomeGrooming'));
+const WalkerMap        = lazy(() => import('./pages/owner/WalkerMap'));
 const OwnerSchedule    = lazy(() => import('./pages/owner/Schedule'));
 const FavouriteWalkers = lazy(() => import('./pages/owner/FavouriteWalkers'));
 const PrivacySafety    = lazy(() => import('./pages/owner/PrivacySafety'));
@@ -306,6 +307,7 @@ function AppRoutes() {
         <Route path="track"           element={<TrackHub />} />
         <Route path="track/:walkId"   element={<WalkTracker />} />
         <Route path="grooming"        element={<HomeGrooming />} />
+        <Route path="walker-map"      element={<WalkerMap />} />
         <Route path="notifications" element={<NotificationsPage />} />
         <Route path="chats"       element={<ChatInbox />} />
         <Route path="community"   element={<Community />} />

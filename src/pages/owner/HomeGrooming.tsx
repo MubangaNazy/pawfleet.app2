@@ -24,10 +24,11 @@ export default function HomeGrooming() {
   const [time, setTime]         = useState('10:00');
   const [address, setAddress]   = useState('');
   const [notes, setNotes]       = useState('');
+  const [temperament, setTemperament] = useState<'calm' | 'nervous' | 'aggressive' | ''>('');
   const [submitted, setSubmitted] = useState(false);
 
   const selectedPkg = PACKAGES.find(p => p.id === pkg)!;
-  const canSubmit = dogId && pkg && date && time && address.trim().length > 3;
+  const canSubmit = dogId && pkg && date && time && address.trim().length > 3 && temperament !== '';
 
   const handleBook = () => {
     if (!canSubmit || !currentUser) return;
@@ -41,7 +42,7 @@ export default function HomeGrooming() {
       duration: 60,
       price: selectedPkg.price,
       walkerEarning: Math.round(selectedPkg.price * 0.75),
-      notes: `HOME_GROOMING: ${selectedPkg.label} — ${dog?.name ?? 'Dog'}\nAddress: ${address}${notes ? `\nNotes: ${notes}` : ''}`,
+      notes: `HOME_GROOMING: ${selectedPkg.label} — ${dog?.name ?? 'Dog'}\nAddress: ${address}\nTemperament: ${temperament}${notes ? `\nNotes: ${notes}` : ''}`,
     });
     setSubmitted(true);
   };
@@ -111,6 +112,39 @@ export default function HomeGrooming() {
                   </div>
                 </button>
               ))}
+            </div>
+          )}
+        </div>
+
+        {/* Dog temperament */}
+        <div>
+          <p className="text-sm font-bold text-ink mb-1">Dog temperament <span className="text-red-500">*</span></p>
+          <p className="text-xs text-ink-muted mb-3">This helps the groomer prepare the right approach and safety equipment.</p>
+          <div className="grid grid-cols-3 gap-2">
+            {([
+              { id: 'calm',       label: 'Calm',       emoji: '😊', desc: 'Relaxed, easy-going',      color: '#10B981', bg: '#F0FDF4', border: '#86EFAC' },
+              { id: 'nervous',    label: 'Nervous',    emoji: '😟', desc: 'Anxious, needs patience',  color: '#D97706', bg: '#FFFBEB', border: '#FDE68A' },
+              { id: 'aggressive', label: 'Aggressive', emoji: '⚠️', desc: 'Bites or acts aggressively', color: '#DC2626', bg: '#FEF2F2', border: '#FECACA' },
+            ] as const).map(opt => (
+              <button key={opt.id} type="button"
+                onClick={() => setTemperament(opt.id)}
+                className="flex flex-col items-center gap-1.5 p-3 rounded-2xl border-2 transition-all text-center"
+                style={{
+                  borderColor: temperament === opt.id ? opt.color : '#E5E7EB',
+                  background: temperament === opt.id ? opt.bg : 'white',
+                }}>
+                <span className="text-2xl">{opt.emoji}</span>
+                <p className="text-xs font-bold" style={{ color: temperament === opt.id ? opt.color : '#374151' }}>{opt.label}</p>
+                <p className="text-[10px] leading-tight" style={{ color: temperament === opt.id ? opt.color : '#9CA3AF' }}>{opt.desc}</p>
+              </button>
+            ))}
+          </div>
+          {temperament === 'aggressive' && (
+            <div className="mt-3 flex items-start gap-2.5 rounded-2xl px-4 py-3" style={{ background: '#FEF2F2', border: '1px solid #FECACA' }}>
+              <span className="text-lg mt-0.5">⚠️</span>
+              <p className="text-xs text-red-700 leading-relaxed">
+                <strong>Important:</strong> Our groomer will bring a muzzle and use extra caution. Please have the dog on a leash at arrival. Additional handling fee may apply.
+              </p>
             </div>
           )}
         </div>

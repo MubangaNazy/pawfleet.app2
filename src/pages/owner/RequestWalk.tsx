@@ -1,6 +1,8 @@
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CheckCircle, Star, MapPin, Zap, Calendar, Scissors, Loader2 } from 'lucide-react';
+import { ScalePop, FadeIn, StaggerList, StaggerItem } from '../../components/ui/Anim';
+import { SuccessDogIllustration, NoPetsIllustration } from '../../components/ui/Illustrations';
 import { useApp } from '../../context/AppContext';
 import { supabase } from '../../lib/supabase';
 
@@ -188,19 +190,25 @@ export default function OwnerRequestWalk() {
 
   if (submitted) {
     return (
-      <div className="bg-white min-h-screen flex flex-col items-center justify-center px-6 pb-24">
-        <div className="w-20 h-20 rounded-full bg-success-light flex items-center justify-center mb-6">
-          <CheckCircle className="w-10 h-10 text-success" />
-        </div>
-        <h2 className="text-2xl font-extrabold text-ink mb-2 text-center">Booking sent!</h2>
-        <p className="text-ink-secondary text-sm text-center mb-4 max-w-xs">
-          We'll assign {selectedWalkerId ? data.users.find(u => u.id === selectedWalkerId)?.name?.split(' ')[0] : 'a trusted walker'} and confirm your walk for <strong>{selectedDog?.name}</strong> shortly.
-        </p>
-        {addGrooming && (
-          <p className="text-xs text-primary font-semibold mb-4 bg-primary-50 px-4 py-2 rounded-xl">
-            ✂️ Grooming add-on included
+      <div className="bg-white min-h-screen flex flex-col items-center justify-center px-6 pb-24 overflow-hidden">
+        <ScalePop className="mb-2">
+          <SuccessDogIllustration />
+        </ScalePop>
+        <FadeIn delay={0.15} className="text-center">
+          <h2 className="pf-heading text-center mb-2">Booking sent!</h2>
+          <p className="text-ink-secondary text-sm text-center mb-4 max-w-xs leading-relaxed">
+            We'll assign{' '}
+            <span className="font-semibold text-ink">
+              {selectedWalkerId ? data.users.find(u => u.id === selectedWalkerId)?.name?.split(' ')[0] : 'a trusted walker'}
+            </span>{' '}
+            and confirm your walk for <span className="font-semibold text-ink">{selectedDog?.name}</span> shortly.
           </p>
-        )}
+          {addGrooming && (
+            <p className="text-xs font-semibold mb-4 inline-flex items-center gap-1.5 bg-primary-50 text-primary px-4 py-2 rounded-xl">
+              ✂️ Grooming add-on included
+            </p>
+          )}
+        </FadeIn>
 
         {/* Live location broadcasting banner */}
         {liveWalkId && (
@@ -248,20 +256,24 @@ export default function OwnerRequestWalk() {
   if (myDogs.length === 0) {
     return (
       <div className="bg-white min-h-screen flex flex-col items-center justify-center px-6 pb-24">
-        <div className="w-24 h-24 rounded-full bg-primary-50 flex items-center justify-center mb-5 text-5xl">🐕</div>
-        <h2 className="text-xl font-bold text-ink mb-2">Add your dog first</h2>
-        <p className="text-ink-secondary text-sm text-center mb-7 max-w-xs">
-          You need to register your dog before booking a walk. It only takes a minute!
-        </p>
-        <button onClick={() => navigate('/owner/dogs')}
-          className="px-8 py-3.5 rounded-2xl text-sm font-bold text-white shadow-sm mb-3"
-          style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)' }}>
-          + Add My Dog
-        </button>
-        <button onClick={() => navigate('/owner')}
-          className="px-6 py-2.5 rounded-2xl text-sm font-semibold text-ink-secondary hover:bg-surface-hover transition-colors">
-          Go Back
-        </button>
+        <ScalePop className="mb-4">
+          <NoPetsIllustration />
+        </ScalePop>
+        <FadeIn delay={0.12} className="text-center">
+          <h2 className="pf-heading mb-2">Add your dog first</h2>
+          <p className="pf-subtitle mb-7 max-w-xs mx-auto leading-relaxed">
+            Register your dog before booking a walk — it only takes a minute!
+          </p>
+          <button onClick={() => navigate('/owner/dogs')}
+            className="btn-spring px-8 py-3.5 rounded-2xl text-sm font-bold text-white shadow-lg mb-3 block w-full max-w-xs mx-auto"
+            style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)', boxShadow: '0 8px 24px rgba(27,67,50,0.28)' }}>
+            + Add My Dog
+          </button>
+          <button onClick={() => navigate('/owner')}
+            className="text-sm font-semibold text-ink-muted hover:text-ink transition-colors">
+            Go Back
+          </button>
+        </FadeIn>
       </div>
     );
   }
@@ -274,8 +286,8 @@ export default function OwnerRequestWalk() {
 
         {/* Header */}
         <div>
-          <h1 className="text-2xl font-extrabold text-ink">Book a Walk</h1>
-          <p className="text-ink-secondary text-sm mt-1">Find a trusted walker near you</p>
+          <h1 className="pf-heading">Book a Walk</h1>
+          <p className="pf-subtitle">Find a trusted walker near you</p>
         </div>
 
         {/* Step progress */}
@@ -525,7 +537,7 @@ export default function OwnerRequestWalk() {
                 <p className="text-xs text-ink-muted mt-1">Book anyway and we'll assign one shortly</p>
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-3">
+              <StaggerList className="grid grid-cols-2 gap-3">
                 {walkers.map((walker, i) => {
                   const BADGE_DEFS = [
                     { id: 'first_walk', icon: '🐾', minWalks: 1 },
@@ -537,8 +549,9 @@ export default function OwnerRequestWalk() {
                   const earnedBadges  = BADGE_DEFS.filter(b => completedCount >= b.minWalks);
 
                   return (
-                    <div key={walker.id}
-                      className={`relative overflow-hidden rounded-2xl flex flex-col transition-all active:scale-95 ${
+                    <StaggerItem key={walker.id}>
+                    <div
+                      className={`relative overflow-hidden rounded-2xl flex flex-col btn-spring ${
                         selectedWalkerId === walker.id ? 'ring-2 ring-primary' : ''
                       }`}
                       style={{ boxShadow: '0 4px 16px rgba(0,0,0,0.09)' }}>
@@ -585,9 +598,10 @@ export default function OwnerRequestWalk() {
                         </button>
                       </div>
                     </div>
+                    </StaggerItem>
                   );
                 })}
-              </div>
+              </StaggerList>
             )}
 
             <button onClick={() => handleSubmit()} disabled={!dogId || !pickupReady}

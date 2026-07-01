@@ -6,6 +6,7 @@ import SubscriptionBanner from '../../components/ui/SubscriptionBanner';
 import { useApp } from '../../context/AppContext';
 import { StatusBadge } from '../../components/ui/Badge';
 import WalkRequestPopup, { getDeclinedWalks, addDeclinedWalk } from '../../components/ui/WalkRequestPopup';
+import { WalkingDogIllustration } from '../../components/ui/Illustrations';
 
 const WALK_SLIDES = [
   'https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=1200&q=85',
@@ -100,8 +101,8 @@ export default function WalkerDashboard() {
           <div className="flex items-start justify-between gap-4">
             <div className="text-white">
               <p className="text-white/70 text-sm mb-1">{format(new Date(), 'EEEE, MMMM d')}</p>
-              <h1 className="text-2xl font-extrabold">{greeting}, {firstName} 🐾</h1>
-              <p className="text-white/75 text-sm mt-1">Here's your day</p>
+              <h1 className="text-[28px] font-extrabold tracking-tight leading-tight">{greeting}, {firstName} 🐾</h1>
+              <p className="text-white/70 text-sm mt-1 font-medium">Here's your day</p>
             </div>
             {gamStats.streak > 0 && (
               <div className="flex items-center gap-1.5 bg-white/20 backdrop-blur rounded-2xl px-3 py-2 shrink-0">
@@ -273,9 +274,12 @@ export default function WalkerDashboard() {
           </div>
           <div className="divide-y divide-surface-border">
             {todayWalks.length === 0 ? (
-              <div className="py-10 text-center">
-                <CheckCircle className="w-8 h-8 text-ink-muted mx-auto mb-2" />
-                <p className="text-sm text-ink-muted">No more walks today</p>
+              <div className="py-8 text-center flex flex-col items-center gap-2">
+                <WalkingDogIllustration size={140} />
+                <p className="text-sm font-semibold text-ink-muted mt-1">No walks scheduled today</p>
+                <Link to="/walker/walks" className="text-xs font-bold px-4 py-1.5 rounded-xl mt-1" style={{ color: '#2B8A50', background: '#EBF5EF' }}>
+                  Browse available walks →
+                </Link>
               </div>
             ) : todayWalks.map(walk => {
               const dog = data.dogs.find(d => d.id === walk.dogId);

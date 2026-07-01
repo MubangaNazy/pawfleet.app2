@@ -27,8 +27,8 @@ export default function AdminDogs() {
       {/* Header */}
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-ink">All Pets</h1>
-          <p className="text-ink-secondary text-sm mt-0.5">
+          <h1 className="pf-heading">All Pets</h1>
+          <p className="pf-subtitle">
             {data.dogs.length} registered · {totalByType.dog} dogs · {totalByType.cat} cats
           </p>
         </div>

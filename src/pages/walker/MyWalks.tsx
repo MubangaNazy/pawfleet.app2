@@ -7,6 +7,8 @@ import { StatusBadge, PaymentBadge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { GeoLocation, WalkStatus } from '../../types';
 import { supabase } from '../../lib/supabase';
+import { StaggerList, StaggerItem } from '../../components/ui/Anim';
+import { NoWalksIllustration } from '../../components/ui/Illustrations';
 
 const CANCEL_REASONS = [
   { id: 'not_home',  label: 'Owner not home',        icon: '🏠' },
@@ -127,8 +129,8 @@ export default function WalkerMyWalks() {
   return (
     <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-ink">Walks</h1>
-        <p className="text-ink-secondary mt-1">{availableWalks.length} available · {myWalks.length} assigned to you</p>
+        <h1 className="pf-heading">Walks</h1>
+        <p className="pf-subtitle">{availableWalks.length} available · {myWalks.length} assigned to you</p>
       </div>
 
       {/* Filter tabs */}
@@ -153,17 +155,19 @@ export default function WalkerMyWalks() {
       </div>
 
       {filtered.length === 0 ? (
-        <div className="bg-white border border-surface-border rounded-2xl p-16 text-center shadow-card">
-          <MapPin className="w-10 h-10 text-ink-muted mx-auto mb-3" />
-          <p className="font-medium text-ink">
-            {filter === 'available' ? 'No walks available right now' : 'No walks in this category'}
+        <div className="bg-white border border-surface-border rounded-2xl py-12 px-6 text-center shadow-card flex flex-col items-center gap-3">
+          <NoWalksIllustration />
+          <p className="pf-heading-sm mt-2">
+            {filter === 'available' ? 'No walks available yet' : 'No walks in this category'}
           </p>
-          {filter === 'available' && (
-            <p className="text-sm text-ink-muted mt-1">Check back later for new walk requests</p>
-          )}
+          <p className="text-sm text-ink-muted max-w-xs leading-relaxed">
+            {filter === 'available'
+              ? 'When owners book a walk, it will appear here. Check back soon!'
+              : 'Walks will show up here once you accept or start them.'}
+          </p>
         </div>
       ) : (
-        <div className="space-y-4">
+        <StaggerList className="space-y-4">
           {filtered.map(walk => {
             const dog = data.dogs.find(d => d.id === walk.dogId);
             const owner = data.users.find(u => u.id === walk.ownerId);
@@ -171,7 +175,8 @@ export default function WalkerMyWalks() {
             const payment = data.payments.find(p => p.walkId === walk.id);
 
             return (
-              <div key={walk.id} className="bg-white border border-surface-border rounded-2xl p-5 shadow-card">
+              <StaggerItem key={walk.id}>
+              <div className="bg-white border border-surface-border rounded-2xl p-5 shadow-card">
                 <div className="flex items-start justify-between gap-3 mb-4">
                   <div className="flex items-center gap-3">
                     <div className="w-12 h-12 rounded-2xl bg-primary-50 flex items-center justify-center shrink-0 overflow-hidden">
@@ -340,9 +345,10 @@ export default function WalkerMyWalks() {
                   </div>
                 )}
               </div>
+              </StaggerItem>
             );
           })}
-        </div>
+        </StaggerList>
       )}
 
       {/* Cancel walk reason modal */}

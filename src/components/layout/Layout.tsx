@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Outlet, Link } from 'react-router-dom';
+import { Outlet, Link, useLocation } from 'react-router-dom';
 import { Menu, Bell } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
 import PawFleetLogo from '../ui/PawFleetLogo';
 import { Sidebar } from './Sidebar';
 import { BottomNav } from './BottomNav';
@@ -9,6 +10,7 @@ import { useApp } from '../../context/AppContext';
 
 export function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const location = useLocation();
   const { currentUser, data, markNotificationRead } = useApp();
   const isOwner  = currentUser?.role === 'owner';
   const isWalker = currentUser?.role === 'walker';
@@ -98,10 +100,21 @@ export function Layout() {
 
         {/* Content */}
         <main className={`flex-1 overflow-y-auto overflow-x-hidden ${(isOwner || isWalker) ? 'pb-16 lg:pb-0' : ''}`}>
-          <Outlet />
-          <div className="hidden lg:block text-center py-3 border-t border-surface-border">
-            <p className="text-[11px] text-ink-muted">Made by <span className="font-semibold text-primary">Pegasus AI</span></p>
-          </div>
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={location.pathname}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+              className="min-h-full"
+            >
+              <Outlet />
+              <div className="hidden lg:block text-center py-3 border-t border-surface-border">
+                <p className="text-[11px] text-ink-muted">Made by <span className="font-semibold text-primary">Pegasus AI</span></p>
+              </div>
+            </motion.div>
+          </AnimatePresence>
         </main>
       </div>
 

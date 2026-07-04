@@ -230,11 +230,46 @@ function AppLoadingScreen() {
 // ── Page fallback while chunks load ─────────────────────────────────────────
 function PageLoader() {
   return (
-    <div className="flex-1 flex items-center justify-center py-24">
-      <div className="flex gap-1.5">
+    <div style={{ position: 'fixed', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#F4F9F6', zIndex: 40 }}>
+      <style>{`
+        @keyframes pf-nose-bounce {
+          0%, 100% { transform: translateY(0); }
+          45%      { transform: translateY(-10px); }
+        }
+        @keyframes pf-dot-pulse {
+          0%, 80%, 100% { opacity: 0.2; transform: scale(0.7); }
+          40%           { opacity: 1;   transform: scale(1); }
+        }
+        .pf-nose { animation: pf-nose-bounce 1.1s ease-in-out infinite; }
+        .pf-pdot { animation: pf-dot-pulse 1.2s ease-in-out infinite; }
+      `}</style>
+
+      {/* Paw icon bouncing */}
+      <div className="pf-nose mb-5">
+        <svg width="52" height="52" viewBox="0 0 52 52" fill="none">
+          <circle cx="26" cy="26" r="26" fill="#1B4332"/>
+          {/* paw pads */}
+          <ellipse cx="26" cy="30" rx="8" ry="6.5" fill="white" opacity="0.95"/>
+          <ellipse cx="15" cy="24" rx="4" ry="5" fill="white" opacity="0.85"/>
+          <ellipse cx="37" cy="24" rx="4" ry="5" fill="white" opacity="0.85"/>
+          <ellipse cx="19" cy="16" rx="3" ry="3.8" fill="white" opacity="0.75"/>
+          <ellipse cx="33" cy="16" rx="3" ry="3.8" fill="white" opacity="0.75"/>
+        </svg>
+      </div>
+
+      {/* "Sniffing…" text */}
+      <p style={{ fontWeight: 700, fontSize: 15, color: '#1B4332', letterSpacing: '0.02em', marginBottom: 14 }}>
+        Sniffing around…
+      </p>
+
+      {/* Animated dots */}
+      <div style={{ display: 'flex', gap: 7 }}>
         {[0, 1, 2].map(i => (
-          <div key={i} className="w-2 h-2 rounded-full bg-primary animate-bounce"
-            style={{ animationDelay: `${i * 0.15}s` }} />
+          <div key={i} className="pf-pdot" style={{
+            width: 8, height: 8, borderRadius: '50%',
+            background: '#2B8A50',
+            animationDelay: `${i * 0.2}s`,
+          }} />
         ))}
       </div>
     </div>

@@ -266,23 +266,47 @@ export default function Community() {
             <MessageCircle className="w-4 h-4 text-primary" />
             <h2 className="font-bold text-ink">Join Our Community</h2>
           </div>
-          <div className="space-y-3">
-            {roleChannel && (
+          {(roleChannel?.whatsapp || roleChannel?.facebook || GENERAL_CHANNEL.whatsapp || GENERAL_CHANNEL.facebook) ? (
+            <div className="space-y-3">
+              {roleChannel && (
+                <ChannelCard
+                  name={roleChannel.label}
+                  whatsapp={roleChannel.whatsapp}
+                  facebook={roleChannel.facebook}
+                />
+              )}
               <ChannelCard
-                name={roleChannel.label}
-                whatsapp={roleChannel.whatsapp}
-                facebook={roleChannel.facebook}
+                name={GENERAL_CHANNEL.label}
+                whatsapp={GENERAL_CHANNEL.whatsapp}
+                facebook={GENERAL_CHANNEL.facebook}
               />
-            )}
-            <ChannelCard
-              name={GENERAL_CHANNEL.label}
-              whatsapp={GENERAL_CHANNEL.whatsapp}
-              facebook={GENERAL_CHANNEL.facebook}
-            />
-          </div>
-          <p className="text-[11px] text-ink-muted text-center mt-3">
-            Community groups coming soon — check back for updates!
-          </p>
+            </div>
+          ) : (
+            <div className="rounded-2xl overflow-hidden border border-surface-border">
+              <div className="px-5 py-6 text-center"
+                style={{ background: 'linear-gradient(135deg, #EBF5EF 0%, #F4F9F6 100%)' }}>
+                <div className="w-12 h-12 rounded-2xl bg-white shadow-sm flex items-center justify-center mx-auto mb-3"
+                  style={{ border: '1px solid rgba(43,138,80,0.15)' }}>
+                  <MessageCircle className="w-6 h-6 text-primary" />
+                </div>
+                <p className="font-bold text-ink text-sm mb-1">Community groups launching soon</p>
+                <p className="text-xs text-ink-muted leading-relaxed mb-4">
+                  PawFleet WhatsApp & Facebook groups are being set up for{' '}
+                  {role === 'walker' ? 'walkers' : role === 'owner' ? 'dog owners' : 'shop owners'} in Lusaka.
+                  Message us to be added when they go live.
+                </p>
+                <a
+                  href="https://wa.me/260574800304?text=Hi%20PawFleet%2C%20please%20add%20me%20to%20the%20community%20group!"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white"
+                  style={{ background: '#25D366' }}>
+                  <MessageCircle className="w-4 h-4" />
+                  Request to join
+                </a>
+              </div>
+            </div>
+          )}
         </div>
 
         {showLeaderboard && (

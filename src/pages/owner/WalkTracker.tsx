@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, MessageCircle, Phone, Navigation, ChevronUp, ChevronDown, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, MessageCircle, Phone, Navigation, ChevronUp, ChevronDown, AlertTriangle, X } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import RatingModal from '../../components/ui/RatingModal';
 import { supabase } from '../../lib/supabase';
 import { format } from 'date-fns';
 import MapLibreMap from '../../components/ui/MapLibreMap';
@@ -14,9 +15,12 @@ const SHEET_FULL  = 320; // px visible when expanded
 
 export default function WalkTracker() {
   const { walkId } = useParams<{ walkId: string }>();
-  const { data, currentUser, sendNotification } = useApp();
-  const [sosConfirm, setSosConfirm] = useState(false);
-  const [sosDone, setSosDone]       = useState(false);
+  const { data, currentUser, sendNotification, cancelWalk } = useApp();
+  const [sosConfirm, setSosConfirm]             = useState(false);
+  const [sosDone, setSosDone]                   = useState(false);
+  const [showRating, setShowRating]             = useState(false);
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [cancelReason, setCancelReason]         = useState('');
   const navigate   = useNavigate();
   const [elapsed, setElapsed]       = useState(0);
   const [livePos, setLivePos]       = useState<LatLng | null>(null);
@@ -80,6 +84,14 @@ export default function WalkTracker() {
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [walkId]);
+
+  // Auto-show rating modal shortly after walk completes (if not already rated)
+  useEffect(() => {
+    if (walk?.status === 'completed' && !walk.rating) {
+      const t = setTimeout(() => setShowRating(true), 800);
+      return () => clearTimeout(t);
+    }
+  }, [walk?.status, walk?.rating]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!walk) {
     return (
@@ -355,16 +367,89 @@ export default function WalkTracker() {
           </div>
 
           {/* Sticky CTA */}
-          <div className="px-4 pt-2 pb-6">
+          <div className="px-4 pt-2 pb-6 space-y-2">
             <Link to={`/owner/track/${walkId}`}
               className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl text-white font-bold text-sm active:scale-95 transition-transform"
               style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)' }}>
               <Navigation className="w-4 h-4" />
               {isActive ? 'Live Route' : 'View Route'}
             </Link>
+            {(walk.status === 'pending' || walk.status === 'assigned') && (
+              <button type="button" onClick={() => setShowCancelDialog(true)}
+                className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-semibold border border-red-200 bg-red-50 text-red-600 active:scale-95 transition-transform">
+                <X className="w-4 h-4" /> Cancel this walk
+              </button>
+            )}
+            {isCompleted && !walk.rating && (
+              <button type="button" onClick={() => setShowRating(true)}
+                className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-semibold border border-amber-200 bg-amber-50 text-amber-700 active:scale-95 transition-transform">
+                ⭐ Rate this walk
+              </button>
+            )}
           </div>
         </div>
       </div>
+
+      {/* Cancel walk dialog */}
+      {showCancelDialog && (
+        <div className="fixed inset-0 z-[1010] flex items-center justify-center p-6"
+          style={{ background: 'rgba(0,0,0,0.65)' }}>
+          <div className="bg-white rounded-3xl p-6 w-full max-w-xs shadow-2xl">
+            <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4"
+              style={{ background: '#FEE2E2' }}>
+              <X className="w-7 h-7 text-red-600" />
+            </div>
+            <p className="text-base font-extrabold text-gray-900 mb-1 text-center">Cancel this walk?</p>
+            <p className="text-sm text-gray-500 mb-4 text-center leading-relaxed">
+              Select a reason so we can improve.
+            </p>
+            <div className="space-y-2 mb-5">
+              {[
+                { value: 'reschedule', label: 'Need to reschedule' },
+                { value: 'not_home',   label: "I won't be available" },
+                { value: 'dog_ill',    label: 'My dog is unwell' },
+                { value: 'emergency',  label: 'Personal emergency' },
+                { value: 'other',      label: 'Other reason' },
+              ].map(opt => (
+                <button key={opt.value} type="button"
+                  onClick={() => setCancelReason(opt.value)}
+                  className={`w-full py-2.5 px-4 rounded-xl text-sm font-medium text-left border transition-colors ${
+                    cancelReason === opt.value
+                      ? 'border-red-400 bg-red-50 text-red-700 font-semibold'
+                      : 'border-gray-200 text-gray-700 hover:border-gray-300'
+                  }`}>
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            <button type="button"
+              disabled={!cancelReason}
+              onClick={() => {
+                cancelWalk(walkId!, cancelReason);
+                setShowCancelDialog(false);
+                navigate('/owner');
+              }}
+              className="w-full py-3.5 rounded-2xl font-bold text-white text-sm mb-3 disabled:opacity-40 disabled:cursor-not-allowed"
+              style={{ background: '#DC2626' }}>
+              Confirm Cancellation
+            </button>
+            <button type="button"
+              onClick={() => { setShowCancelDialog(false); setCancelReason(''); }}
+              className="w-full py-2 text-sm font-medium text-gray-400">
+              Keep the walk
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Post-walk rating modal */}
+      {showRating && walk && !walk.rating && (
+        <RatingModal
+          walkId={walkId!}
+          walkerName={walker?.name || 'Your walker'}
+          onClose={() => setShowRating(false)}
+        />
+      )}
     </div>
   );
 }

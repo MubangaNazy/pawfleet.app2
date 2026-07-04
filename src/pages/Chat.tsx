@@ -237,22 +237,41 @@ export default function Chat() {
             return (
               <div key={msg.id} className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-[78%] flex flex-col ${isMine ? 'items-end' : 'items-start'} gap-1`}>
-                  <div
-                    className={`px-4 py-3 text-sm leading-relaxed select-none transition-all ${
-                      isMine
-                        ? 'text-white rounded-3xl rounded-br-lg'
-                        : 'text-ink bg-white border border-surface-border rounded-3xl rounded-bl-lg shadow-sm'
-                    } ${isSelected ? 'opacity-70 scale-95' : ''}`}
-                    style={isMine ? { background: isSelected ? '#0F2D20' : '#1B4332', transform: isSelected ? 'scale(0.95)' : undefined } : {}}
-                    onTouchStart={() => isMine && startLongPress(msg.id)}
-                    onTouchEnd={cancelLongPress}
-                    onTouchMove={cancelLongPress}
-                    onMouseDown={() => isMine && startLongPress(msg.id)}
-                    onMouseUp={cancelLongPress}
-                    onMouseLeave={cancelLongPress}
-                  >
-                    {msg.text}
-                  </div>
+                  {msg.text.startsWith('data:image') ? (
+                    <div
+                      className={`overflow-hidden transition-all ${isSelected ? 'opacity-70 scale-95' : ''} ${isMine ? 'rounded-3xl rounded-br-lg' : 'rounded-3xl rounded-bl-lg'}`}
+                      style={{ maxWidth: 240, border: '2px solid rgba(0,0,0,0.07)' }}
+                      onTouchStart={() => isMine && startLongPress(msg.id)}
+                      onTouchEnd={cancelLongPress}
+                      onTouchMove={cancelLongPress}
+                      onMouseDown={() => isMine && startLongPress(msg.id)}
+                      onMouseUp={cancelLongPress}
+                      onMouseLeave={cancelLongPress}
+                    >
+                      <img src={msg.text} alt="Walk photo" className="w-full object-cover" style={{ maxHeight: 240 }} />
+                      <div className="px-3 py-1.5 text-[10px] font-semibold"
+                        style={{ background: isMine ? '#1B4332' : '#F9FAFB', color: isMine ? 'rgba(255,255,255,0.7)' : '#6B7280' }}>
+                        📸 Walk photo
+                      </div>
+                    </div>
+                  ) : (
+                    <div
+                      className={`px-4 py-3 text-sm leading-relaxed select-none transition-all ${
+                        isMine
+                          ? 'text-white rounded-3xl rounded-br-lg'
+                          : 'text-ink bg-white border border-surface-border rounded-3xl rounded-bl-lg shadow-sm'
+                      } ${isSelected ? 'opacity-70 scale-95' : ''}`}
+                      style={isMine ? { background: isSelected ? '#0F2D20' : '#1B4332', transform: isSelected ? 'scale(0.95)' : undefined } : {}}
+                      onTouchStart={() => isMine && startLongPress(msg.id)}
+                      onTouchEnd={cancelLongPress}
+                      onTouchMove={cancelLongPress}
+                      onMouseDown={() => isMine && startLongPress(msg.id)}
+                      onMouseUp={cancelLongPress}
+                      onMouseLeave={cancelLongPress}
+                    >
+                      {msg.text}
+                    </div>
+                  )}
                   <div className="flex items-center gap-2 px-1">
                     <span className="text-[10px] text-ink-muted">
                       {format(new Date(msg.created_at), 'h:mm a')}

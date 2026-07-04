@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Phone, MessageCircle, Square, Clock, MapPin, Zap, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Phone, MessageCircle, Square, Clock, MapPin, Zap, AlertTriangle, Camera } from 'lucide-react';
 import MapLibreMap from '../../components/ui/MapLibreMap';
 import { useApp } from '../../context/AppContext';
 import { supabase } from '../../lib/supabase';
@@ -43,8 +43,10 @@ export default function WalkerLiveWalk() {
   const [payMethod, setPayMethod]       = useState('');
   const channelRef  = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
-  const [chatPopup, setChatPopup] = useState<{ senderName: string; text: string } | null>(null);
-  const popupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [chatPopup, setChatPopup]     = useState<{ senderName: string; text: string } | null>(null);
+  const popupTimerRef                 = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [sendingPhoto, setSendingPhoto] = useState(false);
+  const photoInputRef                 = useRef<HTMLInputElement>(null);
 
   const walk  = data.walks.find(w => w.id === walkId);
   const dog   = data.dogs.find(d => d.id === walk?.dogId);
@@ -199,6 +201,44 @@ export default function WalkerLiveWalk() {
     : walk.startLocation
     ? { lat: walk.startLocation.lat, lng: walk.startLocation.lng }
     : null;
+
+  const compressImage = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        const MAX = 720;
+        const scale = Math.min(1, MAX / Math.max(img.width, img.height));
+        const canvas = document.createElement('canvas');
+        canvas.width  = Math.round(img.width  * scale);
+        canvas.height = Math.round(img.height * scale);
+        canvas.getContext('2d')?.drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL('image/jpeg', 0.78));
+      };
+      img.onerror = reject;
+      img.src = url;
+    });
+
+  const handlePhotoSend = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || !walkId || !currentUser) return;
+    setSendingPhoto(true);
+    try {
+      const dataUrl = await compressImage(file);
+      await supabase.from('messages').insert({
+        id: crypto.randomUUID(),
+        walk_id: walkId,
+        sender_id: currentUser.id,
+        text: dataUrl,
+      });
+    } catch (err) {
+      console.warn('Photo send failed:', err);
+    } finally {
+      setSendingPhoto(false);
+    }
+  };
 
   const triggerSOS = () => {
     const admins = data.users.filter(u => u.role === 'admin');
@@ -355,6 +395,15 @@ export default function WalkerLiveWalk() {
                 <MessageCircle className="w-4 h-4" />
                 Chat
               </Link>
+              <button type="button"
+                onClick={() => photoInputRef.current?.click()}
+                disabled={sendingPhoto}
+                className="flex items-center gap-2 flex-1 justify-center py-4 rounded-2xl font-bold text-sm transition-all active:scale-95 disabled:opacity-50"
+                style={{ background: '#EBF5EF', color: '#1B4332' }}>
+                <Camera className="w-4 h-4" />
+                {sendingPhoto ? '…' : 'Photo'}
+              </button>
+              <input ref={photoInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handlePhotoSend} />
               <button type="button" onClick={handleEnd}
                 className="flex items-center gap-2 flex-1 justify-center text-white py-4 rounded-2xl font-bold text-sm transition-all active:scale-95"
                 style={{ background: '#DC2626' }}>

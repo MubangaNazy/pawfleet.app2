@@ -183,7 +183,6 @@ export default function OwnerRequestWalk() {
     setSubmitted(true);
   };
 
-  const walkerRatings: Record<number, string> = { 0: '4.9', 1: '5.0', 2: '4.8', 3: '4.7' };
   const walkerPrices: Record<number, number> = { 0: 150, 1: 180, 2: 130, 3: 160 };
   const walkerBios: Record<number, string> = {
     0: '5+ years experience, loves big dogs.',
@@ -562,7 +561,12 @@ export default function OwnerRequestWalk() {
                     { id: 'ten_walks', icon: '🏆', minWalks: 10 },
                     { id: 'twenty_five_walks', icon: '🥇', minWalks: 25 },
                   ];
-                  const completedCount = data.walks.filter(w => w.walkerId === walker.id && w.status === 'completed').length;
+                  const completedWalks = data.walks.filter(w => w.walkerId === walker.id && w.status === 'completed');
+                  const completedCount = completedWalks.length;
+                  const ratedWalks = completedWalks.filter(w => w.rating != null);
+                  const avgRating = ratedWalks.length > 0
+                    ? (ratedWalks.reduce((s, w) => s + (w.rating ?? 0), 0) / ratedWalks.length).toFixed(1)
+                    : null;
                   const earnedBadges  = BADGE_DEFS.filter(b => completedCount >= b.minWalks);
 
                   return (
@@ -594,11 +598,17 @@ export default function OwnerRequestWalk() {
                             <span className="text-[9px] font-bold text-white">✓ NRC Verified</span>
                           </div>
                         )}
-                        {/* Rating — bottom left */}
+                        {/* Rating — bottom left (real calculated) */}
                         <div className="absolute bottom-2 left-2 flex items-center gap-0.5 px-1.5 py-0.5 rounded-full"
                           style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)' }}>
-                          <Star className="w-2.5 h-2.5 fill-amber-400 text-amber-400" />
-                          <span className="text-[10px] font-bold text-white">{walkerRatings[i] || '4.8'}</span>
+                          {avgRating ? (
+                            <>
+                              <Star className="w-2.5 h-2.5 fill-amber-400 text-amber-400" />
+                              <span className="text-[10px] font-bold text-white">{avgRating}</span>
+                            </>
+                          ) : (
+                            <span className="text-[10px] font-semibold text-white/80">New</span>
+                          )}
                         </div>
                       </div>
 
@@ -606,7 +616,10 @@ export default function OwnerRequestWalk() {
                       <div className="bg-white p-3 flex-1 flex flex-col gap-2">
                         <div>
                           <p className="font-bold text-ink text-sm truncate">{walker.name}</p>
-                          <p className="text-[11px] text-ink-muted mt-0.5 leading-snug line-clamp-2">{walkerBios[i] || 'Experienced dog walker.'}</p>
+                          <p className="text-[11px] text-ink-muted mt-0.5 leading-snug line-clamp-2">
+                            {walkerBios[i] || 'Experienced dog walker.'}
+                            {completedCount > 0 && <span className="ml-1 text-primary font-semibold">· {completedCount} walk{completedCount !== 1 ? 's' : ''}</span>}
+                          </p>
                         </div>
                         {earnedBadges.length > 0 && (
                           <div className="flex gap-0.5">

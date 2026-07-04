@@ -1,8 +1,33 @@
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import PawFleetLogo from '../components/ui/PawFleetLogo';
+import { supabase } from '../lib/supabase';
 
 export default function Landing() {
   const navigate = useNavigate();
+  const [liveStats, setLiveStats] = useState({ walks: '…', walkers: '…', rating: '…' });
+
+  useEffect(() => {
+    Promise.all([
+      supabase.from('walks').select('id', { count: 'exact', head: true }).eq('status', 'completed'),
+      supabase.from('users').select('id', { count: 'exact', head: true }).eq('role', 'walker').eq('walker_status', 'active'),
+      supabase.from('walks').select('rating').eq('status', 'completed').not('rating', 'is', null),
+    ]).then(([walksRes, walkersRes, ratingsRes]) => {
+      const walksCount  = walksRes.count  ?? 0;
+      const walkersCount = walkersRes.count ?? 0;
+      const ratings     = (ratingsRes.data ?? []) as { rating: number }[];
+      const avgRating   = ratings.length > 0
+        ? (ratings.reduce((s, r) => s + r.rating, 0) / ratings.length).toFixed(1)
+        : null;
+      setLiveStats({
+        walks:   walksCount  > 0 ? String(walksCount)   : '0',
+        walkers: walkersCount > 0 ? String(walkersCount) : '0',
+        rating:  avgRating ?? '—',
+      });
+    }).catch(() => {
+      setLiveStats({ walks: '500+', walkers: '50+', rating: '4.9' });
+    });
+  }, []);
 
   return (
     <div className="min-h-screen bg-white overflow-x-hidden font-sans">
@@ -165,9 +190,9 @@ export default function Landing() {
           style={{ background: '#fff', border: '1px solid #e5e7eb', divideColor: '#e5e7eb' }}
         >
           {[
-            { value: '500+', label: 'Walks Completed' },
-            { value: '50+',  label: 'Trusted Walkers' },
-            { value: '4.9★', label: 'Average Rating'  },
+            { value: liveStats.walks,              label: 'Walks Completed' },
+            { value: liveStats.walkers,            label: 'Verified Walkers' },
+            { value: liveStats.rating === '—' ? '—' : `${liveStats.rating}★`, label: 'Average Rating' },
           ].map(({ value, label }) => (
             <div key={label} className="flex flex-col items-center py-5 gap-1">
               <span className="text-2xl font-extrabold" style={{ color: '#1B4332' }}>{value}</span>

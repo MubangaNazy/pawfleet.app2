@@ -312,21 +312,40 @@ export default function Login() {
       </div>
 
       {/* ══════════ RIGHT FORM PANEL ══════════ */}
-      <div className="flex-1 flex items-center justify-center bg-white p-6 sm:p-10 relative overflow-hidden">
+      <div className="flex-1 flex items-start justify-center bg-white p-6 sm:p-10 relative overflow-y-auto">
 
         {/* Subtle background texture */}
         <div className="absolute inset-0 opacity-30 pointer-events-none"
           style={{ backgroundImage: 'radial-gradient(circle at 80% 20%, #C6E6D3 0%, transparent 55%), radial-gradient(circle at 20% 80%, #EBF5EF 0%, transparent 55%)' }} />
 
-        <div className="relative w-full max-w-sm">
+        <div className="relative w-full max-w-sm py-8">
 
-          {/* Mobile logo */}
-          <div className="mb-8 lg:hidden fade-in-up">
-            <PawFleetLogo size={42} showText />
+          {/* Mobile branded header — replaces plain logo on small screens */}
+          <div className="lg:hidden mb-6 rounded-2xl overflow-hidden shadow-md fade-in-up">
+            <div className="relative px-5 py-7"
+              style={{ background: 'linear-gradient(145deg, #071a0e 0%, #0f3020 55%, #0a2418 100%)' }}>
+              <div className="absolute top-[-15px] right-[-15px] w-40 h-40 rounded-full opacity-20 pointer-events-none"
+                style={{ background: 'radial-gradient(circle, #22c55e 0%, transparent 70%)' }} />
+              <div className="absolute inset-0 opacity-[0.04] pointer-events-none"
+                style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,.3) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.3) 1px, transparent 1px)', backgroundSize: '32px 32px' }} />
+              <div className="relative">
+                <PawFleetLogo size={36} showText textWhite />
+                <p className="text-2xl font-extrabold text-white mt-4 tracking-tight">Welcome back 👋</p>
+                <p className="text-white/55 text-xs mt-1 leading-relaxed">Sign in to your PawFleet workspace</p>
+                <div className="flex flex-wrap gap-2 mt-4">
+                  {['📍 GPS Tracking', '✓ Verified Walkers', '⚡ Live Updates'].map(f => (
+                    <span key={f}
+                      className="px-2.5 py-1 rounded-full text-[10px] font-medium text-white/65 bg-white/10 border border-white/10">
+                      {f}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
 
-          {/* Heading */}
-          <div className="mb-8 fade-in-up-1">
+          {/* Desktop heading */}
+          <div className="mb-8 hidden lg:block fade-in-up-1">
             <h2 className="text-3xl font-extrabold text-ink tracking-tight">Welcome back</h2>
             <p className="text-ink-secondary mt-1.5 text-sm">Sign in to your workspace to continue</p>
           </div>

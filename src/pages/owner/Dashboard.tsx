@@ -494,33 +494,42 @@ export default function OwnerDashboard() {
               </Link>
             </div>
 
-            {/* Shop CTA — elevated card */}
+            {/* Shop treats — image banner */}
             <Link to="/owner/shop"
-              className="mt-3 flex items-center gap-4 p-4 rounded-2xl transition-all active:scale-[0.98]"
-              style={{ background: 'white', boxShadow: '0 2px 12px rgba(0,0,0,0.07)', border: '1px solid rgba(0,0,0,0.04)' }}>
-              <div className="w-11 h-11 rounded-2xl flex items-center justify-center text-xl shrink-0"
-                style={{ background: '#EBF5EF' }}>
-                🛒
+              className="mt-3 block relative overflow-hidden rounded-2xl active:scale-[0.98] transition-transform"
+              style={{ height: 130 }}>
+              <img src="/images/dog treats  (1).png" alt="Dog treats" className="absolute inset-0 w-full h-full object-cover" />
+              <div className="absolute inset-0"
+                style={{ background: 'linear-gradient(to right, rgba(0,0,0,0.68) 35%, rgba(0,0,0,0.08) 100%)' }} />
+              <div className="absolute inset-0 flex flex-col justify-center pl-5">
+                <p className="text-white/65 text-[10px] font-bold uppercase tracking-widest mb-0.5">PawFleet Shop</p>
+                <p className="text-white text-base font-extrabold leading-tight">Shop Treats & Gear</p>
+                <p className="text-white/65 text-[11px] mt-1">Hand-picked goodies for your pup</p>
               </div>
-              <div className="flex-1">
-                <p className="text-sm font-bold text-ink">Shop treats & gear</p>
-                <p className="text-xs text-ink-muted mt-0.5">Hand-picked goodies for your pup</p>
+              <div className="absolute right-4 bottom-4">
+                <span className="px-3 py-1.5 rounded-xl text-xs font-bold text-white"
+                  style={{ background: '#2B8A50', boxShadow: '0 2px 8px rgba(0,0,0,0.25)' }}>
+                  Shop Now →
+                </span>
               </div>
-              <ChevronRight className="w-4 h-4 text-ink-muted shrink-0" />
             </Link>
 
-            {/* Community CTA */}
+            {/* Community — image banner */}
             <Link to="/owner/community"
-              className="mt-3 flex items-center gap-4 p-4 rounded-2xl transition-all active:scale-[0.98]"
-              style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)', boxShadow: '0 4px 16px rgba(27,67,50,0.28)' }}>
-              <div className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 bg-white/20">
-                <Users className="w-5 h-5 text-white" />
+              className="mt-3 block relative overflow-hidden rounded-2xl active:scale-[0.98] transition-transform"
+              style={{ height: 165 }}>
+              <img src="/images/community.png" alt="PawFleet Community" className="absolute inset-0 w-full h-full object-cover" />
+              <div className="absolute inset-0"
+                style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.32) 55%, rgba(0,0,0,0.08) 100%)' }} />
+              <div className="absolute bottom-0 left-0 right-0 p-4">
+                <p className="text-white text-base font-extrabold leading-tight mb-0.5">PawFleet Community</p>
+                <p className="text-white/65 text-xs mb-3">Connect with pet owners in Zambia</p>
+                <span className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-white"
+                  style={{ background: 'rgba(255,255,255,0.18)', border: '1px solid rgba(255,255,255,0.28)' }}>
+                  <Users className="w-3.5 h-3.5" />
+                  Connect with Friends
+                </span>
               </div>
-              <div className="flex-1">
-                <p className="text-sm font-bold text-white">PawFleet Community</p>
-                <p className="text-xs text-white/70 mt-0.5">Connect with pet owners in Zambia</p>
-              </div>
-              <ChevronRight className="w-4 h-4 text-white/60 shrink-0" />
             </Link>
           </div>
         </Reveal>

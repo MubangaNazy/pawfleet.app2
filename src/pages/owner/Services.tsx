@@ -565,17 +565,22 @@ export default function Services() {
             </div>
           </div>
 
-          {/* CTA */}
+          {/* CTA — image banner */}
           <div className="px-4 pt-6">
-            <div className="rounded-2xl p-5 text-center border border-emerald-100" style={{ background: '#F0FAF4' }}>
-              <p className="text-base font-bold text-ink mb-1">Ready for a fresh, clean pup?</p>
-              <p className="text-sm text-ink-secondary mb-4">Book your first grooming session today</p>
-              <button onClick={() => setBookingService(GROOM_SERVICES[2])}
-                className="px-8 py-3 rounded-2xl text-sm font-bold text-white shadow-sm"
-                style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)' }}>
-                <Scissors className="w-4 h-4 inline mr-2" />
-                Book Grooming
-              </button>
+            <div className="relative rounded-2xl overflow-hidden" style={{ minHeight: 170 }}>
+              <img src="/images/pf-groom-dog.png" alt="Grooming" className="absolute inset-0 w-full h-full object-cover" />
+              <div className="absolute inset-0"
+                style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.25) 100%)' }} />
+              <div className="relative flex flex-col items-center justify-end text-center px-5 pb-5 pt-16">
+                <p className="text-lg font-extrabold text-white mb-1">Ready for a fresh, clean pup?</p>
+                <p className="text-white/65 text-sm mb-4">At-home grooming — stress-free, every time</p>
+                <button onClick={() => setBookingService(GROOM_SERVICES[2])}
+                  className="flex items-center gap-2 px-8 py-3 rounded-2xl text-sm font-bold text-white shadow-lg"
+                  style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)' }}>
+                  <Scissors className="w-4 h-4" />
+                  Book Grooming
+                </button>
+              </div>
             </div>
           </div>
         </>

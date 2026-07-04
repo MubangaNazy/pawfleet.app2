@@ -33,7 +33,8 @@ const PRIVACY: Section[] = [
       'We do not sell your personal information to third parties.',
       'Walker name and profile photo are visible to owners who book a walk, and vice versa.',
       'Payment amounts are visible to the admin for reconciliation purposes.',
-      'We use the following third-party processors, all bound by their own privacy policies: Supabase (database, supabase.com), Lenco (mobile payments, lenco.co), Sentry (error monitoring, sentry.io), PostHog (analytics, posthog.com), Resend (receipt emails, resend.com), and Firebase (push notifications, firebase.google.com). Some of these services store data on servers outside Zambia (primarily the United States), as disclosed under Zambia\'s Data Protection Act 2021.',
+      'We use the following third-party processors, all bound by their own privacy policies: Supabase (database, supabase.com), Lenco (mobile payments, lenco.co), Sentry (error monitoring, sentry.io), PostHog (analytics, posthog.com), Resend (receipt emails, resend.com), and Firebase (push notifications, firebase.google.com).',
+      'Some of these services store data on servers outside Zambia (primarily the United States), as disclosed under Zambia\'s Data Protection Act 2021, Part VII. These transfers are necessary to deliver the service to you (contractual basis) and are protected by standard data processing agreements each provider maintains with their users. You may withdraw consent for non-essential data processing at any time by contacting us at pawfleetapp@gmail.com.',
     ],
   },
   {
@@ -43,7 +44,7 @@ const PRIVACY: Section[] = [
       'All data is transmitted over HTTPS.',
       'Passwords are stored using industry-standard hashing via Supabase Auth — we never store plain-text passwords.',
       'Location data is only retained for the duration of an active walk session.',
-      'You can request deletion of your account and associated data by contacting us at mubangachanda004@gmail.com.',
+      'You can request deletion of your account and associated data by contacting us at pawfleetapp@gmail.com.',
     ],
   },
   {
@@ -61,7 +62,7 @@ const PRIVACY: Section[] = [
     body: [
       'You have the right to access, correct, or delete the personal information we hold about you.',
       'You may withdraw consent for location tracking by ending the active walk session.',
-      'To exercise any of these rights, contact us at mubangachanda004@gmail.com.',
+      'To exercise any of these rights, contact us at pawfleetapp@gmail.com.',
     ],
   },
   {
@@ -69,9 +70,9 @@ const PRIVACY: Section[] = [
     title: '7. Contact',
     body: [
       'PawFleet is operated in Lusaka, Zambia.',
-      'For any privacy concerns: mubangachanda004@gmail.com',
+      'For any privacy concerns: pawfleetapp@gmail.com',
       'Phone / WhatsApp: +260 574 800 304',
-      'This policy was last updated on 16 June 2026.',
+      'This policy was last updated on 4 July 2026.',
     ],
   },
   {
@@ -81,7 +82,7 @@ const PRIVACY: Section[] = [
       'Your safety and the safety of your pet is our top priority.',
       'If you experience or witness any unsafe behaviour — including aggressive animals, walker misconduct, or any incident during a walk — please report it immediately.',
       'Emergency contact: +260 574 800 304 (call or WhatsApp)',
-      'Email: mubangachanda004@gmail.com — use the subject line "Safety Report".',
+      'Email: pawfleetapp@gmail.com — use the subject line "Safety Report".',
       'All safety reports are treated confidentially and investigated within 24 hours. Accounts involved in verified safety incidents may be suspended pending review.',
     ],
   },
@@ -130,7 +131,7 @@ const TERMS: Section[] = [
       'Shop purchases may be paid online via Airtel Money, MTN MoMo, or Zamtel Kwacha at checkout.',
       'Walk and grooming payments are made directly from owner to walker after the service.',
       'All prices are in Zambian Kwacha (ZMW). No refunds are provided once a walk has been completed.',
-      'Disputed payments should be reported within 48 hours to mubangachanda004@gmail.com.',
+      'Disputed payments should be reported within 48 hours to pawfleetapp@gmail.com.',
     ],
   },
   {
@@ -155,7 +156,7 @@ const TERMS: Section[] = [
     title: '8. Changes to Terms',
     body: [
       'We may update these Terms from time to time. Continued use of the app after changes constitutes acceptance.',
-      'Last updated: 16 June 2026.',
+      'Last updated: 4 July 2026.',
     ],
   },
 ];
@@ -191,7 +192,7 @@ export default function PrivacyPolicy() {
             <span className="text-2xl">🔒</span>
           </div>
           <h1 className="text-3xl font-extrabold" style={{ color: '#1B4332' }}>Privacy & Terms</h1>
-          <p className="text-sm" style={{ color: '#777' }}>PawFleet · Lusaka, Zambia · Last updated 16 June 2026</p>
+          <p className="text-sm" style={{ color: '#777' }}>PawFleet · Lusaka, Zambia · Last updated 4 July 2026</p>
         </div>
 
         {/* Jump links */}
@@ -257,10 +258,10 @@ export default function PrivacyPolicy() {
         {/* Contact box */}
         <div className="rounded-2xl p-6 text-center space-y-2" style={{ background: '#EBF5EF' }}>
           <p className="font-bold text-sm" style={{ color: '#1B4332' }}>Questions about this policy?</p>
-          <a href="mailto:mubangachanda004@gmail.com"
+          <a href="mailto:pawfleetapp@gmail.com"
             className="text-sm font-semibold"
             style={{ color: '#2B8A50' }}>
-            mubangachanda004@gmail.com
+            pawfleetapp@gmail.com
           </a>
         </div>
       </div>

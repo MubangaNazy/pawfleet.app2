@@ -1,9 +1,10 @@
 import { Link } from 'react-router-dom';
 import React, { useEffect, useState } from 'react';
 import { format, isToday } from 'date-fns';
-import { CheckCircle, DollarSign, Clock, ArrowRight, Flame, Star, TrendingUp, ChevronRight } from 'lucide-react';
+import { CheckCircle, Clock, ArrowRight, Flame, TrendingUp, ChevronRight, Users } from 'lucide-react';
 import SubscriptionBanner from '../../components/ui/SubscriptionBanner';
 import { useApp } from '../../context/AppContext';
+import Onboarding from '../../components/ui/Onboarding';
 import { StatusBadge } from '../../components/ui/Badge';
 import WalkRequestPopup, { getDeclinedWalks, addDeclinedWalk } from '../../components/ui/WalkRequestPopup';
 import { WalkingDogIllustration } from '../../components/ui/Illustrations';
@@ -93,6 +94,7 @@ export default function WalkerDashboard() {
 
   return (
     <div className="max-w-2xl mx-auto pb-24">
+      {currentUser && <Onboarding userId={currentUser.id} role="walker" />}
       <SubscriptionBanner />
       {/* Hero */}
       <div className="relative overflow-hidden px-5 pt-8 pb-0 mb-5"
@@ -364,6 +366,20 @@ export default function WalkerDashboard() {
             </div>
           )}
         </div>
+
+        {/* Community */}
+        <Link to="/walker/community"
+          className="flex items-center gap-4 p-4 rounded-2xl transition-all active:scale-[0.98]"
+          style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)', boxShadow: '0 4px 16px rgba(27,67,50,0.28)' }}>
+          <div className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 bg-white/20">
+            <Users className="w-5 h-5 text-white" />
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-bold text-white">PawFleet Community</p>
+            <p className="text-xs text-white/70 mt-0.5">Connect with walkers and owners in Zambia</p>
+          </div>
+          <ChevronRight className="w-4 h-4 text-white/60 shrink-0" />
+        </Link>
 
         {/* Earnings preview */}
         <div className="bg-white border border-surface-border rounded-2xl p-5">

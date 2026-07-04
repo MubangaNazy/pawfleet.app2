@@ -70,7 +70,19 @@ const PRIVACY: Section[] = [
     body: [
       'PawFleet is operated in Lusaka, Zambia.',
       'For any privacy concerns: mubangachanda004@gmail.com',
+      'Phone / WhatsApp: +260 574 800 304',
       'This policy was last updated on 16 June 2026.',
+    ],
+  },
+  {
+    id: 'safety',
+    title: '8. Report a Safety Issue',
+    body: [
+      'Your safety and the safety of your pet is our top priority.',
+      'If you experience or witness any unsafe behaviour — including aggressive animals, walker misconduct, or any incident during a walk — please report it immediately.',
+      'Emergency contact: +260 574 800 304 (call or WhatsApp)',
+      'Email: mubangachanda004@gmail.com — use the subject line "Safety Report".',
+      'All safety reports are treated confidentially and investigated within 24 hours. Accounts involved in verified safety incidents may be suspended pending review.',
     ],
   },
 ];

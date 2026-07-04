@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { format } from 'date-fns';
 import { Navigation, MessageCircle, ChevronRight, Star, Users } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import Onboarding from '../../components/ui/Onboarding';
 
 // ── Scroll-reveal wrapper ────────────────────────────────────
 function Reveal({ children, delay = 0, className = '' }: { children: ReactNode; delay?: number; className?: string }) {
@@ -125,12 +126,43 @@ export default function OwnerDashboard() {
 
   return (
     <div className="bg-white min-h-screen pb-28">
+      {currentUser && <Onboarding userId={currentUser.id} role="owner" />}
       <div className="max-w-lg mx-auto px-4 pt-5 space-y-6">
 
         {/* Greeting */}
         <div>
-          <p className="text-sm text-ink-secondary">{greeting}</p>
-          <h1 className="text-3xl font-extrabold text-ink mt-0.5">Hi, {firstName} 🐾</h1>
+          <p className="text-sm font-medium" style={{ color: '#52B788' }}>{greeting}</p>
+          <h1 className="mt-0.5 flex items-center gap-2 flex-wrap">
+            <span
+              className="text-3xl font-black italic tracking-tight"
+              style={{
+                background: 'linear-gradient(135deg, #1B4332 0%, #2B8A50 50%, #52B788 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                animation: 'fadeSlideIn 0.6s ease both',
+              }}
+            >
+              Hi, {firstName}
+            </span>
+            <span
+              className="text-3xl"
+              style={{ animation: 'pawBounce 1.2s ease 0.5s both' }}
+            >
+              🐾
+            </span>
+          </h1>
+          <style>{`
+            @keyframes fadeSlideIn {
+              from { opacity: 0; transform: translateY(8px); }
+              to   { opacity: 1; transform: translateY(0); }
+            }
+            @keyframes pawBounce {
+              0%   { opacity: 0; transform: scale(0.4) rotate(-20deg); }
+              60%  { transform: scale(1.25) rotate(8deg); }
+              80%  { transform: scale(0.92) rotate(-4deg); }
+              100% { opacity: 1; transform: scale(1) rotate(0deg); }
+            }
+          `}</style>
         </div>
 
         {/* ── Hero Slideshow ── */}

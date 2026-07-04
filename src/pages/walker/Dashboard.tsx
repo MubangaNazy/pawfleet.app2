@@ -5,6 +5,7 @@ import { CheckCircle, Clock, ArrowRight, Flame, TrendingUp, ChevronRight, Users 
 import SubscriptionBanner from '../../components/ui/SubscriptionBanner';
 import { useApp } from '../../context/AppContext';
 import Onboarding from '../../components/ui/Onboarding';
+import { SkeletonWalkerDashboard } from '../../components/ui/Skeleton';
 import { StatusBadge } from '../../components/ui/Badge';
 import WalkRequestPopup, { getDeclinedWalks, addDeclinedWalk } from '../../components/ui/WalkRequestPopup';
 import { WalkingDogIllustration } from '../../components/ui/Illustrations';
@@ -16,7 +17,7 @@ const WALK_SLIDES = [
 ];
 
 export default function WalkerDashboard() {
-  const { data, currentUser, getWalkerStats } = useApp();
+  const { data, currentUser, getWalkerStats, loading } = useApp();
 
   const [popupWalkId, setPopupWalkId] = useState<string | null>(null);
   const shownPopupsRef = React.useRef<Set<string>>(new Set());
@@ -91,6 +92,8 @@ export default function WalkerDashboard() {
     return                  { name: 'Rookie',        next: 200,   progress: (pts / 200) * 100 };
   };
   const level = getLevel(gamStats.points);
+
+  if (loading) return <SkeletonWalkerDashboard />;
 
   return (
     <div className="max-w-2xl mx-auto pb-24">

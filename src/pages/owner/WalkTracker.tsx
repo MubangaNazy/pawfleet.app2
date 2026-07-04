@@ -187,6 +187,7 @@ export default function WalkTracker() {
               lng={displayPos.lng}
               endLat={endLat ? endLat[0] : undefined}
               endLng={endLat ? endLat[1] : undefined}
+              trail={walk.status === 'completed' && walk.routePoints ? walk.routePoints : undefined}
             />
           </div>
         )}

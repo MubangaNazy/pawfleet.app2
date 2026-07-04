@@ -79,6 +79,7 @@ export interface Walk {
   createdAt: string;
   rating?: number;          // 1-5 stars, set by owner after completion
   ratingComment?: string;   // Optional written review
+  routePoints?: [number, number][];  // GPS track [[lat,lng],...] stored at walk end
 }
 
 export type PaymentMethod = 'cash' | 'mobile_money' | 'bank' | 'online';

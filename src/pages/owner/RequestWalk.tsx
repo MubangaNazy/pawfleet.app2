@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { CheckCircle, Star, MapPin, Zap, Calendar, Scissors, Loader2 } from 'lucide-react';
+import { CheckCircle, Star, MapPin, Zap, Calendar, Scissors, Loader2, CreditCard } from 'lucide-react';
 import { ScalePop, FadeIn, StaggerList, StaggerItem } from '../../components/ui/Anim';
 import { SuccessDogIllustration, NoPetsIllustration } from '../../components/ui/Illustrations';
 import { useApp } from '../../context/AppContext';
+import PaymentModal from '../../components/ui/PaymentModal';
 import { supabase } from '../../lib/supabase';
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
@@ -46,6 +47,9 @@ export default function OwnerRequestWalk() {
   const [selectedWalkerId, setSelectedWalkerId] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [showWalkers, setShowWalkers] = useState(false);
+  const [createdWalkPrice, setCreatedWalkPrice] = useState(0);
+  const [showPayModal, setShowPayModal] = useState(false);
+  const [paymentDone, setPaymentDone] = useState(false);
 
   // Pickup location state
   const [pickupMode, setPickupMode] = useState<'live' | 'manual' | null>(null);
@@ -180,6 +184,7 @@ export default function OwnerRequestWalk() {
       startLiveBroadcast(newWalk.id);
     }
 
+    setCreatedWalkPrice(addGrooming ? 399 : 150);
     setSubmitted(true);
   };
 
@@ -237,7 +242,33 @@ export default function OwnerRequestWalk() {
           </div>
         )}
 
-        <div className="flex gap-3 w-full max-w-xs mt-2">
+        {/* Pay now CTA */}
+        {!paymentDone ? (
+          <div className="w-full max-w-xs mt-4 rounded-2xl overflow-hidden border-2 border-primary/20 bg-[#EBF5EF]">
+            <div className="px-5 py-4 text-center">
+              <p className="text-xs text-ink-muted mb-1">Walk fee</p>
+              <p className="text-3xl font-extrabold mb-3" style={{ color: '#1B4332' }}>K{createdWalkPrice}</p>
+              <button
+                onClick={() => setShowPayModal(true)}
+                className="w-full py-3.5 rounded-xl text-sm font-bold text-white flex items-center justify-center gap-2 shadow-md"
+                style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)' }}>
+                <CreditCard className="w-4 h-4" />
+                Pay via Mobile Money
+              </button>
+              <button onClick={() => navigate('/owner')}
+                className="mt-2 text-xs text-ink-muted hover:text-ink transition-colors">
+                Pay later at home
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="w-full max-w-xs mt-4 rounded-2xl bg-green-50 border border-green-200 px-5 py-3 text-center">
+            <p className="text-sm font-bold text-green-700">Payment confirmed ✓</p>
+            <p className="text-xs text-green-600 mt-0.5">K{createdWalkPrice} received</p>
+          </div>
+        )}
+
+        <div className="flex gap-3 w-full max-w-xs mt-3">
           <button onClick={() => navigate('/owner')}
             className="flex-1 py-3 rounded-2xl border-2 border-surface-border text-sm font-bold text-ink hover:bg-surface-hover transition-colors">
             Home
@@ -246,12 +277,27 @@ export default function OwnerRequestWalk() {
             setSubmitted(false); setShowWalkers(false);
             setSelectedWalkerId(''); setAddGrooming(false);
             resetPickup(); stopBroadcast(); setLiveWalkId(null);
+            setPaymentDone(false);
           }}
             className="flex-1 py-3 rounded-2xl text-sm font-bold text-white transition-colors"
             style={{ background: '#1B4332' }}>
             Book another
           </button>
         </div>
+
+        {showPayModal && (
+          <PaymentModal
+            amount={createdWalkPrice}
+            description={`Dog walk${addGrooming ? ' + grooming' : ''} for ${selectedDog?.name || 'your dog'}`}
+            customerName={currentUser?.name || ''}
+            customerPhone={currentUser?.phone}
+            onConfirm={(_method, _ref) => {
+              setPaymentDone(true);
+              setShowPayModal(false);
+            }}
+            onClose={() => setShowPayModal(false)}
+          />
+        )}
       </div>
     );
   }

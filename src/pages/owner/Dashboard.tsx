@@ -5,6 +5,7 @@ import { format } from 'date-fns';
 import { Navigation, MessageCircle, ChevronRight, Star, Users } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import Onboarding from '../../components/ui/Onboarding';
+import { SkeletonOwnerDashboard } from '../../components/ui/Skeleton';
 
 // ── Scroll-reveal wrapper ────────────────────────────────────
 function Reveal({ children, delay = 0, className = '' }: { children: ReactNode; delay?: number; className?: string }) {
@@ -75,7 +76,7 @@ const SLIDES = [
 ];
 
 export default function OwnerDashboard() {
-  const { data, currentUser } = useApp();
+  const { data, currentUser, loading } = useApp();
   const navigate = useNavigate();
 
   const myWalks      = data.walks.filter(w => w.ownerId === currentUser?.id);
@@ -123,6 +124,8 @@ export default function OwnerDashboard() {
     const id = setInterval(() => setSlide(s => (s + 1) % SLIDES.length), 4800);
     return () => clearInterval(id);
   }, []);
+
+  if (loading) return <SkeletonOwnerDashboard />;
 
   return (
     <div className="bg-white min-h-screen pb-28">

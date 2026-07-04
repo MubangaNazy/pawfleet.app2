@@ -53,6 +53,9 @@ const toWalk = (r: any): Walk => ({
   notes: r.notes, createdAt: r.created_at,
   rating: r.rating ?? undefined,
   ratingComment: r.rating_comment ?? undefined,
+  routePoints: r.route_points
+    ? (typeof r.route_points === 'string' ? JSON.parse(r.route_points) : r.route_points)
+    : undefined,
 });
 
 const toPayment = (r: any): Payment => ({
@@ -94,7 +97,7 @@ interface AppContextType {
   createWalk: (walk: Omit<Walk, 'id' | 'createdAt'>) => Walk;
   updateWalk: (id: string, updates: Partial<Walk>) => void;
   startWalk: (walkId: string, loc: { lat: number; lng: number }) => void;
-  endWalk: (walkId: string, loc: { lat: number; lng: number }) => void;
+  endWalk: (walkId: string, loc: { lat: number; lng: number }, routePoints?: [number, number][]) => void;
   assignWalker: (walkId: string, walkerId: string) => void;
   cancelWalk: (walkId: string, reason?: string) => void;
   markPaymentPaid: (paymentId: string, method?: 'cash' | 'mobile_money' | 'bank' | 'online') => void;
@@ -615,6 +618,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       db.end_lng = updates.endLocation.lng;
       db.end_address = updates.endLocation.address ?? null;
     }
+    if (updates.routePoints !== undefined) db.route_points = JSON.stringify(updates.routePoints);
     supabase.from('walks').update(db).eq('id', id)
       .then(({ error }) => { if (error) console.error('updateWalk:', error); });
   };
@@ -640,14 +644,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
-  const endWalk = (walkId: string, loc: { lat: number; lng: number }) => {
+  const endWalk = (walkId: string, loc: { lat: number; lng: number }, routePoints?: [number, number][]) => {
     const walk = data.walks.find(w => w.id === walkId);
     if (!walk) return;
     const now = new Date().toISOString();
     const duration = walk.startTime
       ? Math.round((Date.now() - new Date(walk.startTime).getTime()) / 60000)
       : 45;
-    updateWalk(walkId, { status: 'completed', endTime: now, endLocation: loc, duration });
+    updateWalk(walkId, { status: 'completed', endTime: now, endLocation: loc, duration, ...(routePoints ? { routePoints } : {}) });
 
     // Notify owner: walk ended, please confirm payment and rate
     if (walk.ownerId) {

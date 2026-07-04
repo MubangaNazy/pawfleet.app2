@@ -162,7 +162,8 @@ export default function WalkerLiveWalk() {
         await supabase.from('payments').update({ payment_method: payMethod, walker_confirmed: true, status: 'paid' }).eq('id', payment.id);
       }
     }
-    endWalk(walkId, loc);
+    const routePointsArr: [number, number][] = routeRef.current.map(p => [p[0], p[1]]);
+    endWalk(walkId, loc, routePointsArr.length > 0 ? routePointsArr : undefined);
     navigate('/walker/walks');
   };
 

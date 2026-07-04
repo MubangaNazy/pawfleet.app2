@@ -316,9 +316,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       // Look up FCM token for the target user and fire push (background-safe)
       const target = prev.users.find(u => u.id === userId);
       if (target?.fcmToken) {
-        fetch('/api/send-notification', {
+        fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-notification`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          },
           body: JSON.stringify({ token: target.fcmToken, title, body, data: data ?? {} }),
         }).catch(() => {});
       }

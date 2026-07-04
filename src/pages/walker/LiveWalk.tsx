@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Phone, MessageCircle, Square, Clock, MapPin, Zap } from 'lucide-react';
+import { ArrowLeft, Phone, MessageCircle, Square, Clock, MapPin, Zap, AlertTriangle } from 'lucide-react';
 import MapLibreMap from '../../components/ui/MapLibreMap';
 import { useApp } from '../../context/AppContext';
 import { supabase } from '../../lib/supabase';
@@ -27,7 +27,9 @@ function totalDistance(pts: LatLng[]): number {
 
 export default function WalkerLiveWalk() {
   const { walkId } = useParams<{ walkId: string }>();
-  const { data, endWalk, startWalk, currentUser } = useApp();
+  const { data, endWalk, startWalk, currentUser, sendNotification } = useApp();
+  const [sosConfirm, setSosConfirm] = useState(false);
+  const [sosDone, setSosDone]       = useState(false);
   const navigate = useNavigate();
 
   const [myPos, setMyPos]     = useState<LatLng | null>(null);
@@ -198,6 +200,15 @@ export default function WalkerLiveWalk() {
     ? { lat: walk.startLocation.lat, lng: walk.startLocation.lng }
     : null;
 
+  const triggerSOS = () => {
+    const admins = data.users.filter(u => u.role === 'admin');
+    const locStr = myPos ? `GPS: ${myPos[0].toFixed(5)}, ${myPos[1].toFixed(5)}` : 'Location unavailable';
+    const msg = `🚨 SOS from walker ${currentUser?.name || 'Walker'} — walking ${dog?.name || 'dog'} for ${owner?.name || 'owner'}. ${locStr}`;
+    admins.forEach(admin => sendNotification(admin.id, 'sos', '🚨 Emergency SOS Alert', msg, { walkId: walkId ?? '' }));
+    setSosConfirm(false);
+    setSosDone(true);
+  };
+
   return (
     <div className="flex flex-col h-screen bg-ink">
       {/* Header */}
@@ -314,44 +325,88 @@ export default function WalkerLiveWalk() {
       </div>
 
       {/* Action buttons */}
-      <div className="bg-white px-4 py-4 flex gap-2.5 shrink-0 z-[1001]"
+      <div className="bg-white px-4 pt-3 pb-4 shrink-0 z-[1001]"
         style={{ borderTop: '1px solid rgba(0,0,0,0.06)', boxShadow: '0 -4px 16px rgba(0,0,0,0.06)' }}>
-        {isAssigned && (
-          <button type="button" onClick={handleStart} disabled={starting}
-            className="flex items-center gap-2 flex-1 justify-center text-white py-4 rounded-2xl font-bold text-sm transition-all active:scale-95 disabled:opacity-60 shadow-lg"
-            style={{ background: 'linear-gradient(135deg,#1B4332,#2B8A50)' }}>
-            {starting ? (
-              <><div className="w-4 h-4 rounded-full border-2 border-white/40 border-t-white animate-spin" /> Starting…</>
-            ) : (
-              <><span className="text-base">▶</span> Start Walk</>
-            )}
+        <div className="flex gap-2.5">
+          {isAssigned && (
+            <button type="button" onClick={handleStart} disabled={starting}
+              className="flex items-center gap-2 flex-1 justify-center text-white py-4 rounded-2xl font-bold text-sm transition-all active:scale-95 disabled:opacity-60 shadow-lg"
+              style={{ background: 'linear-gradient(135deg,#1B4332,#2B8A50)' }}>
+              {starting ? (
+                <><div className="w-4 h-4 rounded-full border-2 border-white/40 border-t-white animate-spin" /> Starting…</>
+              ) : (
+                <><span className="text-base">▶</span> Start Walk</>
+              )}
+            </button>
+          )}
+          {isActive && (
+            <>
+              {owner?.phone && (
+                <a href={`tel:${owner.phone}`}
+                  className="flex items-center gap-2 flex-1 justify-center py-4 rounded-2xl font-bold text-sm transition-all active:scale-95"
+                  style={{ background: '#EBF5EF', color: '#1B4332' }}>
+                  <Phone className="w-4 h-4" />
+                  Call
+                </a>
+              )}
+              <Link to={`/walker/chat/${walkId}`}
+                className="flex items-center gap-2 flex-1 justify-center py-4 rounded-2xl font-bold text-sm transition-all active:scale-95"
+                style={{ background: '#F3F4F6', color: '#374151' }}>
+                <MessageCircle className="w-4 h-4" />
+                Chat
+              </Link>
+              <button type="button" onClick={handleEnd}
+                className="flex items-center gap-2 flex-1 justify-center text-white py-4 rounded-2xl font-bold text-sm transition-all active:scale-95"
+                style={{ background: '#DC2626' }}>
+                <Square className="w-4 h-4" />
+                End
+              </button>
+            </>
+          )}
+        </div>
+
+        {/* SOS row — only during active walk */}
+        {isActive && (
+          <button type="button"
+            onClick={() => sosDone ? undefined : setSosConfirm(true)}
+            className="mt-2.5 w-full flex items-center justify-center gap-2 py-3 rounded-2xl font-bold text-sm transition-all active:scale-95"
+            style={{
+              background: sosDone ? '#ECFDF5' : '#FEF2F2',
+              color: sosDone ? '#16a34a' : '#DC2626',
+              border: `1.5px solid ${sosDone ? '#bbf7d0' : '#fecaca'}`,
+            }}>
+            {sosDone
+              ? '✓ Admin team alerted — help is on the way'
+              : <><AlertTriangle className="w-4 h-4" /> Emergency SOS — Alert Admin</>}
           </button>
         )}
-        {isActive && (
-          <>
-            {owner?.phone && (
-              <a href={`tel:${owner.phone}`}
-                className="flex items-center gap-2 flex-1 justify-center py-4 rounded-2xl font-bold text-sm transition-all active:scale-95"
-                style={{ background: '#EBF5EF', color: '#1B4332' }}>
-                <Phone className="w-4 h-4" />
-                Call
-              </a>
-            )}
-            <Link to={`/walker/chat/${walkId}`}
-              className="flex items-center gap-2 flex-1 justify-center py-4 rounded-2xl font-bold text-sm transition-all active:scale-95"
-              style={{ background: '#F3F4F6', color: '#374151' }}>
-              <MessageCircle className="w-4 h-4" />
-              Chat
-            </Link>
-            <button type="button" onClick={handleEnd}
-              className="flex items-center gap-2 flex-1 justify-center text-white py-4 rounded-2xl font-bold text-sm transition-all active:scale-95"
-              style={{ background: '#DC2626' }}>
-              <Square className="w-4 h-4" />
-              End
-            </button>
-          </>
-        )}
       </div>
+
+      {/* SOS confirmation dialog */}
+      {sosConfirm && (
+        <div className="fixed inset-0 z-[2000] flex items-center justify-center p-6"
+          style={{ background: 'rgba(0,0,0,0.65)' }}>
+          <div className="bg-white rounded-3xl p-6 w-full max-w-xs text-center shadow-2xl">
+            <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4"
+              style={{ background: '#FEE2E2' }}>
+              <AlertTriangle className="w-7 h-7 text-red-600" />
+            </div>
+            <p className="text-base font-extrabold text-gray-900 mb-2">Send SOS alert?</p>
+            <p className="text-sm text-gray-500 mb-6 leading-relaxed">
+              This will immediately notify the PawFleet admin team with your GPS location and walk details.
+            </p>
+            <button type="button" onClick={triggerSOS}
+              className="w-full py-3.5 rounded-2xl font-bold text-white text-sm mb-3"
+              style={{ background: '#DC2626' }}>
+              Yes, Send SOS
+            </button>
+            <button type="button" onClick={() => setSosConfirm(false)}
+              className="w-full py-2 text-sm font-medium text-gray-400">
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Payment confirmation modal */}
       {showPayModal && (

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, MessageCircle, Phone, Navigation, ChevronUp, ChevronDown } from 'lucide-react';
+import { ArrowLeft, MessageCircle, Phone, Navigation, ChevronUp, ChevronDown, AlertTriangle } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { supabase } from '../../lib/supabase';
 import { format } from 'date-fns';
@@ -14,7 +14,9 @@ const SHEET_FULL  = 320; // px visible when expanded
 
 export default function WalkTracker() {
   const { walkId } = useParams<{ walkId: string }>();
-  const { data, currentUser } = useApp();
+  const { data, currentUser, sendNotification } = useApp();
+  const [sosConfirm, setSosConfirm] = useState(false);
+  const [sosDone, setSosDone]       = useState(false);
   const navigate   = useNavigate();
   const [elapsed, setElapsed]       = useState(0);
   const [livePos, setLivePos]       = useState<LatLng | null>(null);
@@ -107,6 +109,15 @@ export default function WalkTracker() {
     : startLat
     ? { lat: startLat[0], lng: startLat[1] }
     : null;
+
+  const triggerSOS = () => {
+    const admins = data.users.filter(u => u.role === 'admin');
+    const locStr = livePos ? `GPS: ${livePos[0].toFixed(5)}, ${livePos[1].toFixed(5)}` : 'Location unavailable';
+    const msg = `🚨 SOS from ${currentUser?.name || 'Owner'} — ${dog?.name || 'Dog'}'s walk with ${walker?.name || 'walker'}. ${locStr}`;
+    admins.forEach(admin => sendNotification(admin.id, 'sos', '🚨 Emergency SOS Alert', msg, { walkId: walkId ?? '' }));
+    setSosConfirm(false);
+    setSosDone(true);
+  };
 
   const sheetHeight = sheetOpen ? SHEET_FULL : SHEET_PEEK;
 
@@ -217,7 +228,46 @@ export default function WalkTracker() {
               <Phone className="w-4 h-4" /> Call
             </a>
           )}
+          {isActive && (
+            <button type="button"
+              onClick={() => sosDone ? undefined : setSosConfirm(true)}
+              className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-2xl text-sm font-bold"
+              style={{
+                background: sosDone ? 'rgba(255,255,255,0.92)' : 'rgba(220,38,38,0.92)',
+                color: sosDone ? '#16a34a' : '#fff',
+                backdropFilter: 'blur(8px)',
+                boxShadow: '0 2px 12px rgba(0,0,0,0.18)',
+              }}>
+              {sosDone ? '✓ Help alerted' : <><AlertTriangle className="w-4 h-4" /> SOS</>}
+            </button>
+          )}
         </div>
+
+        {/* ── SOS confirmation dialog ── */}
+        {sosConfirm && (
+          <div className="absolute inset-0 z-[1003] flex items-center justify-center p-6"
+            style={{ background: 'rgba(0,0,0,0.65)' }}>
+            <div className="bg-white rounded-3xl p-6 w-full max-w-xs text-center shadow-2xl">
+              <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4"
+                style={{ background: '#FEE2E2' }}>
+                <AlertTriangle className="w-7 h-7 text-red-600" />
+              </div>
+              <p className="text-base font-extrabold text-gray-900 mb-2">Send SOS alert?</p>
+              <p className="text-sm text-gray-500 mb-6 leading-relaxed">
+                This will immediately notify the PawFleet admin team with your current location.
+              </p>
+              <button type="button" onClick={triggerSOS}
+                className="w-full py-3.5 rounded-2xl font-bold text-white text-sm mb-3"
+                style={{ background: '#DC2626' }}>
+                Yes, Send SOS
+              </button>
+              <button type="button" onClick={() => setSosConfirm(false)}
+                className="w-full py-2 text-sm font-medium text-gray-400">
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ── Bottom Sheet ── */}

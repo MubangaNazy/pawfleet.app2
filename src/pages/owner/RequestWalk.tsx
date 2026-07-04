@@ -587,6 +587,13 @@ export default function OwnerRequestWalk() {
                           style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)' }}>
                           K{walkerPrices[i] || 150}
                         </div>
+                        {/* Verified badge — top left */}
+                        {walker.walkerStatus === 'active' && (
+                          <div className="absolute top-2 left-2 flex items-center gap-0.5 px-1.5 py-0.5 rounded-full"
+                            style={{ background: 'rgba(27,67,50,0.85)', backdropFilter: 'blur(4px)' }}>
+                            <span className="text-[9px] font-bold text-white">✓ NRC Verified</span>
+                          </div>
+                        )}
                         {/* Rating — bottom left */}
                         <div className="absolute bottom-2 left-2 flex items-center gap-0.5 px-1.5 py-0.5 rounded-full"
                           style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)' }}>

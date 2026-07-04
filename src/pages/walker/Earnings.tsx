@@ -32,6 +32,27 @@ function BarChart({ data, height = 100 }: { data: { label: string; value: number
   );
 }
 
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+
+async function sendReceiptEmail(payload: {
+  to: string; ownerName: string; walkerName: string;
+  dogName: string; amount: number; duration?: number; date: string;
+}) {
+  try {
+    await fetch(`${SUPABASE_URL}/functions/v1/send-payment-receipt`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+      },
+      body: JSON.stringify(payload),
+    });
+  } catch {
+    // fire-and-forget — don't surface email errors to the walker UI
+  }
+}
+
 export default function WalkerEarnings() {
   const { data, currentUser, confirmPaymentReceived } = useApp();
   const [confirming, setConfirming] = useState<string | null>(null);
@@ -72,6 +93,24 @@ export default function WalkerEarnings() {
   const handleConfirm = async (paymentId: string) => {
     setConfirming(paymentId);
     confirmPaymentReceived(paymentId);
+
+    // Send receipt email to the owner (fire-and-forget)
+    const payment = myPayments.find(p => p.id === paymentId);
+    const walk    = payment ? data.walks.find(w => w.id === payment.walkId) : null;
+    const dog     = walk ? data.dogs.find(d => d.id === walk.dogId) : null;
+    const owner   = walk ? data.users.find(u => u.id === walk.ownerId) : null;
+    if (owner?.email && walk && dog) {
+      sendReceiptEmail({
+        to:         owner.email,
+        ownerName:  owner.name,
+        walkerName: currentUser?.name ?? 'Your Walker',
+        dogName:    dog.name,
+        amount:     payment?.amount ?? walk.walkerEarning ?? 0,
+        duration:   walk.duration,
+        date:       walk.scheduledDate,
+      });
+    }
+
     setTimeout(() => setConfirming(null), 600);
   };
 

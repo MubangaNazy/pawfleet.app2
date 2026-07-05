@@ -292,7 +292,7 @@ const ROLE_ROUTES: Record<string, string> = {
 
 function RoleRedirect() {
   const { currentUser } = useApp();
-  if (!currentUser) return <Landing />;
+  if (!currentUser) return <Navigate to="/login" replace />;
   return <Navigate to={ROLE_ROUTES[currentUser.role] || '/owner'} replace />;
 }
 

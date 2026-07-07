@@ -116,10 +116,27 @@ export default function WalkTracker() {
     ? `${elapsedMin}:${elapsedSec}`
     : walk.duration ? `${walk.duration} min` : '—';
 
+  // Calculate km from stored route points for completed walks
+  const routeKm = (() => {
+    const pts = walk.routePoints;
+    if (!pts || pts.length < 2) return 0;
+    let total = 0;
+    for (let i = 1; i < pts.length; i++) {
+      const [la1, lo1] = pts[i - 1], [la2, lo2] = pts[i];
+      const R = 6371, dLa = (la2 - la1) * Math.PI / 180, dLo = (lo2 - lo1) * Math.PI / 180;
+      const a = Math.sin(dLa/2)**2 + Math.cos(la1*Math.PI/180)*Math.cos(la2*Math.PI/180)*Math.sin(dLo/2)**2;
+      total += R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+    return total;
+  })();
+  const distKm = isCompleted && routeKm > 0 ? routeKm : liveDistKm;
+
   const displayPos = livePos
     ? { lat: livePos[0], lng: livePos[1] }
     : startLat
     ? { lat: startLat[0], lng: startLat[1] }
+    : walk.routePoints?.length
+    ? { lat: walk.routePoints[0][0], lng: walk.routePoints[0][1] }
     : null;
 
   const triggerSOS = () => {
@@ -313,7 +330,7 @@ export default function WalkTracker() {
         {/* Stats row */}
         <div className="grid grid-cols-3 divide-x divide-surface-border pt-10">
           {[
-            { label: 'DISTANCE', value: liveDistKm > 0 ? (liveDistKm < 1 ? `${(liveDistKm * 1000).toFixed(0)}m` : `${liveDistKm.toFixed(2)}km`) : '—' },
+            { label: 'DISTANCE', value: distKm > 0 ? (distKm < 1 ? `${(distKm * 1000).toFixed(0)}m` : `${distKm.toFixed(2)}km`) : '—' },
             { label: 'DURATION', value: durationDisplay },
             { label: 'STATUS',   value: isActive ? 'Active' : isCompleted ? 'Done' : '—' },
           ].map(({ label, value }) => (

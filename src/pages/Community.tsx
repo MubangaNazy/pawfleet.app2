@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Trophy, Star, Dog, TrendingUp, Award, MessageCircle, Facebook, Send, Heart, Camera, X } from 'lucide-react';
+import { Trophy, Star, Dog, TrendingUp, Award, MessageCircle, Facebook, Send, Heart, Camera, X, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { supabase } from '../lib/supabase';
 
@@ -15,6 +15,14 @@ const ROLE_CHANNELS: Record<string, { label: string; whatsapp: string; facebook:
 };
 const GENERAL_CHANNEL = { label: 'PawFleet General Community', whatsapp: '', facebook: '' };
 
+interface PostComment {
+  id: string;
+  author_id: string;
+  author_name: string;
+  text: string;
+  created_at: string;
+}
+
 interface CommunityPost {
   id: string;
   author_id: string;
@@ -25,6 +33,7 @@ interface CommunityPost {
   image_url?: string;
   likes: number;
   liked_by?: string[];
+  comments?: PostComment[];
   created_at: string;
 }
 
@@ -95,10 +104,16 @@ export default function Community() {
   const [draft, setDraft] = useState('');
   const [posting, setPosting] = useState(false);
   const [previewImg, setPreviewImg] = useState<string | null>(null);
+  const [expandedComments, setExpandedComments] = useState<Set<string>>(new Set());
+  const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
+  const [submittingComment, setSubmittingComment] = useState<string | null>(null);
   const photoRef = useRef<HTMLInputElement>(null);
 
   const role = currentUser?.role || 'owner';
   const roleChannel = ROLE_CHANNELS[role];
+
+  // Scroll to top on mount
+  useEffect(() => { window.scrollTo(0, 0); }, []);
 
   // Fetch posts + subscribe to realtime
   useEffect(() => {
@@ -118,6 +133,9 @@ export default function Community() {
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'community_posts' }, payload => {
         setPosts(prev => prev.map(p => p.id === (payload.new as CommunityPost).id ? payload.new as CommunityPost : p));
+      })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'community_posts' }, payload => {
+        setPosts(prev => prev.filter(p => p.id !== (payload.old as { id: string }).id));
       })
       .subscribe();
 
@@ -167,6 +185,37 @@ export default function Community() {
     setDraft('');
     setPreviewImg(null);
     setPosting(false);
+  };
+
+  const deletePost = async (postId: string) => {
+    setPosts(prev => prev.filter(p => p.id !== postId));
+    await supabase.from('community_posts').delete().eq('id', postId);
+  };
+
+  const toggleComments = (postId: string) => {
+    setExpandedComments(prev => {
+      const next = new Set(prev);
+      next.has(postId) ? next.delete(postId) : next.add(postId);
+      return next;
+    });
+  };
+
+  const submitComment = async (post: CommunityPost) => {
+    const text = (commentDrafts[post.id] || '').trim();
+    if (!text || !currentUser) return;
+    setSubmittingComment(post.id);
+    const newComment: PostComment = {
+      id: crypto.randomUUID(),
+      author_id: currentUser.id,
+      author_name: currentUser.name,
+      text,
+      created_at: new Date().toISOString(),
+    };
+    const updated = [...(post.comments || []), newComment];
+    setPosts(prev => prev.map(p => p.id === post.id ? { ...p, comments: updated } : p));
+    setCommentDrafts(prev => ({ ...prev, [post.id]: '' }));
+    await supabase.from('community_posts').update({ comments: updated }).eq('id', post.id);
+    setSubmittingComment(null);
   };
 
   const toggleLike = async (post: CommunityPost) => {
@@ -334,13 +383,60 @@ export default function Community() {
                         <img src={post.image_url} alt="post" className="w-full object-cover max-h-64" />
                       </div>
                     )}
-                    <div className="flex items-center gap-1 px-3.5 py-2.5 border-t border-surface-border">
+                    <div className="flex items-center gap-1 px-3.5 py-2 border-t border-surface-border">
                       <button onClick={() => toggleLike(post)}
                         className={`flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg transition-colors ${liked ? 'text-red-500 bg-red-50' : 'text-ink-muted hover:bg-surface-secondary'}`}>
                         <Heart className={`w-3.5 h-3.5 ${liked ? 'fill-red-500 text-red-500' : ''}`} />
                         {post.likes > 0 ? post.likes : 'Like'}
                       </button>
+                      <button onClick={() => toggleComments(post.id)}
+                        className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg text-ink-muted hover:bg-surface-secondary transition-colors">
+                        <MessageCircle className="w-3.5 h-3.5" />
+                        {(post.comments?.length || 0) > 0 ? post.comments!.length : 'Comment'}
+                        {expandedComments.has(post.id) ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                      </button>
+                      {currentUser?.id === post.author_id && (
+                        <button onClick={() => deletePost(post.id)}
+                          className="ml-auto flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg text-red-400 hover:bg-red-50 transition-colors">
+                          <Trash2 className="w-3.5 h-3.5" /> Delete
+                        </button>
+                      )}
                     </div>
+                    {/* Comments section */}
+                    {expandedComments.has(post.id) && (
+                      <div className="px-3.5 pb-3 space-y-2 border-t border-surface-border pt-2">
+                        {(post.comments || []).map(c => (
+                          <div key={c.id} className="flex gap-2 items-start">
+                            <div className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[9px] font-bold shrink-0"
+                              style={{ background: 'linear-gradient(135deg,#1B4332,#2B8A50)' }}>
+                              {c.author_name[0]}
+                            </div>
+                            <div className="flex-1 bg-[#F4F9F6] rounded-xl px-3 py-2">
+                              <p className="text-[10px] font-bold text-ink">{c.author_name}</p>
+                              <p className="text-xs text-ink-secondary leading-relaxed">{c.text}</p>
+                            </div>
+                          </div>
+                        ))}
+                        {currentUser && (
+                          <div className="flex gap-2 items-center pt-1">
+                            <input
+                              value={commentDrafts[post.id] || ''}
+                              onChange={e => setCommentDrafts(prev => ({ ...prev, [post.id]: e.target.value }))}
+                              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitComment(post); } }}
+                              placeholder="Write a comment…"
+                              className="flex-1 text-xs bg-[#F4F9F6] rounded-xl px-3 py-2 focus:outline-none focus:ring-2"
+                              style={{ '--tw-ring-color': '#2B8A50' } as React.CSSProperties}
+                            />
+                            <button onClick={() => submitComment(post)}
+                              disabled={submittingComment === post.id || !commentDrafts[post.id]?.trim()}
+                              className="w-7 h-7 rounded-full flex items-center justify-center text-white disabled:opacity-40 shrink-0"
+                              style={{ background: '#2B8A50' }}>
+                              <Send className="w-3 h-3" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 );
               })

@@ -19,7 +19,7 @@ const CANCEL_REASONS = [
   { id: 'other',     label: 'Other reason',           icon: '📝' },
 ];
 
-type Filter = 'available' | 'all' | WalkStatus;
+type Filter = 'available' | 'scheduled' | 'all' | WalkStatus;
 
 const LUSAKA_FALLBACK: GeoLocation = { lat: -15.4167, lng: 28.2833, address: 'Lusaka, Zambia' };
 
@@ -43,13 +43,23 @@ export default function WalkerMyWalks() {
   const [cancelReason, setCancelReason] = useState('');
   const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
 
+  const todayEnd = new Date(); todayEnd.setHours(23, 59, 59, 999);
+
+  // Only show pending unassigned walks for TODAY or past — not future bookings
   const availableWalks = data.walks
-    .filter(w => w.status === 'pending' && !w.walkerId)
+    .filter(w => w.status === 'pending' && !w.walkerId && new Date(w.scheduledDate) <= todayEnd)
     .sort((a, b) => new Date(a.scheduledDate).getTime() - new Date(b.scheduledDate).getTime());
 
   const myWalks = data.walks
     .filter(w => w.walkerId === currentUser?.id)
     .sort((a, b) => new Date(b.scheduledDate).getTime() - new Date(a.scheduledDate).getTime());
+
+  // Future assigned/pending walks for this walker — pre-booked schedule
+  const scheduledWalks = data.walks
+    .filter(w => new Date(w.scheduledDate) > todayEnd &&
+      (w.status === 'assigned' || w.status === 'pending') &&
+      (w.walkerId === currentUser?.id || (!w.walkerId && w.status === 'pending')))
+    .sort((a, b) => new Date(a.scheduledDate).getTime() - new Date(b.scheduledDate).getTime());
 
   // Fetch unread message counts for all relevant walks
   useEffect(() => {
@@ -94,10 +104,13 @@ export default function WalkerMyWalks() {
 
   const filtered = filter === 'available'
     ? availableWalks
+    : filter === 'scheduled'
+    ? scheduledWalks
     : myWalks.filter(w => filter === 'all' ? true : w.status === filter);
 
   const filterTabs: { label: string; value: Filter }[] = [
     { label: 'Available', value: 'available' },
+    { label: 'Scheduled', value: 'scheduled' },
     { label: 'My Walks', value: 'all' },
     { label: 'Active', value: 'active' },
     { label: 'Completed', value: 'completed' },
@@ -138,9 +151,11 @@ export default function WalkerMyWalks() {
         {filterTabs.map(tab => {
           const count = tab.value === 'available'
             ? availableWalks.length
+            : tab.value === 'scheduled'
+            ? scheduledWalks.length
             : tab.value === 'all'
-              ? myWalks.length
-              : myWalks.filter(w => w.status === tab.value).length;
+            ? myWalks.length
+            : myWalks.filter(w => w.status === tab.value).length;
           return (
             <button
               key={tab.value}
@@ -158,11 +173,13 @@ export default function WalkerMyWalks() {
         <div className="bg-white border border-surface-border rounded-2xl py-12 px-6 text-center shadow-card flex flex-col items-center gap-3">
           <NoWalksIllustration />
           <p className="pf-heading-sm mt-2">
-            {filter === 'available' ? 'No walks available yet' : 'No walks in this category'}
+            {filter === 'available' ? 'No walks available today' : filter === 'scheduled' ? 'No upcoming bookings' : 'No walks in this category'}
           </p>
           <p className="text-sm text-ink-muted max-w-xs leading-relaxed">
             {filter === 'available'
-              ? 'When owners book a walk, it will appear here. Check back soon!'
+              ? "Today's bookings will appear here when owners post them."
+              : filter === 'scheduled'
+              ? 'Pre-booked walks for future dates will appear here.'
               : 'Walks will show up here once you accept or start them.'}
           </p>
         </div>
@@ -279,11 +296,21 @@ export default function WalkerMyWalks() {
                   </div>
                 )}
 
-                {walk.status === 'assigned' && (
+                {walk.status === 'assigned' && (() => {
+                  const walkDay = new Date(walk.scheduledDate); walkDay.setHours(0,0,0,0);
+                  const today0  = new Date(); today0.setHours(0,0,0,0);
+                  const isWalkDay = walkDay <= today0;
+                  return (
                   <div className="flex items-center gap-3 pt-3 border-t border-surface-border flex-wrap">
-                    <Button variant="success" size="md" icon={<Play className="w-4 h-4" />} loading={isGpsLoading} onClick={() => handleStart(walk.id)}>
-                      {isGpsLoading ? 'Getting GPS...' : 'Start Walk'}
-                    </Button>
+                    {isWalkDay ? (
+                      <Button variant="success" size="md" icon={<Play className="w-4 h-4" />} loading={isGpsLoading} onClick={() => handleStart(walk.id)}>
+                        {isGpsLoading ? 'Getting GPS...' : 'Start Walk'}
+                      </Button>
+                    ) : (
+                      <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-50 border border-amber-200 text-xs font-bold text-amber-700">
+                        📅 Scheduled for {format(new Date(walk.scheduledDate), 'EEE, MMM d')} — available to start on that day
+                      </div>
+                    )}
                     <Link
                       to={`/walker/chat/${walk.id}`}
                       className="relative flex items-center gap-2 bg-surface-secondary text-ink text-sm font-semibold px-4 py-2 rounded-xl hover:bg-surface-hover border border-surface-border transition-colors"
@@ -308,7 +335,8 @@ export default function WalkerMyWalks() {
                       <AlertCircle className="w-3 h-3" /> GPS captured on start
                     </div>
                   </div>
-                )}
+                  );
+                })()}
 
                 {walk.status === 'active' && (
                   <div className="flex items-center gap-3 pt-3 border-t border-surface-border flex-wrap">

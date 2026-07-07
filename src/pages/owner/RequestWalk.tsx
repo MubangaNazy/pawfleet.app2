@@ -33,25 +33,6 @@ export default function OwnerRequestWalk() {
   const liveWalkIdRef = useRef<string | null>(null);
 
   const myDogs = data.dogs.filter(d => d.ownerId === currentUser?.id);
-  const haversineKm = (la1: number, lo1: number, la2: number, lo2: number) => {
-    const R = 6371, dLa = (la2 - la1) * Math.PI / 180, dLo = (lo2 - lo1) * Math.PI / 180;
-    const a = Math.sin(dLa/2)**2 + Math.cos(la1*Math.PI/180)*Math.cos(la2*Math.PI/180)*Math.sin(dLo/2)**2;
-    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-  };
-
-  const walkers = (() => {
-    const active = data.users.filter(u => u.role === 'walker' && (!u.walkerStatus || u.walkerStatus === 'active'));
-    if (pickupLat == null || pickupLng == null) return active;
-    // Walkers with location set: sort by distance, nearest first (show all, flagging nearby)
-    return active
-      .map(w => ({ ...w, _distKm: (w.serviceLat != null && w.serviceLng != null) ? haversineKm(pickupLat!, pickupLng!, w.serviceLat, w.serviceLng) : null }))
-      .sort((a, b) => {
-        if (a._distKm == null && b._distKm == null) return 0;
-        if (a._distKm == null) return 1;
-        if (b._distKm == null) return -1;
-        return a._distKm - b._distKm;
-      });
-  })() as (typeof data.users[0] & { _distKm?: number | null })[];
 
   const urlDuration = parseInt(searchParams.get('duration') ?? '', 10);
   const initialDuration = DURATIONS.includes(urlDuration) ? urlDuration : 30;
@@ -85,6 +66,24 @@ export default function OwnerRequestWalk() {
     : pickupMode === 'manual'
     ? pickupAddress.trim().length > 3
     : false;
+
+  const haversineKm = (la1: number, lo1: number, la2: number, lo2: number) => {
+    const R = 6371, dLa = (la2 - la1) * Math.PI / 180, dLo = (lo2 - lo1) * Math.PI / 180;
+    const a = Math.sin(dLa/2)**2 + Math.cos(la1*Math.PI/180)*Math.cos(la2*Math.PI/180)*Math.sin(dLo/2)**2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  };
+  const walkers = (() => {
+    const active = data.users.filter(u => u.role === 'walker' && (!u.walkerStatus || u.walkerStatus === 'active'));
+    if (pickupLat == null || pickupLng == null) return active;
+    return active
+      .map(w => ({ ...w, _distKm: (w.serviceLat != null && w.serviceLng != null) ? haversineKm(pickupLat!, pickupLng!, w.serviceLat, w.serviceLng) : null }))
+      .sort((a, b) => {
+        if (a._distKm == null && b._distKm == null) return 0;
+        if (a._distKm == null) return 1;
+        if (b._distKm == null) return -1;
+        return a._distKm - b._distKm;
+      });
+  })() as (typeof data.users[0] & { _distKm?: number | null })[];
 
   // Auto-select dog when data loads
   useEffect(() => {

@@ -301,7 +301,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setData(prev => ({ ...prev, notifications: prev.notifications.map(n => n.id === p.new.id ? toNotification(p.new) : n) }))
       )
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'users' }, (p) =>
-        setData(prev => ({ ...prev, users: prev.users.map(u => u.id === p.new.id ? toUser(p.new) : u) }))
+        setData(prev => ({
+          ...prev,
+          users: prev.users.map(u => {
+            if (u.id !== p.new.id) return u;
+            const updated = toUser(p.new);
+            // Supabase Realtime strips large fields (>1 MB limit), so image_url
+            // can come back null even when the DB row has a valid value.
+            // Preserve the current imageUrl if the Realtime payload lost it.
+            return { ...updated, imageUrl: updated.imageUrl || u.imageUrl };
+          }),
+        }))
       )
       .subscribe();
     return () => { supabase.removeChannel(channel); };

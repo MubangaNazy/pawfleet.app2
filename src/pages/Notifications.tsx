@@ -147,7 +147,7 @@ export default function NotificationsPage() {
       } else if (role === 'owner' && notif.type === 'walk_accepted') {
         navigate(`/owner/track/${walkId}`);
       } else if (role === 'owner' && notif.type === 'walk_completed') {
-        navigate('/owner/history');
+        navigate(`/owner/track/${walkId}`);
       }
     } else if (notif.data?.walkerId && role === 'admin') {
       navigate('/admin/walkers');

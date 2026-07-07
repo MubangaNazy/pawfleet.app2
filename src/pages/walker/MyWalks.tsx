@@ -143,8 +143,11 @@ export default function WalkerMyWalks() {
   return (
     <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-6">
       <div>
-        <h1 className="pf-heading">Walks</h1>
-        <p className="pf-subtitle">{availableWalks.length} available · {myWalks.length} assigned to you</p>
+        <h1 className="text-3xl font-extrabold italic"
+          style={{ background: 'linear-gradient(135deg, #1B4332, #52B788)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+          Walks
+        </h1>
+        <p className="text-sm font-medium mt-1" style={{ color: '#5A8A70' }}>{availableWalks.length} available · {myWalks.length} assigned to you</p>
       </div>
 
       {/* Filter tabs */}

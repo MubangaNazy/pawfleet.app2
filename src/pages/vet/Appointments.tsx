@@ -58,8 +58,11 @@ export default function VetAppointments() {
 
       {/* Header */}
       <div className="px-4 pt-5">
-        <h1 className="text-xl font-extrabold text-ink">Appointments</h1>
-        <p className="text-ink-muted text-sm mt-0.5">{allVetWalks.length} vet bookings total</p>
+        <h1 className="text-3xl font-extrabold italic"
+          style={{ background: 'linear-gradient(135deg, #1B4332, #52B788)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+          Appointments
+        </h1>
+        <p className="text-sm font-medium mt-1" style={{ color: '#5A8A70' }}>{allVetWalks.length} vet bookings total</p>
       </div>
 
       {/* Search */}

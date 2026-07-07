@@ -64,8 +64,11 @@ export default function OwnerHistory() {
 
         {/* Header */}
         <div>
-          <h1 className="pf-heading">Walk History</h1>
-          <p className="pf-subtitle">{myWalks.length} total · {completedCount} completed{activeCount > 0 ? ` · ${activeCount} active` : ''}</p>
+          <h1 className="text-3xl font-extrabold italic"
+            style={{ background: 'linear-gradient(135deg, #1B4332, #52B788)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+            Walk History
+          </h1>
+          <p className="text-sm font-medium mt-1" style={{ color: '#5A8A70' }}>{myWalks.length} total · {completedCount} completed{activeCount > 0 ? ` · ${activeCount} active` : ''}</p>
         </div>
 
         {/* Stats row */}

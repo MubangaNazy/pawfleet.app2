@@ -74,7 +74,7 @@ export default function VetDashboard() {
           <div className="flex items-center gap-2 mb-3">
             <div className="w-10 h-10 rounded-2xl bg-white/20 flex items-center justify-center text-2xl">🏥</div>
             <div>
-              <p className="text-white font-extrabold text-base leading-tight">Vet Dashboard</p>
+              <p className="text-white font-black italic text-lg leading-tight">Vet Dashboard</p>
               <p className="text-white/70 text-xs">PawFleet Partner Clinic</p>
             </div>
           </div>

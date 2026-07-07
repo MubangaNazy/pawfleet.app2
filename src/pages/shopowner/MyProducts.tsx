@@ -216,7 +216,7 @@ export default function MyProducts() {
       <div className="px-5 pt-8 pb-5 flex items-center justify-between"
         style={{ background: 'linear-gradient(135deg, #1B4332 0%, #2B8A50 100%)' }}>
         <div>
-          <h1 className="text-xl font-extrabold text-white">My Products</h1>
+          <h1 className="text-2xl font-black italic tracking-tight text-white">My Products</h1>
           <p className="text-white/70 text-sm">{myProducts.length} listed</p>
         </div>
         <button type="button" onClick={() => setShowAdd(true)}

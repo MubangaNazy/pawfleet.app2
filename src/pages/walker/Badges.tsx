@@ -76,8 +76,11 @@ export default function WalkerBadges() {
   return (
     <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-ink">Achievements</h1>
-        <p className="text-ink-secondary mt-1">Your progress and earned badges</p>
+        <h1 className="text-3xl font-extrabold italic"
+          style={{ background: 'linear-gradient(135deg, #1B4332, #52B788)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+          Achievements
+        </h1>
+        <p className="text-sm font-medium mt-1" style={{ color: '#5A8A70' }}>Your progress and earned badges</p>
       </div>
 
       {/* Claim banner */}

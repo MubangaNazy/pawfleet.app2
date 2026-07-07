@@ -137,7 +137,7 @@ export default function ShopOwnerOrders() {
     <div className="max-w-xl mx-auto pb-24">
       {/* Header */}
       <div className="px-5 pt-8 pb-5" style={{ background: 'linear-gradient(135deg, #1B4332 0%, #2B8A50 100%)' }}>
-        <h1 className="text-xl font-extrabold text-white">Orders</h1>
+        <h1 className="text-2xl font-black italic tracking-tight text-white">Orders</h1>
         <p className="text-white/70 text-sm mb-4">
           {orders.length} order{orders.length !== 1 ? 's' : ''} · K{totalRevenue.toLocaleString()} total revenue
         </p>

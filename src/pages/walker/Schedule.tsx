@@ -34,8 +34,11 @@ export default function WalkerSchedule() {
   return (
     <div className="max-w-2xl mx-auto p-4 pb-8 space-y-5">
       <div>
-        <h1 className="text-2xl font-bold text-ink">My Schedule</h1>
-        <p className="text-ink-secondary text-sm mt-0.5">All your assigned walks in one view</p>
+        <h1 className="text-3xl font-extrabold italic"
+          style={{ background: 'linear-gradient(135deg, #1B4332, #52B788)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+          My Schedule
+        </h1>
+        <p className="text-sm font-medium mt-1" style={{ color: '#5A8A70' }}>All your assigned walks in one view</p>
       </div>
 
       {/* Calendar */}

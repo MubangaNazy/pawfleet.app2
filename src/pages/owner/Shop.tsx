@@ -146,7 +146,10 @@ export default function Shop() {
       {/* Header */}
       <div className="flex items-center justify-between px-4 pt-5 pb-3">
         <div>
-          <h1 className="text-xl font-bold text-ink">Shop</h1>
+          <h1 className="text-3xl font-extrabold italic"
+            style={{ background: 'linear-gradient(135deg, #1B4332, #52B788)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+            Shop
+          </h1>
           <p className="text-xs text-ink-muted">For your furry best friend</p>
         </div>
         <button type="button" onClick={() => navigate('/owner/cart')}

@@ -42,7 +42,7 @@ export default function TrackHub() {
 
         <div className="relative">
           <p className="text-white/60 text-sm font-medium mb-0.5">PawFleet</p>
-          <h1 className="text-2xl font-extrabold text-white tracking-tight">Track & Book</h1>
+          <h1 className="text-3xl font-black italic tracking-tight text-white">Track & Book</h1>
           <p className="text-white/60 text-sm mt-1">Your dogs · Walks · Services</p>
 
           <div className="grid grid-cols-3 gap-3 mt-5">

@@ -590,8 +590,11 @@ export default function OwnerSchedule() {
       <div className="max-w-lg mx-auto px-4 pt-5 space-y-5">
 
         <div>
-          <h1 className="text-2xl font-extrabold text-ink">Schedule</h1>
-          <p className="text-sm text-ink-secondary mt-0.5">Pick a date to book a service</p>
+          <h1 className="text-3xl font-extrabold italic"
+            style={{ background: 'linear-gradient(135deg, #1B4332, #52B788)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+            Schedule
+          </h1>
+          <p className="text-sm font-medium mt-1" style={{ color: '#5A8A70' }}>Pick a date to book a service</p>
         </div>
 
         {/* Calendar */}

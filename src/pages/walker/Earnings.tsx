@@ -120,7 +120,7 @@ export default function WalkerEarnings() {
       <div className="relative overflow-hidden px-5 pt-8 pb-7 mb-5"
         style={{ background: 'linear-gradient(135deg, #1B4332 0%, #2B8A50 60%, #52B788 100%)' }}>
         <p className="text-white/70 text-xs font-medium mb-1">Your Earnings</p>
-        <h1 className="text-2xl font-extrabold text-white mb-1">K{totalEarned.toLocaleString()}</h1>
+        <h1 className="text-3xl font-black italic text-white mb-1">K{totalEarned.toLocaleString()}</h1>
         <p className="text-white/75 text-sm">{myCompletedWalks.length} walks completed all time</p>
 
         <div className="grid grid-cols-3 gap-2 mt-5">

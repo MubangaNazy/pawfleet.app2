@@ -75,7 +75,7 @@ export default function ShopOwnerDashboard() {
         <div className="flex items-start justify-between">
           <div>
             <p className="text-white/70 text-sm">{greeting},</p>
-            <h1 className="text-2xl font-extrabold mt-0.5">{firstName}'s Shop</h1>
+            <h1 className="text-2xl font-black italic tracking-tight mt-0.5">{firstName}'s Shop</h1>
             <p className="text-white/60 text-xs mt-1">{myProducts.length} product{myProducts.length !== 1 ? 's' : ''} listed</p>
           </div>
           {unread > 0 && (

@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, Shield, ChevronRight, Settings, LogOut, Star, DollarSign, Activity, Camera, Upload, X, Check, Pencil } from 'lucide-react';
+import { Bell, Shield, ChevronRight, Settings, LogOut, Star, DollarSign, Activity, Camera, Upload, X, Check, Pencil, MapPin } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
 async function resizePhoto(file: File, maxDim = 512, q = 0.78): Promise<string> {
@@ -117,10 +117,12 @@ function EditProfileModal({ onClose }: { onClose: () => void }) {
 }
 
 export default function WalkerProfile() {
-  const { currentUser, data, getWalkerStats, logout } = useApp();
+  const { currentUser, data, getWalkerStats, logout, updateUser } = useApp();
   const navigate = useNavigate();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
+  const [locationSaving, setLocationSaving] = useState(false);
+  const [locationSet, setLocationSet] = useState(false);
 
   const myWalks    = data.walks.filter(w => w.walkerId === currentUser?.id && w.status === 'completed');
   const myPayments = data.payments.filter(p => p.walkerId === currentUser?.id);
@@ -129,6 +131,21 @@ export default function WalkerProfile() {
 
   const initials = currentUser?.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || '?';
   const handleLogout = () => { logout(); navigate('/login'); };
+
+  const handleSetLocation = async () => {
+    if (!currentUser || !navigator.geolocation) return;
+    setLocationSaving(true);
+    navigator.geolocation.getCurrentPosition(
+      async pos => {
+        await updateUser(currentUser.id, { serviceLat: pos.coords.latitude, serviceLng: pos.coords.longitude } as any);
+        setLocationSaving(false);
+        setLocationSet(true);
+        setTimeout(() => setLocationSet(false), 3000);
+      },
+      () => setLocationSaving(false),
+      { timeout: 10000 }
+    );
+  };
 
   const menuItems = [
     { icon: Bell,     label: 'Notifications',    onClick: () => navigate('/walker/notifications') },
@@ -208,6 +225,23 @@ export default function WalkerProfile() {
       </div>
 
       <div className="px-4 pt-5 space-y-4">
+        {/* Set service area */}
+        <button type="button" onClick={handleSetLocation} disabled={locationSaving}
+          className="w-full flex items-center gap-3 px-4 py-4 bg-white border border-surface-border rounded-2xl hover:bg-surface-secondary transition-colors">
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: '#EBF5EF' }}>
+            <MapPin className="w-4 h-4" style={{ color: '#2B8A50' }} />
+          </div>
+          <div className="flex-1 text-left">
+            <p className="text-sm font-medium text-ink">
+              {locationSaving ? 'Getting GPS…' : locationSet ? '✓ Service area updated!' : 'Set My Service Area'}
+            </p>
+            <p className="text-xs text-ink-muted">
+              {currentUser?.serviceLat ? `Location saved · owners nearby will find you` : 'Let owners in your area find you'}
+            </p>
+          </div>
+          {!locationSaving && !locationSet && <ChevronRight className="w-4 h-4 text-ink-muted" />}
+        </button>
+
         {/* Settings menu */}
         <div className="bg-white border border-surface-border rounded-2xl overflow-hidden">
           {menuItems.map((item, i) => (

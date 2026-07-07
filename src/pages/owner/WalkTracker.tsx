@@ -443,7 +443,7 @@ export default function WalkTracker() {
             <button type="button"
               disabled={!cancelReason}
               onClick={() => {
-                cancelWalk(walkId!, cancelReason);
+                cancelWalk(walkId!, cancelReason, 'owner');
                 setShowCancelDialog(false);
                 navigate('/owner');
               }}

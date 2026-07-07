@@ -14,6 +14,8 @@ const toUser = (r: any): User => ({
   businessType: r.business_type ?? undefined,
   nrc: r.nrc ?? undefined,
   walkerStatus: r.walker_status ?? undefined,
+  serviceLat: r.service_lat ?? undefined,
+  serviceLng: r.service_lng ?? undefined,
   referralCode: r.referral_code ?? undefined,
   referredByAdminId: r.referred_by_admin_id ?? undefined,
   fcmToken: r.fcm_token ?? undefined,
@@ -99,7 +101,7 @@ interface AppContextType {
   startWalk: (walkId: string, loc: { lat: number; lng: number }) => void;
   endWalk: (walkId: string, loc: { lat: number; lng: number }, routePoints?: [number, number][]) => void;
   assignWalker: (walkId: string, walkerId: string) => void;
-  cancelWalk: (walkId: string, reason?: string) => void;
+  cancelWalk: (walkId: string, reason?: string, cancelledBy?: 'owner' | 'walker') => void;
   markPaymentPaid: (paymentId: string, method?: 'cash' | 'mobile_money' | 'bank' | 'online') => void;
   confirmPaymentReceived: (paymentId: string) => void;
   createDog: (dog: Omit<Dog, 'id'>) => Dog;
@@ -729,7 +731,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       );
     }
   };
-  const cancelWalk = (walkId: string, reason?: string) => {
+  const cancelWalk = (walkId: string, reason?: string, cancelledBy?: 'owner' | 'walker') => {
     const walk = data.walks.find(w => w.id === walkId);
     const reasonLabels: Record<string, string> = {
       not_home: 'Owner not home',
@@ -743,21 +745,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const cancelNote = reason ? `CANCEL_REASON: ${reasonLabels[reason] || reason}` : null;
     const updatedNotes = [cancelNote, walk?.notes].filter(Boolean).join('\n') || undefined;
     updateWalk(walkId, { status: 'cancelled', ...(updatedNotes ? { notes: updatedNotes } : {}) });
-    // Notify owner when walker cancels
-    if (walk?.ownerId && reason && reason !== 'timeout') {
-      sendNotification(walk.ownerId, 'walk_cancelled',
-        '⚠️ Walk Cancelled by Walker',
-        `Your walker cancelled: ${reasonLabels[reason] || reason}. Tap to rebook anytime.`,
-        { walkId }
-      );
-    }
-    // Notify walker when owner cancels
-    if (walk?.walkerId && (!reason || reason === 'timeout')) {
-      sendNotification(walk.walkerId, 'walk_cancelled',
-        '⚠️ Walk Cancelled by Owner',
-        'The owner cancelled this booking.',
-        { walkId }
-      );
+    // Notify the other party based on who cancelled
+    const byWalker = cancelledBy === 'walker' || (!cancelledBy && reason && reason !== 'timeout');
+    if (byWalker) {
+      // Walker cancelled → notify owner
+      if (walk?.ownerId) {
+        sendNotification(walk.ownerId, 'walk_cancelled',
+          '⚠️ Walk Cancelled by Walker',
+          `Your walker cancelled: ${reasonLabels[reason || ''] || reason || 'reason not given'}. Tap to rebook anytime.`,
+          { walkId }
+        );
+      }
+    } else {
+      // Owner cancelled → notify walker
+      if (walk?.walkerId) {
+        sendNotification(walk.walkerId, 'walk_cancelled',
+          '⚠️ Walk Cancelled by Owner',
+          'The owner has cancelled this booking.',
+          { walkId }
+        );
+      }
     }
   };
 
@@ -913,6 +920,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     supabase.from('users').insert({
       id: newUser.id, name: user.name, phone: user.phone,
       email: user.email ?? null, password: '', role: user.role,
+      image_url: user.imageUrl ?? null,
+      walker_status: user.walkerStatus ?? null,
+      nrc: user.nrc ?? null,
     }).then(({ error }) => { if (error) console.error('addUser:', error); });
     if (user.role === 'walker') {
       const stats: WalkerStats = { walkerId: newUser.id, points: 0, streak: 0, badges: [] };
@@ -947,6 +957,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (updates.businessType !== undefined)          dbFields.business_type          = updates.businessType;
     if (updates.subscriptionPaidUntil !== undefined) dbFields.subscription_paid_until = updates.subscriptionPaidUntil;
     if (updates.trialEndsAt !== undefined)           dbFields.trial_ends_at          = updates.trialEndsAt;
+    if ((updates as any).serviceLat !== undefined)   dbFields.service_lat             = (updates as any).serviceLat;
+    if ((updates as any).serviceLng !== undefined)   dbFields.service_lng             = (updates as any).serviceLng;
     if (Object.keys(dbFields).length > 0) {
       supabase.from('users').update(dbFields).eq('id', userId)
         .then(({ error }) => { if (error) console.error('updateUser:', error); });

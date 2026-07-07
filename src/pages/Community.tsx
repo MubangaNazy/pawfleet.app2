@@ -112,8 +112,12 @@ export default function Community() {
   const role = currentUser?.role || 'owner';
   const roleChannel = ROLE_CHANNELS[role];
 
-  // Scroll to top on mount
-  useEffect(() => { window.scrollTo(0, 0); }, []);
+  // Scroll to top on mount — Layout uses overflow-y-auto on <main>, not window
+  useEffect(() => {
+    window.scrollTo(0, 0);
+    const main = document.querySelector('main');
+    if (main) main.scrollTop = 0;
+  }, []);
 
   // Fetch posts + subscribe to realtime
   useEffect(() => {

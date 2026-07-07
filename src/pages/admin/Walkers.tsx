@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { Phone, Activity, Flame, Plus, X, UserPlus, Eye, EyeOff, CheckCircle, XCircle, Clock, CreditCard, Copy, Check, ChevronDown, ChevronUp, ZoomIn, Info, Ban, RefreshCw } from 'lucide-react';
+import { Phone, Activity, Flame, Plus, X, UserPlus, Eye, EyeOff, CheckCircle, XCircle, Clock, CreditCard, Copy, Check, ChevronDown, ChevronUp, ZoomIn, Info, Ban, RefreshCw, Camera } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import type { User } from '../../types';
 import { getSubscriptionStatus, SUBSCRIPTION_PRICE } from '../../components/ui/SubscriptionBanner';
@@ -74,13 +74,14 @@ interface NewWalkerForm {
   phone: string;
   email: string;
   password: string;
+  photoUrl: string;
 }
-const BLANK: NewWalkerForm = { name: '', phone: '', email: '', password: '' };
+const BLANK: NewWalkerForm = { name: '', phone: '', email: '', password: '', photoUrl: '' };
 
 type Tab = 'active' | 'pending' | 'suspended';
 
 export default function AdminWalkers() {
-  const { data, getWalkerStats, addUser, approveWalker, rejectWalker, updateUser, activateSubscription, currentUser, getAdminReferralCode } = useApp();
+  const { data, getWalkerStats, addUser, approveWalker, rejectWalker, updateUser, activateSubscription, currentUser, getAdminReferralCode, refreshData } = useApp();
 
   const [tab, setTab]         = useState<Tab>('active');
   const [showAdd, setShowAdd] = useState(false);
@@ -93,6 +94,8 @@ export default function AdminWalkers() {
   const [photoModal, setPhotoModal] = useState<{ url: string; name: string } | null>(null);
   const [appModal, setAppModal]     = useState<User | null>(null);
   const [suspendId, setSuspendId]   = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const photoFileRef = useRef<HTMLInputElement>(null);
 
   const walkers = data.users.filter(u => u.role === 'walker');
   const activeWalkers  = walkers.filter(w => !w.walkerStatus || w.walkerStatus === 'active');
@@ -124,6 +127,14 @@ export default function AdminWalkers() {
     return { completedWalks: walks.length, totalEarned, unpaid, paid, activeWalk };
   };
 
+  const handleAddPhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => setForm(f => ({ ...f, photoUrl: ev.target?.result as string }));
+    reader.readAsDataURL(file);
+  };
+
   const handleAdd = async () => {
     if (!form.name.trim()) { setError('Name is required'); return; }
     if (!form.phone.trim()) { setError('Phone is required'); return; }
@@ -131,7 +142,7 @@ export default function AdminWalkers() {
     setError('');
     setSaving(true);
     try {
-      addUser({ name: form.name.trim(), phone: form.phone.trim(), email: form.email.trim(), password: form.password, role: 'walker', walkerStatus: 'active' });
+      addUser({ name: form.name.trim(), phone: form.phone.trim(), email: form.email.trim(), password: form.password, role: 'walker', walkerStatus: 'active', imageUrl: form.photoUrl || undefined });
       setForm(BLANK);
       setShowAdd(false);
     } catch {
@@ -156,11 +167,18 @@ export default function AdminWalkers() {
             <h1 className="text-2xl font-extrabold">Walkers</h1>
             <p className="text-white/75 text-sm mt-1">{activeWalkers.length} active · {pendingWalkers.length} pending · {activeCount} on walk now</p>
           </div>
-          <button onClick={() => { setShowAdd(true); setForm(BLANK); setError(''); }}
-            className="flex items-center gap-2 bg-white text-sm font-bold px-4 py-2.5 rounded-2xl shadow-lg active:scale-95 transition-transform shrink-0"
-            style={{ color: '#1B4332' }}>
-            <Plus className="w-4 h-4" /> Add Walker
-          </button>
+          <div className="flex gap-2">
+            <button onClick={async () => { setRefreshing(true); await refreshData(); setRefreshing(false); }}
+              disabled={refreshing}
+              className="flex items-center gap-1.5 bg-white/20 text-white text-sm font-bold px-3 py-2.5 rounded-2xl active:scale-95 transition-transform shrink-0 disabled:opacity-60">
+              <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+            </button>
+            <button onClick={() => { setShowAdd(true); setForm(BLANK); setError(''); }}
+              className="flex items-center gap-2 bg-white text-sm font-bold px-4 py-2.5 rounded-2xl shadow-lg active:scale-95 transition-transform shrink-0"
+              style={{ color: '#1B4332' }}>
+              <Plus className="w-4 h-4" /> Add Walker
+            </button>
+          </div>
         </div>
         <div className="grid grid-cols-3 gap-2 mt-5">
           {[
@@ -191,6 +209,19 @@ export default function AdminWalkers() {
           </div>
           <p className="text-xs text-ink-muted mt-2">Share this code with walkers you want to onboard. They enter it during registration.</p>
         </div>
+
+        {/* Pending alert */}
+        {pendingWalkers.length > 0 && tab !== 'pending' && (
+          <button onClick={() => setTab('pending')}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl border-2 border-amber-300 bg-amber-50 text-left">
+            <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse shrink-0" />
+            <div className="flex-1">
+              <p className="text-sm font-bold text-amber-800">{pendingWalkers.length} walker application{pendingWalkers.length !== 1 ? 's' : ''} waiting for review</p>
+              <p className="text-xs text-amber-700">Tap to review and approve</p>
+            </div>
+            <span className="text-xs font-bold text-amber-700">Review →</span>
+          </button>
+        )}
 
         {/* Tabs */}
         <div className="flex gap-1 p-1 bg-surface-secondary border border-surface-border rounded-xl">
@@ -496,6 +527,25 @@ export default function AdminWalkers() {
             </div>
             <div className="p-5 space-y-4">
               {error && <p className="text-xs text-danger font-medium bg-red-50 px-3 py-2 rounded-xl">{error}</p>}
+              {/* Photo upload */}
+              <div className="flex items-center gap-4">
+                <div onClick={() => photoFileRef.current?.click()}
+                  className="relative w-16 h-16 rounded-2xl overflow-hidden cursor-pointer shrink-0"
+                  style={{ background: form.photoUrl ? 'transparent' : '#EBF5EF', border: '2px dashed #52B788' }}>
+                  {form.photoUrl
+                    ? <img src={form.photoUrl} alt="" className="w-full h-full object-cover" />
+                    : <div className="w-full h-full flex items-center justify-center"><Camera className="w-5 h-5 text-primary" /></div>
+                  }
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-ink mb-1">Profile Photo (optional)</p>
+                  <button type="button" onClick={() => photoFileRef.current?.click()}
+                    className="text-xs font-semibold px-3 py-1.5 rounded-xl border border-primary text-primary">
+                    {form.photoUrl ? 'Change Photo' : 'Upload Photo'}
+                  </button>
+                </div>
+                <input ref={photoFileRef} type="file" accept="image/*" className="hidden" onChange={handleAddPhoto} />
+              </div>
               <div>
                 <label className="text-xs font-semibold text-ink-secondary block mb-1">Full Name *</label>
                 <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}

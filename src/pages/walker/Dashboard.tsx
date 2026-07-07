@@ -370,18 +370,34 @@ export default function WalkerDashboard() {
           )}
         </div>
 
-        {/* Community */}
+        {/* Community banner */}
         <Link to="/walker/community"
-          className="flex items-center gap-4 p-4 rounded-2xl transition-all active:scale-[0.98]"
-          style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)', boxShadow: '0 4px 16px rgba(27,67,50,0.28)' }}>
-          <div className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 bg-white/20">
-            <Users className="w-5 h-5 text-white" />
+          className="relative block overflow-hidden rounded-2xl active:scale-[0.98] transition-all"
+          style={{ height: 150 }}>
+          <img src="/images/community.png" alt="Community" className="w-full h-full object-cover" />
+          <div className="absolute inset-0" style={{ background: 'linear-gradient(120deg, rgba(27,67,50,0.72) 0%, rgba(43,138,80,0.45) 100%)' }} />
+          <div className="absolute inset-0 flex flex-col justify-end p-4">
+            <p className="text-base font-extrabold text-white leading-tight">PawFleet Community</p>
+            <p className="text-xs text-white/80 mt-0.5">Connect with walkers &amp; owners in Zambia</p>
           </div>
-          <div className="flex-1">
-            <p className="text-sm font-bold text-white">PawFleet Community</p>
-            <p className="text-xs text-white/70 mt-0.5">Connect with walkers and owners in Zambia</p>
+          <div className="absolute top-3 right-3 px-3 py-1 rounded-full text-[11px] font-bold text-white" style={{ background: 'rgba(255,255,255,0.2)' }}>
+            Join →
           </div>
-          <ChevronRight className="w-4 h-4 text-white/60 shrink-0" />
+        </Link>
+
+        {/* Shop banner */}
+        <Link to="/walker/shop"
+          className="relative block overflow-hidden rounded-2xl active:scale-[0.98] transition-all mt-0"
+          style={{ height: 120 }}>
+          <img src="/images/dog treats  (1).png" alt="Shop" className="w-full h-full object-cover object-center" />
+          <div className="absolute inset-0" style={{ background: 'linear-gradient(90deg, rgba(27,67,50,0.80) 0%, rgba(27,67,50,0.30) 100%)' }} />
+          <div className="absolute inset-0 flex flex-col justify-center p-4">
+            <p className="text-base font-extrabold text-white">Shop Treats &amp; Gear</p>
+            <p className="text-xs text-white/75 mt-0.5">Order supplies for your walks</p>
+          </div>
+          <div className="absolute right-3 bottom-3 px-3 py-1 rounded-full text-[11px] font-bold text-white" style={{ background: '#2B8A50' }}>
+            Shop Now →
+          </div>
         </Link>
 
         {/* Earnings preview */}

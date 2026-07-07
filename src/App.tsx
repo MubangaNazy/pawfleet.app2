@@ -353,6 +353,7 @@ function AppRoutes() {
         <Route path="notifications" element={<NotificationsPage />} />
         <Route path="chats"       element={<ChatInbox />} />
         <Route path="community"   element={<Community />} />
+        <Route path="shop"        element={<OwnerShop />} />
         <Route path="settings"    element={<WalkerSettings />} />
         <Route path="privacy"     element={<WalkerPrivacy />} />
         <Route path="dashboard"   element={<Navigate to="/walker" replace />} />

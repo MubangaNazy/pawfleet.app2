@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
-import { Play, Square, MapPin, Navigation, AlertCircle, MessageCircle, CheckCircle2, X } from 'lucide-react';
+import { Play, Square, MapPin, Navigation, AlertCircle, MessageCircle, CheckCircle2, X, ThumbsUp } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { StatusBadge, PaymentBadge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
@@ -35,12 +35,13 @@ async function getGPS(): Promise<GeoLocation> {
 }
 
 export default function WalkerMyWalks() {
-  const { data, currentUser, startWalk, endWalk, assignWalker, cancelWalk } = useApp();
+  const { data, currentUser, startWalk, endWalk, assignWalker, cancelWalk, sendNotification } = useApp();
   const [filter, setFilter] = useState<Filter>('available');
   const [gpsLoading, setGpsLoading] = useState<string | null>(null);
   const [accepting, setAccepting] = useState<string | null>(null);
   const [cancelTarget, setCancelTarget] = useState<string | null>(null);
   const [cancelReason, setCancelReason] = useState('');
+  const [confirmedIds, setConfirmedIds] = useState<Set<string>>(new Set());
   const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
 
   const todayEnd = new Date(); todayEnd.setHours(23, 59, 59, 999);
@@ -300,39 +301,67 @@ export default function WalkerMyWalks() {
                   const walkDay = new Date(walk.scheduledDate); walkDay.setHours(0,0,0,0);
                   const today0  = new Date(); today0.setHours(0,0,0,0);
                   const isWalkDay = walkDay <= today0;
+                  const isConfirmed = confirmedIds.has(walk.id);
                   return (
-                  <div className="flex items-center gap-3 pt-3 border-t border-surface-border flex-wrap">
-                    {isWalkDay ? (
-                      <Button variant="success" size="md" icon={<Play className="w-4 h-4" />} loading={isGpsLoading} onClick={() => handleStart(walk.id)}>
-                        {isGpsLoading ? 'Getting GPS...' : 'Start Walk'}
-                      </Button>
-                    ) : (
-                      <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-50 border border-amber-200 text-xs font-bold text-amber-700">
-                        📅 Scheduled for {format(new Date(walk.scheduledDate), 'EEE, MMM d')} — available to start on that day
+                  <div className="flex flex-col gap-2 pt-3 border-t border-surface-border">
+                    {!isWalkDay && (
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {isConfirmed ? (
+                          <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-green-50 border border-green-200 text-xs font-bold text-green-700">
+                            <CheckCircle2 className="w-4 h-4" /> Confirmed — {format(new Date(walk.scheduledDate), 'EEE, MMM d')}
+                          </div>
+                        ) : (
+                          <>
+                            <button type="button"
+                              onClick={() => {
+                                setConfirmedIds(prev => new Set([...prev, walk.id]));
+                                const owner = data.users.find(u => u.id === walk.ownerId);
+                                if (owner) sendNotification(owner.id, 'walk_accepted', '✅ Walker Confirmed Booking', `${currentUser?.name} confirmed your scheduled walk on ${format(new Date(walk.scheduledDate), 'EEE, MMM d')}.`, { walkId: walk.id });
+                              }}
+                              className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold text-white"
+                              style={{ background: 'linear-gradient(135deg,#1B4332,#2B8A50)' }}>
+                              <ThumbsUp className="w-3.5 h-3.5" /> Accept Booking
+                            </button>
+                            <button type="button"
+                              onClick={() => { setCancelTarget(walk.id); setCancelReason(''); }}
+                              className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold text-red-600 border border-red-200 bg-red-50">
+                              <X className="w-3.5 h-3.5" /> Decline
+                            </button>
+                          </>
+                        )}
                       </div>
                     )}
-                    <Link
-                      to={`/walker/chat/${walk.id}`}
-                      className="relative flex items-center gap-2 bg-surface-secondary text-ink text-sm font-semibold px-4 py-2 rounded-xl hover:bg-surface-hover border border-surface-border transition-colors"
-                    >
-                      <MessageCircle className="w-4 h-4" />
-                      Chat
-                      {(unreadCounts[walk.id] || 0) > 0 && (
-                        <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] flex items-center justify-center rounded-full text-[10px] font-bold text-white px-1"
-                          style={{ background: '#DC2626' }}>
-                          {unreadCounts[walk.id]}
-                        </span>
+                    <div className="flex items-center gap-3 flex-wrap">
+                      {isWalkDay && (
+                        <Button variant="success" size="md" icon={<Play className="w-4 h-4" />} loading={isGpsLoading} onClick={() => handleStart(walk.id)}>
+                          {isGpsLoading ? 'Getting GPS...' : 'Start Walk'}
+                        </Button>
                       )}
-                    </Link>
-                    <button
-                      type="button"
-                      onClick={() => { setCancelTarget(walk.id); setCancelReason(''); }}
-                      className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-danger border border-danger/30 bg-danger/5 hover:bg-danger/10 transition-colors"
-                    >
-                      <X className="w-3.5 h-3.5" /> Cancel Walk
-                    </button>
-                    <div className="flex items-center gap-1.5 text-xs text-ink-muted">
-                      <AlertCircle className="w-3 h-3" /> GPS captured on start
+                      <Link
+                        to={`/walker/chat/${walk.id}`}
+                        className="relative flex items-center gap-2 bg-surface-secondary text-ink text-sm font-semibold px-4 py-2 rounded-xl hover:bg-surface-hover border border-surface-border transition-colors"
+                      >
+                        <MessageCircle className="w-4 h-4" />
+                        Chat
+                        {(unreadCounts[walk.id] || 0) > 0 && (
+                          <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] flex items-center justify-center rounded-full text-[10px] font-bold text-white px-1"
+                            style={{ background: '#DC2626' }}>
+                            {unreadCounts[walk.id]}
+                          </span>
+                        )}
+                      </Link>
+                      {isWalkDay && (
+                        <>
+                          <button type="button"
+                            onClick={() => { setCancelTarget(walk.id); setCancelReason(''); }}
+                            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-danger border border-danger/30 bg-danger/5 hover:bg-danger/10 transition-colors">
+                            <X className="w-3.5 h-3.5" /> Cancel Walk
+                          </button>
+                          <div className="flex items-center gap-1.5 text-xs text-ink-muted">
+                            <AlertCircle className="w-3 h-3" /> GPS captured on start
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
                   );
@@ -408,7 +437,7 @@ export default function WalkerMyWalks() {
               disabled={!cancelReason}
               onClick={() => {
                 if (cancelTarget && cancelReason) {
-                  cancelWalk(cancelTarget, cancelReason);
+                  cancelWalk(cancelTarget, cancelReason, 'walker');
                   setCancelTarget(null);
                   setFilter('all');
                 }

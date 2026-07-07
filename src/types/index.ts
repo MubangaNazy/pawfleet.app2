@@ -22,6 +22,8 @@ export interface User {
   fcmToken?: string;                   // Firebase Cloud Messaging push token
   subscriptionPaidUntil?: string;      // ISO date — subscription active until this date
   trialEndsAt?: string;                // ISO date — free trial expiry
+  serviceLat?: number;                 // Walker service area centre (latitude)
+  serviceLng?: number;                 // Walker service area centre (longitude)
 }
 
 export interface AppNotification {

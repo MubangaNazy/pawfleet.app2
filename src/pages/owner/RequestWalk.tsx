@@ -33,7 +33,25 @@ export default function OwnerRequestWalk() {
   const liveWalkIdRef = useRef<string | null>(null);
 
   const myDogs = data.dogs.filter(d => d.ownerId === currentUser?.id);
-  const walkers = data.users.filter(u => u.role === 'walker');
+  const haversineKm = (la1: number, lo1: number, la2: number, lo2: number) => {
+    const R = 6371, dLa = (la2 - la1) * Math.PI / 180, dLo = (lo2 - lo1) * Math.PI / 180;
+    const a = Math.sin(dLa/2)**2 + Math.cos(la1*Math.PI/180)*Math.cos(la2*Math.PI/180)*Math.sin(dLo/2)**2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  };
+
+  const walkers = (() => {
+    const active = data.users.filter(u => u.role === 'walker' && (!u.walkerStatus || u.walkerStatus === 'active'));
+    if (pickupLat == null || pickupLng == null) return active;
+    // Walkers with location set: sort by distance, nearest first (show all, flagging nearby)
+    return active
+      .map(w => ({ ...w, _distKm: (w.serviceLat != null && w.serviceLng != null) ? haversineKm(pickupLat!, pickupLng!, w.serviceLat, w.serviceLng) : null }))
+      .sort((a, b) => {
+        if (a._distKm == null && b._distKm == null) return 0;
+        if (a._distKm == null) return 1;
+        if (b._distKm == null) return -1;
+        return a._distKm - b._distKm;
+      });
+  })() as (typeof data.users[0] & { _distKm?: number | null })[];
 
   const urlDuration = parseInt(searchParams.get('duration') ?? '', 10);
   const initialDuration = DURATIONS.includes(urlDuration) ? urlDuration : 30;
@@ -588,7 +606,9 @@ export default function OwnerRequestWalk() {
           <div ref={walkersRef} className="pt-2">
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-base font-bold text-ink">
-                {walkers.length > 0 ? 'Available walkers' : 'No walkers available yet'}
+                {walkers.length > 0
+                  ? (pickupLat ? 'Walkers near your pickup' : 'Available walkers')
+                  : 'No walkers available yet'}
               </h2>
             </div>
 
@@ -666,6 +686,11 @@ export default function OwnerRequestWalk() {
                             {walkerBios[i] || 'Experienced dog walker.'}
                             {completedCount > 0 && <span className="ml-1 text-primary font-semibold">· {completedCount} walk{completedCount !== 1 ? 's' : ''}</span>}
                           </p>
+                          {walker._distKm != null && (
+                            <p className="text-[10px] font-semibold mt-0.5" style={{ color: walker._distKm < 10 ? '#2B8A50' : '#9CA3AF' }}>
+                              📍 {walker._distKm < 1 ? `${Math.round(walker._distKm * 1000)}m away` : `${walker._distKm.toFixed(1)} km away`}
+                            </p>
+                          )}
                         </div>
                         {earnedBadges.length > 0 && (
                           <div className="flex gap-0.5">

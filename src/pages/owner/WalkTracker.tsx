@@ -223,7 +223,7 @@ export default function WalkTracker() {
               <p className="text-xs text-ink-muted truncate">{chatPopup.text}</p>
             </div>
             <button type="button"
-              onClick={() => { setChatPopup(null); navigate(`/chat/${walkId}`); }}
+              onClick={() => { setChatPopup(null); navigate(`/owner/chat/${walkId}`); }}
               className="text-xs font-bold px-3 py-1.5 rounded-xl text-white shrink-0"
               style={{ background: 'linear-gradient(135deg,#1B4332,#2B8A50)' }}>
               Reply

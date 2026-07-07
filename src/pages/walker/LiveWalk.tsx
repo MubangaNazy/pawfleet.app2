@@ -172,6 +172,14 @@ export default function WalkerLiveWalk() {
     setStarting(true);
     const loc = myPos ? { lat: myPos[0], lng: myPos[1] } : { lat: LUSAKA[0], lng: LUSAKA[1] };
     startWalk(walkId, loc);
+    if (owner) {
+      sendNotification(
+        owner.id, 'walk_started',
+        `🐕 ${dog?.name || 'Your dog'} has been picked up!`,
+        `${currentUser?.name || 'Your walker'} has picked up ${dog?.name || 'your dog'} and the walk has started. You can track live on the map.`,
+        { walkId: walkId! }
+      );
+    }
     setStarting(false);
   };
 
@@ -234,6 +242,14 @@ export default function WalkerLiveWalk() {
         sender_id: currentUser.id,
         text: dataUrl,
       });
+      if (owner) {
+        sendNotification(
+          owner.id, 'walk_started',
+          `📸 Photo from your walker`,
+          `${currentUser.name} sent a photo of ${dog?.name || 'your dog'} during the walk. Tap to view.`,
+          { walkId: walkId! }
+        );
+      }
     } catch (err) {
       console.warn('Photo send failed:', err);
     } finally {
@@ -306,7 +322,7 @@ export default function WalkerLiveWalk() {
               <p className="text-xs text-ink-muted truncate">{chatPopup.text}</p>
             </div>
             <button type="button"
-              onClick={() => { setChatPopup(null); navigate(`/chat/${walkId}`); }}
+              onClick={() => { setChatPopup(null); navigate(`/walker/chat/${walkId}`); }}
               className="text-xs font-bold px-3 py-1.5 rounded-xl text-white shrink-0"
               style={{ background: 'linear-gradient(135deg,#1B4332,#2B8A50)' }}>
               Reply
@@ -370,15 +386,23 @@ export default function WalkerLiveWalk() {
         style={{ borderTop: '1px solid rgba(0,0,0,0.06)', boxShadow: '0 -4px 16px rgba(0,0,0,0.06)' }}>
         <div className="flex gap-2.5">
           {isAssigned && (
-            <button type="button" onClick={handleStart} disabled={starting}
-              className="flex items-center gap-2 flex-1 justify-center text-white py-4 rounded-2xl font-bold text-sm transition-all active:scale-95 disabled:opacity-60 shadow-lg"
-              style={{ background: 'linear-gradient(135deg,#1B4332,#2B8A50)' }}>
-              {starting ? (
-                <><div className="w-4 h-4 rounded-full border-2 border-white/40 border-t-white animate-spin" /> Starting…</>
-              ) : (
-                <><span className="text-base">▶</span> Start Walk</>
-              )}
-            </button>
+            <>
+              <Link to={`/walker/chat/${walkId}`}
+                className="flex items-center gap-2 justify-center py-4 px-4 rounded-2xl font-bold text-sm transition-all active:scale-95 shrink-0"
+                style={{ background: '#F3F4F6', color: '#374151' }}>
+                <MessageCircle className="w-4 h-4" />
+                Chat
+              </Link>
+              <button type="button" onClick={handleStart} disabled={starting}
+                className="flex items-center gap-2 flex-1 justify-center text-white py-4 rounded-2xl font-bold text-sm transition-all active:scale-95 disabled:opacity-60 shadow-lg"
+                style={{ background: 'linear-gradient(135deg,#1B4332,#2B8A50)' }}>
+                {starting ? (
+                  <><div className="w-4 h-4 rounded-full border-2 border-white/40 border-t-white animate-spin" /> Starting…</>
+                ) : (
+                  <><span className="text-base">🐕</span> Picked Up — Start Walk</>
+                )}
+              </button>
+            </>
           )}
           {isActive && (
             <>

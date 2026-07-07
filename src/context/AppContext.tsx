@@ -16,6 +16,10 @@ const toUser = (r: any): User => ({
   walkerStatus: r.walker_status ?? undefined,
   serviceLat: r.service_lat ?? undefined,
   serviceLng: r.service_lng ?? undefined,
+  isOnline: r.is_online ?? false,
+  onlineLat: r.online_lat ?? undefined,
+  onlineLng: r.online_lng ?? undefined,
+  wentOnlineAt: r.went_online_at ?? undefined,
   referralCode: r.referral_code ?? undefined,
   referredByAdminId: r.referred_by_admin_id ?? undefined,
   fcmToken: r.fcm_token ?? undefined,
@@ -957,8 +961,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (updates.businessType !== undefined)          dbFields.business_type          = updates.businessType;
     if (updates.subscriptionPaidUntil !== undefined) dbFields.subscription_paid_until = updates.subscriptionPaidUntil;
     if (updates.trialEndsAt !== undefined)           dbFields.trial_ends_at          = updates.trialEndsAt;
-    if ((updates as any).serviceLat !== undefined)   dbFields.service_lat             = (updates as any).serviceLat;
-    if ((updates as any).serviceLng !== undefined)   dbFields.service_lng             = (updates as any).serviceLng;
+    if (updates.serviceLat !== undefined)             dbFields.service_lat             = updates.serviceLat;
+    if (updates.serviceLng !== undefined)             dbFields.service_lng             = updates.serviceLng;
+    if (updates.isOnline !== undefined)               dbFields.is_online               = updates.isOnline;
+    if (updates.onlineLat !== undefined)              dbFields.online_lat              = updates.onlineLat;
+    if (updates.onlineLng !== undefined)              dbFields.online_lng              = updates.onlineLng;
+    if (updates.wentOnlineAt !== undefined)           dbFields.went_online_at          = updates.wentOnlineAt;
     if (Object.keys(dbFields).length > 0) {
       supabase.from('users').update(dbFields).eq('id', userId)
         .then(({ error }) => { if (error) console.error('updateUser:', error); });

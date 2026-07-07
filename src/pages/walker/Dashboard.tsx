@@ -17,9 +17,11 @@ const WALK_SLIDES = [
 ];
 
 export default function WalkerDashboard() {
-  const { data, currentUser, getWalkerStats, loading } = useApp();
+  const { data, currentUser, getWalkerStats, loading, updateUser } = useApp();
 
   const [popupWalkId, setPopupWalkId] = useState<string | null>(null);
+  const [toggling, setToggling] = useState(false);
+  const gpsIntervalRef = React.useRef<number | null>(null);
   const shownPopupsRef = React.useRef<Set<string>>(new Set());
   // Walks this walker has already declined — hidden from their available list
   const [declinedIds, setDeclinedIds] = React.useState<Set<string>>(
@@ -71,6 +73,52 @@ export default function WalkerDashboard() {
       setDeclinedIds(getDeclinedWalks(currentUser.id));
     }
     setPopupWalkId(null);
+  };
+
+  const isOnline = currentUser?.isOnline ?? false;
+
+  // Resume GPS broadcasting if already online when Dashboard mounts
+  useEffect(() => {
+    if (isOnline && currentUser) {
+      gpsIntervalRef.current = window.setInterval(() => {
+        navigator.geolocation?.getCurrentPosition(p => {
+          updateUser(currentUser.id, { onlineLat: p.coords.latitude, onlineLng: p.coords.longitude });
+        });
+      }, 30000);
+    }
+    return () => { if (gpsIntervalRef.current !== null) { clearInterval(gpsIntervalRef.current); gpsIntervalRef.current = null; } };
+  }, []); // runs once on mount / cleanup on unmount
+
+  const handleToggleOnline = async () => {
+    if (!currentUser || toggling) return;
+    setToggling(true);
+    if (!isOnline) {
+      try {
+        const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation
+            ? navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000 })
+            : reject(new Error('no_geo'));
+        });
+        await updateUser(currentUser.id, {
+          isOnline: true,
+          onlineLat: pos.coords.latitude,
+          onlineLng: pos.coords.longitude,
+          wentOnlineAt: new Date().toISOString(),
+        });
+        gpsIntervalRef.current = window.setInterval(() => {
+          navigator.geolocation.getCurrentPosition(p => {
+            updateUser(currentUser.id, { onlineLat: p.coords.latitude, onlineLng: p.coords.longitude });
+          });
+        }, 30000);
+      } catch {
+        // GPS unavailable — go online without location
+        await updateUser(currentUser.id, { isOnline: true, wentOnlineAt: new Date().toISOString() });
+      }
+    } else {
+      if (gpsIntervalRef.current !== null) { clearInterval(gpsIntervalRef.current); gpsIntervalRef.current = null; }
+      await updateUser(currentUser.id, { isOnline: false });
+    }
+    setToggling(false);
   };
 
   const gamStats = getWalkerStats(currentUser?.id || '');
@@ -170,6 +218,36 @@ export default function WalkerDashboard() {
       </div>
 
       <div className="px-4 space-y-4">
+        {/* Go Online / Offline toggle */}
+        <div
+          className="rounded-2xl overflow-hidden transition-all duration-300"
+          style={isOnline
+            ? { background: 'linear-gradient(135deg, #1B4332, #2B8A50)', boxShadow: '0 4px 20px rgba(43,138,80,0.35)' }
+            : { background: '#fff', border: '1px solid #E5E7EB', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+          <div className="flex items-center gap-4 px-5 py-4">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-0.5">
+                {isOnline && <span className="w-2.5 h-2.5 rounded-full bg-green-300 animate-pulse shrink-0" />}
+                <p className={`font-extrabold text-sm ${isOnline ? 'text-white' : 'text-ink'}`}>
+                  {toggling ? (isOnline ? 'Going offline…' : 'Going online…') : isOnline ? "You're Online" : "You're Offline"}
+                </p>
+              </div>
+              <p className={`text-xs truncate ${isOnline ? 'text-white/70' : 'text-ink-muted'}`}>
+                {isOnline ? 'Owners can see you — accepting walks' : 'Go online to appear on owners\' map'}
+              </p>
+            </div>
+            {/* iOS-style toggle */}
+            <button
+              type="button"
+              onClick={handleToggleOnline}
+              disabled={toggling}
+              className={`relative shrink-0 w-14 h-7 rounded-full transition-all duration-300 disabled:opacity-60 focus:outline-none ${isOnline ? 'bg-green-400' : 'bg-gray-300'}`}
+              aria-label={isOnline ? 'Go Offline' : 'Go Online'}>
+              <span className={`absolute top-0.5 left-0.5 w-6 h-6 rounded-full bg-white shadow-md transition-transform duration-300 ${isOnline ? 'translate-x-7' : 'translate-x-0'}`} />
+            </button>
+          </div>
+        </div>
+
         {/* Active Walk Banner */}
         {activeWalk && (
           <div className="flex items-center gap-4 px-4 py-4 bg-success/10 border border-success/30 rounded-2xl">

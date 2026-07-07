@@ -74,10 +74,18 @@ export default function OwnerRequestWalk() {
   };
   const walkers = (() => {
     const active = data.users.filter(u => u.role === 'walker' && (!u.walkerStatus || u.walkerStatus === 'active'));
-    if (pickupLat == null || pickupLng == null) return active;
     return active
-      .map(w => ({ ...w, _distKm: (w.serviceLat != null && w.serviceLng != null) ? haversineKm(pickupLat!, pickupLng!, w.serviceLat, w.serviceLng) : null }))
+      .map(w => ({
+        ...w,
+        _distKm: (pickupLat != null && pickupLng != null && w.serviceLat != null && w.serviceLng != null)
+          ? haversineKm(pickupLat!, pickupLng!, w.serviceLat, w.serviceLng)
+          : null,
+      }))
       .sort((a, b) => {
+        // Online walkers always first
+        if (a.isOnline && !b.isOnline) return -1;
+        if (!a.isOnline && b.isOnline) return 1;
+        // Then by distance
         if (a._distKm == null && b._distKm == null) return 0;
         if (a._distKm == null) return 1;
         if (b._distKm == null) return -1;
@@ -609,6 +617,12 @@ export default function OwnerRequestWalk() {
                   ? (pickupLat ? 'Walkers near your pickup' : 'Available walkers')
                   : 'No walkers available yet'}
               </h2>
+              {walkers.some(w => w.isOnline) && (
+                <span className="flex items-center gap-1 text-[11px] font-semibold text-green-600">
+                  <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                  {walkers.filter(w => w.isOnline).length} online
+                </span>
+              )}
             </div>
 
             {walkers.length === 0 ? (
@@ -675,6 +689,14 @@ export default function OwnerRequestWalk() {
                             <span className="text-[10px] font-semibold text-white/80">New</span>
                           )}
                         </div>
+                        {/* Online badge — bottom right */}
+                        {walker.isOnline && (
+                          <div className="absolute bottom-2 right-2 flex items-center gap-1 px-1.5 py-0.5 rounded-full"
+                            style={{ background: 'rgba(34,197,94,0.92)', backdropFilter: 'blur(4px)' }}>
+                            <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                            <span className="text-[9px] font-bold text-white">Online</span>
+                          </div>
+                        )}
                       </div>
 
                       {/* Info area */}

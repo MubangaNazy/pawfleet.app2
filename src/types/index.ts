@@ -24,6 +24,10 @@ export interface User {
   trialEndsAt?: string;                // ISO date — free trial expiry
   serviceLat?: number;                 // Walker service area centre (latitude)
   serviceLng?: number;                 // Walker service area centre (longitude)
+  isOnline?: boolean;                  // Walker is live and accepting walks
+  onlineLat?: number;                  // Walker's current live GPS latitude
+  onlineLng?: number;                  // Walker's current live GPS longitude
+  wentOnlineAt?: string;               // ISO timestamp when walker went online
 }
 
 export interface AppNotification {

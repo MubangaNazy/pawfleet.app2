@@ -942,31 +942,38 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     { walkerId, points: 0, streak: 0, badges: [] };
 
   const updateUser = async (userId: string, updates: Partial<User>) => {
+    // If imageUrl is a raw base64 data URL, upload it to Supabase Storage first
+    // so the DB only stores a small public URL instead of a huge base64 string.
+    let resolvedUpdates = { ...updates };
+    if (updates.imageUrl?.startsWith('data:')) {
+      resolvedUpdates.imageUrl = await uploadProfilePhoto(userId, updates.imageUrl);
+    }
+
     setData(prev => ({
       ...prev,
-      users: prev.users.map(u => u.id === userId ? { ...u, ...updates } : u),
+      users: prev.users.map(u => u.id === userId ? { ...u, ...resolvedUpdates } : u),
     }));
     if (currentUser?.id === userId) {
-      const updated = { ...currentUser, ...updates };
+      const updated = { ...currentUser, ...resolvedUpdates };
       setCurrentUser(updated);
       sessionStorage.setItem('pawfleet_user', JSON.stringify(updated));
     }
     const dbFields: Record<string, any> = {};
-    if (updates.name !== undefined)     dbFields.name     = updates.name;
-    if (updates.phone !== undefined)    dbFields.phone    = updates.phone;
-    if (updates.email !== undefined)    dbFields.email    = updates.email;
-    if (updates.imageUrl !== undefined)             dbFields.image_url             = updates.imageUrl;
-    if (updates.businessName !== undefined)          dbFields.business_name          = updates.businessName;
-    if (updates.businessAddress !== undefined)       dbFields.business_address       = updates.businessAddress;
-    if (updates.businessType !== undefined)          dbFields.business_type          = updates.businessType;
-    if (updates.subscriptionPaidUntil !== undefined) dbFields.subscription_paid_until = updates.subscriptionPaidUntil;
-    if (updates.trialEndsAt !== undefined)           dbFields.trial_ends_at          = updates.trialEndsAt;
-    if (updates.serviceLat !== undefined)             dbFields.service_lat             = updates.serviceLat;
-    if (updates.serviceLng !== undefined)             dbFields.service_lng             = updates.serviceLng;
-    if (updates.isOnline !== undefined)               dbFields.is_online               = updates.isOnline;
-    if (updates.onlineLat !== undefined)              dbFields.online_lat              = updates.onlineLat;
-    if (updates.onlineLng !== undefined)              dbFields.online_lng              = updates.onlineLng;
-    if (updates.wentOnlineAt !== undefined)           dbFields.went_online_at          = updates.wentOnlineAt;
+    if (resolvedUpdates.name !== undefined)     dbFields.name     = resolvedUpdates.name;
+    if (resolvedUpdates.phone !== undefined)    dbFields.phone    = resolvedUpdates.phone;
+    if (resolvedUpdates.email !== undefined)    dbFields.email    = resolvedUpdates.email;
+    if (resolvedUpdates.imageUrl !== undefined) dbFields.image_url = resolvedUpdates.imageUrl;
+    if (resolvedUpdates.businessName !== undefined)          dbFields.business_name          = resolvedUpdates.businessName;
+    if (resolvedUpdates.businessAddress !== undefined)       dbFields.business_address       = resolvedUpdates.businessAddress;
+    if (resolvedUpdates.businessType !== undefined)          dbFields.business_type          = resolvedUpdates.businessType;
+    if (resolvedUpdates.subscriptionPaidUntil !== undefined) dbFields.subscription_paid_until = resolvedUpdates.subscriptionPaidUntil;
+    if (resolvedUpdates.trialEndsAt !== undefined)           dbFields.trial_ends_at          = resolvedUpdates.trialEndsAt;
+    if (resolvedUpdates.serviceLat !== undefined)             dbFields.service_lat             = resolvedUpdates.serviceLat;
+    if (resolvedUpdates.serviceLng !== undefined)             dbFields.service_lng             = resolvedUpdates.serviceLng;
+    if (resolvedUpdates.isOnline !== undefined)               dbFields.is_online               = resolvedUpdates.isOnline;
+    if (resolvedUpdates.onlineLat !== undefined)              dbFields.online_lat              = resolvedUpdates.onlineLat;
+    if (resolvedUpdates.onlineLng !== undefined)              dbFields.online_lng              = resolvedUpdates.onlineLng;
+    if (resolvedUpdates.wentOnlineAt !== undefined)           dbFields.went_online_at          = resolvedUpdates.wentOnlineAt;
     if (Object.keys(dbFields).length > 0) {
       supabase.from('users').update(dbFields).eq('id', userId)
         .then(({ error }) => { if (error) console.error('updateUser:', error); });

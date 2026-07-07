@@ -1,7 +1,7 @@
 {
   "name": "PawFleet",
   "short_name": "PawFleet",
-  "description": "Zambia's trusted dog walking app",
+  "description": "Book trusted dog walkers, grooming, and vet appointments in Lusaka, Zambia. Track your pet live.",
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait",

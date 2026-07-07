@@ -4,15 +4,103 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/paw.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+
+    <!-- PWA / Apple -->
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="PawFleet" />
     <link rel="apple-touch-icon" href="/logo.png" />
     <meta name="theme-color" content="#1B4332" />
-    <meta name="description" content="Zambia's trusted dog walking app" />
     <link rel="manifest" href="/manifest.json" />
-    <title>PawFleet</title>
+
+    <!-- Primary SEO -->
+    <title>PawFleet — Dog Walking &amp; Pet Care App in Lusaka, Zambia</title>
+    <meta name="description" content="PawFleet is Zambia's #1 dog walking app. Book trusted dog walkers in Lusaka, schedule grooming, vet appointments, and track your pet in real time. Download now." />
+    <meta name="keywords" content="dog walking Lusaka, dog walker Zambia, pet care Lusaka, dog grooming Lusaka, vet appointment Lusaka, PawFleet, dog walking app Zambia, pet services Zambia" />
+    <link rel="canonical" href="https://pawfleetapp.com/" />
+    <meta name="robots" content="index, follow" />
+    <meta name="author" content="PawFleet" />
+
+    <!-- Open Graph (Facebook, WhatsApp previews) -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://pawfleetapp.com/" />
+    <meta property="og:title" content="PawFleet — Dog Walking &amp; Pet Care in Lusaka, Zambia" />
+    <meta property="og:description" content="Book trusted dog walkers, grooming, and vet appointments in Lusaka. Track your dog live on the map. Zambia's #1 pet care platform." />
+    <meta property="og:image" content="https://pawfleetapp.com/logo.png" />
+    <meta property="og:image:alt" content="PawFleet app logo" />
+    <meta property="og:site_name" content="PawFleet" />
+    <meta property="og:locale" content="en_ZM" />
+
+    <!-- Twitter card -->
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="PawFleet — Dog Walking &amp; Pet Care in Lusaka, Zambia" />
+    <meta name="twitter:description" content="Book trusted dog walkers, grooming, and vet appointments in Lusaka. Track your dog live on the map." />
+    <meta name="twitter:image" content="https://pawfleetapp.com/logo.png" />
+
+    <!-- Structured data: SoftwareApplication -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "PawFleet",
+      "url": "https://pawfleetapp.com",
+      "logo": "https://pawfleetapp.com/logo.png",
+      "description": "Zambia's leading dog walking and pet care platform. Book walkers, grooming, and vet appointments in Lusaka.",
+      "applicationCategory": "LifestyleApplication",
+      "operatingSystem": "Android, iOS, Web",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "ZMW"
+      },
+      "areaServed": {
+        "@type": "City",
+        "name": "Lusaka",
+        "containedInPlace": {
+          "@type": "Country",
+          "name": "Zambia"
+        }
+      },
+      "featureList": ["Dog Walking", "Pet Grooming", "Vet Appointments", "Live GPS Tracking", "In-App Chat"]
+    }
+    </script>
+
+    <!-- Structured data: LocalBusiness -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "LocalBusiness",
+      "name": "PawFleet",
+      "url": "https://pawfleetapp.com",
+      "logo": "https://pawfleetapp.com/logo.png",
+      "description": "Dog walking, grooming, and vet appointment booking platform serving Lusaka, Zambia.",
+      "address": {
+        "@type": "PostalAddress",
+        "addressLocality": "Lusaka",
+        "addressCountry": "ZM"
+      },
+      "geo": {
+        "@type": "GeoCoordinates",
+        "latitude": -15.4167,
+        "longitude": 28.2833
+      },
+      "serviceArea": {
+        "@type": "City",
+        "name": "Lusaka"
+      },
+      "hasOfferCatalog": {
+        "@type": "OfferCatalog",
+        "name": "Pet Services",
+        "itemListElement": [
+          { "@type": "Offer", "itemOffered": { "@type": "Service", "name": "Dog Walking" } },
+          { "@type": "Offer", "itemOffered": { "@type": "Service", "name": "Dog Grooming" } },
+          { "@type": "Offer", "itemOffered": { "@type": "Service", "name": "Vet Appointments" } }
+        ]
+      }
+    }
+    </script>
+
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />

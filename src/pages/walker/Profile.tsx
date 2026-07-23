@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Bell, Shield, ChevronRight, Settings, LogOut, Star, DollarSign, Activity, Camera, Upload, X, Check, Pencil, MapPin } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import type { WalkerPricing } from '../../types';
 
 async function resizePhoto(file: File, maxDim = 512, q = 0.78): Promise<string> {
   return new Promise(resolve => {
@@ -116,6 +117,120 @@ function EditProfileModal({ onClose }: { onClose: () => void }) {
   );
 }
 
+const DURATION_LABELS: { key: keyof WalkerPricing; label: string }[] = [
+  { key: 'walk_20', label: '20 min' },
+  { key: 'walk_30', label: '30 min' },
+  { key: 'walk_40', label: '40 min' },
+  { key: 'walk_60', label: '60 min' },
+];
+
+function PricingCard() {
+  const { currentUser, updateUser } = useApp();
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [prices, setPrices] = useState<Record<string, string>>({
+    walk_20:  String(currentUser?.pricing?.walk_20  ?? ''),
+    walk_30:  String(currentUser?.pricing?.walk_30  ?? ''),
+    walk_40:  String(currentUser?.pricing?.walk_40  ?? ''),
+    walk_60:  String(currentUser?.pricing?.walk_60  ?? ''),
+    grooming: String(currentUser?.pricing?.grooming ?? ''),
+  });
+
+  const handleSave = async () => {
+    if (!currentUser) return;
+    setSaving(true);
+    const pricing: WalkerPricing = {};
+    if (prices.walk_20)  pricing.walk_20  = Number(prices.walk_20);
+    if (prices.walk_30)  pricing.walk_30  = Number(prices.walk_30);
+    if (prices.walk_40)  pricing.walk_40  = Number(prices.walk_40);
+    if (prices.walk_60)  pricing.walk_60  = Number(prices.walk_60);
+    if (prices.grooming) pricing.grooming = Number(prices.grooming);
+    await updateUser(currentUser.id, { pricing });
+    setSaving(false);
+    setEditing(false);
+  };
+
+  return (
+    <div className="bg-white border border-surface-border rounded-2xl overflow-hidden">
+      <div className="flex items-center justify-between px-4 py-3.5 border-b border-surface-border">
+        <div className="flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: '#EBF5EF' }}>
+            <DollarSign className="w-4 h-4" style={{ color: '#2B8A50' }} />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-ink">My Pricing</p>
+            <p className="text-[11px] text-ink-muted">What owners pay per walk</p>
+          </div>
+        </div>
+        <button type="button" onClick={() => setEditing(e => !e)}
+          className="text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-surface-hover transition-colors" style={{ color: '#2B8A50' }}>
+          {editing ? 'Cancel' : 'Edit'}
+        </button>
+      </div>
+
+      <div className="p-4 space-y-3">
+        <p className="text-[10px] font-bold text-ink-muted uppercase tracking-wider">Walk Durations</p>
+        <div className="grid grid-cols-2 gap-2.5">
+          {DURATION_LABELS.map(({ key, label }) => {
+            const current = currentUser?.pricing?.[key];
+            return (
+              <div key={key} className="flex items-center justify-between rounded-xl border border-surface-border px-3 py-2.5 bg-[#F4F9F6]">
+                <span className="text-xs font-semibold text-ink">{label}</span>
+                {editing ? (
+                  <div className="flex items-center gap-0.5">
+                    <span className="text-xs font-bold text-ink-muted">K</span>
+                    <input
+                      type="number" min={0}
+                      value={prices[key]}
+                      onChange={e => setPrices(p => ({ ...p, [key]: e.target.value }))}
+                      className="w-16 text-right text-sm font-bold text-ink bg-transparent border-none outline-none"
+                      placeholder="—"
+                    />
+                  </div>
+                ) : (
+                  <span className="text-sm font-bold" style={{ color: current != null ? '#1B4332' : '#9CA3AF' }}>
+                    {current != null ? `K${current}` : '—'}
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        <p className="text-[10px] font-bold text-ink-muted uppercase tracking-wider pt-1">Grooming Add-on</p>
+        <div className="flex items-center justify-between rounded-xl border border-surface-border px-3 py-2.5 bg-[#F4F9F6]">
+          <span className="text-xs font-semibold text-ink">Bath, trim & nail clip</span>
+          {editing ? (
+            <div className="flex items-center gap-0.5">
+              <span className="text-xs font-bold text-ink-muted">K</span>
+              <input
+                type="number" min={0}
+                value={prices.grooming}
+                onChange={e => setPrices(p => ({ ...p, grooming: e.target.value }))}
+                className="w-16 text-right text-sm font-bold text-ink bg-transparent border-none outline-none"
+                placeholder="—"
+              />
+            </div>
+          ) : (
+            <span className="text-sm font-bold" style={{ color: currentUser?.pricing?.grooming != null ? '#1B4332' : '#9CA3AF' }}>
+              {currentUser?.pricing?.grooming != null ? `K${currentUser.pricing.grooming}` : '—'}
+            </span>
+          )}
+        </div>
+
+        {editing && (
+          <button
+            type="button" disabled={saving} onClick={handleSave}
+            className="w-full h-10 rounded-xl text-white text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-50 mt-1"
+            style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)' }}>
+            {saving ? 'Saving…' : <><Check className="w-4 h-4" /> Save Pricing</>}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function WalkerProfile() {
   const { currentUser, data, getWalkerStats, logout, updateUser } = useApp();
   const navigate = useNavigate();
@@ -225,6 +340,9 @@ export default function WalkerProfile() {
       </div>
 
       <div className="px-4 pt-5 space-y-4">
+        {/* My Pricing */}
+        <PricingCard />
+
         {/* Set service area */}
         <button type="button" onClick={handleSetLocation} disabled={locationSaving}
           className="w-full flex items-center gap-3 px-4 py-4 bg-white border border-surface-border rounded-2xl hover:bg-surface-secondary transition-colors">

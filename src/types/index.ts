@@ -3,6 +3,14 @@ export type WalkStatus = 'pending' | 'assigned' | 'active' | 'completed' | 'canc
 export type PaymentStatus = 'unpaid' | 'held' | 'paid' | 'released';
 export type WalkerStatus = 'pending_approval' | 'active' | 'suspended';
 
+export interface WalkerPricing {
+  walk_20?: number;
+  walk_30?: number;
+  walk_40?: number;
+  walk_60?: number;
+  grooming?: number;
+}
+
 export interface User {
   id: string;
   name: string;
@@ -28,6 +36,7 @@ export interface User {
   onlineLat?: number;                  // Walker's current live GPS latitude
   onlineLng?: number;                  // Walker's current live GPS longitude
   wentOnlineAt?: string;               // ISO timestamp when walker went online
+  pricing?: WalkerPricing;             // Walker's per-duration pricing (JSONB)
 }
 
 export interface AppNotification {

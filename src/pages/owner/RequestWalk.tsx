@@ -6,6 +6,7 @@ import { SuccessDogIllustration, NoPetsIllustration } from '../../components/ui/
 import { useApp } from '../../context/AppContext';
 import PaymentModal from '../../components/ui/PaymentModal';
 import { supabase } from '../../lib/supabase';
+import type { WalkerPricing } from '../../types';
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
 const DURATIONS = [20, 30, 40, 60];
@@ -93,6 +94,17 @@ export default function OwnerRequestWalk() {
       });
   })() as (typeof data.users[0] & { _distKm?: number | null })[];
 
+  // Pricing helpers — computed from walkers' stored pricing for the selected duration
+  const dKey = `walk_${duration}` as keyof WalkerPricing;
+  const walkerDurationPrices = walkers
+    .map(w => w.pricing?.[dKey])
+    .filter((p): p is number => typeof p === 'number');
+  const minWalkPrice = walkerDurationPrices.length > 0 ? Math.min(...walkerDurationPrices) : null;
+  const walkerGroomPrices = walkers
+    .map(w => w.pricing?.grooming)
+    .filter((p): p is number => typeof p === 'number');
+  const minGroomPrice = walkerGroomPrices.length > 0 ? Math.min(...walkerGroomPrices) : null;
+
   // Auto-select dog when data loads
   useEffect(() => {
     if (myDogs.length === 1 && !dogId) setDogId(myDogs[0].id);
@@ -179,6 +191,11 @@ export default function OwnerRequestWalk() {
   };
 
   const confirmBooking = (walkerId?: string) => {
+    const selectedWalker = walkerId ? data.users.find(u => u.id === walkerId) : null;
+    const walkPrice  = (selectedWalker?.pricing?.[dKey] as number | undefined) ?? minWalkPrice ?? 150;
+    const groomPrice = selectedWalker?.pricing?.grooming ?? minGroomPrice ?? 249;
+    const finalPrice = addGrooming ? walkPrice + groomPrice : walkPrice;
+
     const scheduledDate = isInstant
       ? new Date().toISOString()
       : new Date(`${schedDate}T${schedTime}:00`).toISOString();
@@ -194,8 +211,8 @@ export default function OwnerRequestWalk() {
       walkerId: walkerId || undefined,
       status: 'pending',
       scheduledDate,
-      price: addGrooming ? 399 : 150,
-      walkerEarning: addGrooming ? 280 : 100,
+      price: finalPrice,
+      walkerEarning: Math.round(finalPrice * 0.7),
       notes,
       startLocation: {
         lat: pickupLat ?? undefined,
@@ -209,16 +226,8 @@ export default function OwnerRequestWalk() {
       startLiveBroadcast(newWalk.id);
     }
 
-    setCreatedWalkPrice(addGrooming ? 399 : 150);
+    setCreatedWalkPrice(finalPrice);
     setSubmitted(true);
-  };
-
-  const walkerPrices: Record<number, number> = { 0: 150, 1: 180, 2: 130, 3: 160 };
-  const walkerBios: Record<number, string> = {
-    0: '5+ years experience, loves big dogs.',
-    1: 'Certified trainer & walker.',
-    2: 'Available evenings & weekends.',
-    3: 'Gentle with anxious dogs.',
   };
 
   if (submitted) {
@@ -570,7 +579,9 @@ export default function OwnerRequestWalk() {
             <p className="text-xs text-ink-muted mt-0.5">Bath, trim, nail clip & ear clean — done after the walk</p>
           </div>
           <div className="flex flex-col items-end shrink-0 gap-1">
-            <span className="text-sm font-bold" style={{ color: '#2B8A50' }}>+K249</span>
+            <span className="text-sm font-bold" style={{ color: '#2B8A50' }}>
+              {minGroomPrice != null ? `+K${minGroomPrice}` : '+Grooming'}
+            </span>
             <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
               addGrooming ? 'bg-primary border-primary' : 'border-surface-border'
             }`}>
@@ -584,13 +595,19 @@ export default function OwnerRequestWalk() {
           <div>
             <p className="text-xs text-ink-muted font-medium">Estimated total</p>
             {addGrooming ? (
-              <p className="text-[10px] text-ink-muted mt-0.5">Walk K150 + Grooming K249</p>
+              <p className="text-[10px] text-ink-muted mt-0.5">
+                {minWalkPrice != null ? `Walk from K${minWalkPrice}` : 'Walk'} + {minGroomPrice != null ? `Grooming K${minGroomPrice}` : 'Grooming fee'}
+              </p>
             ) : (
-              <p className="text-[10px] text-ink-muted mt-0.5">{duration} min walk · standard rate</p>
+              <p className="text-[10px] text-ink-muted mt-0.5">
+                {duration} min · {minWalkPrice != null ? 'prices from' : 'prices set by each walker'}
+              </p>
             )}
           </div>
           <span className="text-2xl font-extrabold" style={{ color: '#1B4332' }}>
-            K{addGrooming ? 150 + 249 : 150}
+            {minWalkPrice != null
+              ? `K${addGrooming ? minWalkPrice + (minGroomPrice ?? 249) : minWalkPrice}`
+              : '—'}
           </span>
         </div>
 
@@ -668,7 +685,7 @@ export default function OwnerRequestWalk() {
                         {/* Price pill — top right */}
                         <div className="absolute top-2 right-2 px-2 py-1 rounded-full text-[11px] font-bold text-white"
                           style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)' }}>
-                          K{walkerPrices[i] || 150}
+                          {walker.pricing?.[dKey] != null ? `K${walker.pricing[dKey]}` : 'Ask'}
                         </div>
                         {/* Verified badge — top left */}
                         {walker.walkerStatus === 'active' && (
@@ -704,7 +721,9 @@ export default function OwnerRequestWalk() {
                         <div>
                           <p className="font-bold text-ink text-sm truncate">{walker.name}</p>
                           <p className="text-[11px] text-ink-muted mt-0.5 leading-snug line-clamp-2">
-                            {walkerBios[i] || 'Experienced dog walker.'}
+                            {walker.pricing?.[dKey] != null
+                              ? `K${walker.pricing[dKey]} for ${duration} min`
+                              : 'Experienced dog walker.'}
                             {completedCount > 0 && <span className="ml-1 text-primary font-semibold">· {completedCount} walk{completedCount !== 1 ? 's' : ''}</span>}
                           </p>
                           {walker._distKm != null && (

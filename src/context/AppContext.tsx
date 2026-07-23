@@ -20,6 +20,7 @@ const toUser = (r: any): User => ({
   onlineLat: r.online_lat ?? undefined,
   onlineLng: r.online_lng ?? undefined,
   wentOnlineAt: r.went_online_at ?? undefined,
+  pricing: r.pricing ?? undefined,
   referralCode: r.referral_code ?? undefined,
   referredByAdminId: r.referred_by_admin_id ?? undefined,
   fcmToken: r.fcm_token ?? undefined,
@@ -984,6 +985,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (resolvedUpdates.onlineLat !== undefined)              dbFields.online_lat              = resolvedUpdates.onlineLat;
     if (resolvedUpdates.onlineLng !== undefined)              dbFields.online_lng              = resolvedUpdates.onlineLng;
     if (resolvedUpdates.wentOnlineAt !== undefined)           dbFields.went_online_at          = resolvedUpdates.wentOnlineAt;
+    if (resolvedUpdates.pricing !== undefined)               dbFields.pricing                 = resolvedUpdates.pricing;
     if (Object.keys(dbFields).length > 0) {
       supabase.from('users').update(dbFields).eq('id', userId)
         .then(({ error }) => { if (error) console.error('updateUser:', error); });

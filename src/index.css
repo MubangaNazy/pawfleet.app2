@@ -31,6 +31,10 @@ html, body, #root {
   -webkit-font-smoothing: antialiased;
 }
 
+/* iOS safe-area helpers */
+.safe-area-pb { padding-bottom: max(0.5rem, env(safe-area-inset-bottom)); }
+.safe-area-pt { padding-top: max(0px, env(safe-area-inset-top)); }
+
 /* Scrollbar */
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }

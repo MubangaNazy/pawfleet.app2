@@ -2,22 +2,12 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   PawPrint, Eye, EyeOff, Phone, Lock,
-  MapPin, DollarSign, Shield, Zap, ArrowRight, Check,
+  MapPin, DollarSign, Shield, Zap, ArrowRight,
 } from 'lucide-react';
 import PawFleetLogo from '../components/ui/PawFleetLogo';
 import { useApp } from '../context/AppContext';
 import { Role } from '../types';
 
-/* ─── Types ─── */
-type DemoRole = { label: string; sub: string; identifier: string; password: string; role: Role; emoji: string; gradient: string };
-
-const DEMOS: DemoRole[] = [
-  { label: 'Admin',      sub: 'Business owner',       identifier: 'admin@pawfleet.zm',     password: 'admin123',  role: 'admin',      emoji: '👑', gradient: 'from-green-800 to-green-950' },
-  { label: 'Walker',     sub: 'Dog walker agent',      identifier: 'walker1@pawfleet.zm',   password: 'walker123', role: 'walker',     emoji: '🦮', gradient: 'from-emerald-500 to-green-700' },
-  { label: 'Owner',      sub: 'Dog / cat owner',       identifier: 'owner1@pawfleet.zm',    password: 'owner123',  role: 'owner',      emoji: '🐾', gradient: 'from-green-400 to-emerald-600' },
-  { label: 'Shop Owner', sub: 'Pet shop seller',       identifier: 'shopowner@pawfleet.zm', password: 'shop123',   role: 'shopowner',  emoji: '🏪', gradient: 'from-green-600 to-green-900' },
-  { label: 'Vet Clinic', sub: 'Veterinary partner',   identifier: 'vet@pawfleet.zm',       password: 'vet123',    role: 'vet',        emoji: '🏥', gradient: 'from-teal-600 to-cyan-800' },
-];
 const ROLE_ROUTES: Record<Role, string> = { admin: '/admin', walker: '/walker', owner: '/owner', shopowner: '/shopowner', vet: '/vet' };
 
 /* ─── Floating Preview Cards ─── */
@@ -187,7 +177,6 @@ export default function Login() {
   const [showPw, setShowPw]         = useState(false);
   const [error, setError]           = useState('');
   const [loading, setLoading]       = useState(false);
-  const [activeDemoIdx, setActiveDemoIdx] = useState<number | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -195,21 +184,7 @@ export default function Login() {
     setLoading(true);
     const user = await login(identifier, password);
     if (user) navigate(ROLE_ROUTES[user.role]);
-    else { setError('Invalid credentials. Try a demo account below.'); setLoading(false); }
-  };
-
-  const fillDemo = async (demo: DemoRole, idx: number) => {
-    setActiveDemoIdx(idx);
-    setError('');
-    setLoading(true);
-    const user = await login(demo.identifier, demo.password);
-    setLoading(false);
-    if (user) navigate(ROLE_ROUTES[user.role]);
-    else {
-      setIdentifier(demo.identifier);
-      setPassword(demo.password);
-      setError('Auto-login failed — credentials filled above, press Sign In.');
-    }
+    else { setError('Invalid credentials. Please check your details and try again.'); setLoading(false); }
   };
 
   return (
@@ -419,46 +394,7 @@ export default function Login() {
             </button>
           </form>
 
-          {/* Divider */}
-          <div className="flex items-center gap-3 my-6 fade-in-up-3">
-            <div className="flex-1 h-px bg-surface-border" />
-            <span className="text-xs text-ink-muted font-medium">try a demo account</span>
-            <div className="flex-1 h-px bg-surface-border" />
-          </div>
-
-          {/* Demo account cards */}
-          <div className="space-y-2.5 fade-in-up-4">
-            {DEMOS.map((demo, idx) => (
-              <button
-                type="button"
-                key={demo.role}
-                onClick={() => fillDemo(demo, idx)}
-                className={`w-full flex items-center gap-3 p-3.5 rounded-2xl border-2 transition-all duration-200 text-left group
-                  ${activeDemoIdx === idx
-                    ? 'border-primary bg-primary-50 shadow-glow'
-                    : 'border-surface-border bg-white hover:border-primary/40 hover:shadow-card-hover hover:-translate-y-0.5'
-                  }`}
-              >
-                {/* Gradient icon */}
-                <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${demo.gradient} flex items-center justify-center text-xl shrink-0 shadow-sm`}>
-                  {demo.emoji}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-ink">{demo.label}</p>
-                  <p className="text-xs text-ink-muted truncate">{demo.identifier} · tap to sign in</p>
-                </div>
-                {activeDemoIdx === idx ? (
-                  <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center shrink-0">
-                    <Check className="w-3 h-3 text-white" />
-                  </div>
-                ) : (
-                  <ArrowRight className="w-4 h-4 text-ink-muted group-hover:text-primary group-hover:translate-x-0.5 transition-all shrink-0" />
-                )}
-              </button>
-            ))}
-          </div>
-
-          <div className="mt-5 text-center fade-in-up-4">
+          <div className="mt-6 text-center fade-in-up-3">
             <p className="text-sm text-ink-secondary">
               New to PawFleet?{' '}
               <Link to="/register" className="text-primary font-semibold hover:underline">

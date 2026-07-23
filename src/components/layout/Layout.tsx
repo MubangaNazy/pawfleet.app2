@@ -59,8 +59,9 @@ export function Layout() {
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Mobile header */}
-        <header className="lg:hidden flex items-center justify-between px-4 py-3 bg-white border-b border-surface-border shrink-0">
+        {/* Mobile header — padding-top absorbs the iOS status bar / Dynamic Island */}
+        <header className="lg:hidden flex items-center justify-between px-4 py-3 bg-white border-b border-surface-border shrink-0"
+          style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))' }}>
           <button
             type="button"
             title="Open menu"

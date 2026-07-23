@@ -339,7 +339,7 @@ function PayModal({ user, onClose }: { user: User; onClose: () => void }) {
           {[
             { label: 'Bank',            value: 'FNB Zambia' },
             { label: 'Account Name',    value: 'PawFleet Ltd' },
-            { label: 'Account Number',  value: '62012345678' },
+            { label: 'Account Number',  value: '63148245251' },
             { label: 'Branch Code',     value: '260001' },
             { label: 'Reference',       value: `PAWFLEET-${user.id.slice(0, 8).toUpperCase()}` },
             { label: 'Amount',          value: `ZMW ${price}.00` },
@@ -353,7 +353,7 @@ function PayModal({ user, onClose }: { user: User; onClose: () => void }) {
 
         <div className="rounded-2xl p-4" style={{ background: '#FFFBEB', border: '1px solid #FDE68A' }}>
           <p className="text-xs text-amber-800 leading-relaxed">
-            After paying, send proof of payment to <strong>support@pawfleet.zm</strong> or WhatsApp <strong>+260 97 700 0001</strong> with your reference number. Your account will be activated within 2 hours.
+            After paying, send proof of payment to <strong>pawfleetapp@gmail.com</strong> or WhatsApp <strong>+260 97 700 0001</strong> with your reference number. Your account will be activated within 2 hours.
           </p>
         </div>
 

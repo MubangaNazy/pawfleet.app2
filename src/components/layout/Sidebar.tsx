@@ -128,7 +128,14 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             {({ isActive }) => (
               <>
                 <item.icon className={`w-4 h-4 shrink-0 transition-colors ${isActive ? 'text-primary' : 'text-ink-muted group-hover:text-ink'}`} />
-                <span className="flex-1">{item.label}</span>
+                <span className="flex-1 italic font-semibold" style={{
+                  background: 'linear-gradient(135deg, #1B4332, #52B788)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text',
+                }}>
+                  {item.label}
+                </span>
                 {isActive && <ChevronRight className="w-3 h-3 text-primary/60 shrink-0" />}
               </>
             )}

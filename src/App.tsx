@@ -347,6 +347,7 @@ function AppRoutes() {
         <Route path="schedule"    element={<WalkerSchedule />} />
         <Route path="earnings"    element={<WalkerEarnings />} />
         <Route path="badges"      element={<WalkerBadges />} />
+        <Route path="map"         element={<WalkerMap />} />
         <Route path="profile"     element={<WalkerProfile />} />
         <Route path="guide"       element={<WalkerDogGuide />} />
         <Route path="history"     element={<WalkerHistory />} />
@@ -373,6 +374,7 @@ function AppRoutes() {
         <Route path="orders"        element={<ShopOwnerOrders />} />
         <Route path="notifications" element={<NotificationsPage />} />
         <Route path="analytics"     element={<ShopOwnerAnalytics />} />
+        <Route path="map"           element={<WalkerMap />} />
         <Route path="profile"       element={<ShopOwnerProfile />} />
         <Route path="community"     element={<Community />} />
       </Route>
@@ -414,6 +416,7 @@ function AppRoutes() {
         <Route path="appointments/:walkId"    element={<VetAppointmentDetail />} />
         <Route path="schedule"               element={<VetSchedule />} />
         <Route path="analytics"              element={<VetAnalytics />} />
+        <Route path="map"                    element={<WalkerMap />} />
         <Route path="profile"                 element={<VetProfile />} />
         <Route path="notifications"           element={<NotificationsPage />} />
       </Route>

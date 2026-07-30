@@ -353,7 +353,7 @@ function PayModal({ user, onClose }: { user: User; onClose: () => void }) {
 
         <div className="rounded-2xl p-4" style={{ background: '#FFFBEB', border: '1px solid #FDE68A' }}>
           <p className="text-xs text-amber-800 leading-relaxed">
-            After paying, send proof of payment to <strong>pawfleetapp@gmail.com</strong> or WhatsApp <strong>+260 97 700 0001</strong> with your reference number. Your account will be activated within 2 hours.
+            After paying, send proof of payment to <strong>pawfleetapp@gmail.com</strong> or WhatsApp <strong>+260971444222</strong> with your reference number. Your account will be activated within 2 hours.
           </p>
         </div>
 

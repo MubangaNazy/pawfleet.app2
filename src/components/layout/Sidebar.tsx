@@ -30,6 +30,7 @@ const walkerNav = [
   { to: '/walker/schedule',    icon: Calendar,        label: 'Schedule' },
   { to: '/walker/earnings',    icon: DollarSign,      label: 'Earnings' },
   { to: '/walker/history',     icon: History,         label: 'History' },
+  { to: '/walker/map',         icon: Map,             label: 'Live Map' },
   { to: '/walker/badges',      icon: Activity,        label: 'Achievements' },
   { to: '/walker/community',   icon: Trophy,          label: 'Community' },
 ];
@@ -40,6 +41,7 @@ const ownerNav = [
   { to: '/owner/schedule',     icon: Calendar,        label: 'Schedule' },
   { to: '/owner/dogs',         icon: Dog,             label: 'My Dogs' },
   { to: '/owner/history',      icon: Clock,           label: 'Walk History' },
+  { to: '/owner/walker-map',   icon: Map,             label: 'Live Map' },
   { to: '/owner/services',     icon: Scissors,        label: 'Grooming & Walking' },
   { to: '/owner/vet-booking',  icon: Stethoscope,     label: 'Vet Care' },
   { to: '/owner/shop',         icon: ShoppingBag,     label: 'Shop' },
@@ -52,6 +54,7 @@ const vetNav = [
   { to: '/vet/appointments', icon: ClipboardList,   label: 'Appointments' },
   { to: '/vet/schedule',     icon: Calendar,        label: 'Schedule' },
   { to: '/vet/analytics',    icon: TrendingUp,      label: 'Analytics' },
+  { to: '/vet/map',          icon: Map,             label: 'Live Map' },
   { to: '/vet/profile',      icon: User,            label: 'Clinic Profile' },
 ];
 
@@ -60,6 +63,7 @@ const shopownerNav = [
   { to: '/shopowner/products',      icon: Package,         label: 'My Products' },
   { to: '/shopowner/orders',        icon: ShoppingBag,     label: 'Orders' },
   { to: '/shopowner/analytics',     icon: TrendingUp,      label: 'Analytics' },
+  { to: '/shopowner/map',           icon: Map,             label: 'Live Map' },
   { to: '/shopowner/notifications', icon: Bell,            label: 'Notifications' },
   { to: '/shopowner/community',     icon: Users,           label: 'Community' },
   { to: '/shopowner/profile',       icon: User,            label: 'Shop Profile' },

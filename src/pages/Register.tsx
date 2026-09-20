@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import PawFleetLogo from '../components/ui/PawFleetLogo';
 import { useApp } from '../context/AppContext';
+import { prepareImage } from '../lib/image';
 
 const ROLE_ROUTES = { owner: '/owner', walker: '/walker', vet: '/vet', shopowner: '/shopowner' };
 
@@ -30,20 +31,21 @@ export default function Register() {
   const [emailSent, setEmailSent]     = useState(false);
   const [pendingApproval, setPending] = useState(false);
 
-  const handlePhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    e.target.value = '';
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = ev => setPhotoUrl(ev.target?.result as string);
-    reader.readAsDataURL(file);
+    try { setPhotoUrl(await prepareImage(file, { maxDim: 600, maxBytes: 90_000 })); setError(''); }
+    catch (err: any) { setError(err?.message || 'Could not use that photo. Please try another.'); }
   };
 
-  const handleNrcImage = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleNrcImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    e.target.value = '';
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = ev => setNrcImageUrl(ev.target?.result as string);
-    reader.readAsDataURL(file);
+    // Bigger than a profile photo so the card text stays readable, still far smaller than the original.
+    try { setNrcImageUrl(await prepareImage(file, { maxDim: 1400, quality: 0.75, maxBytes: 300_000 })); setError(''); }
+    catch (err: any) { setError(err?.message || 'Could not use that photo. Please try another.'); }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {

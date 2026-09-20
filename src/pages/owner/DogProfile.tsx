@@ -5,6 +5,7 @@ import { Camera, ArrowLeft, Droplets, Coffee, Moon, CheckCircle, Activity } from
 import { useApp } from '../../context/AppContext';
 import { StatusBadge } from '../../components/ui/Badge';
 import { HealthLog } from '../../types';
+import { prepareImage } from '../../lib/image';
 
 export default function DogProfile() {
   const { dogId } = useParams<{ dogId: string }>();
@@ -41,16 +42,14 @@ export default function DogProfile() {
   const completedWalks = dogWalks.filter(w => w.status === 'completed').length;
   const recentWalks    = dogWalks.slice(0, 5);
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    e.target.value = '';
     if (!file) return;
     setUploading(true);
-    const reader = new FileReader();
-    reader.onload = ev => {
-      updateDog(dog.id, { imageUrl: ev.target?.result as string });
-      setUploading(false);
-    };
-    reader.readAsDataURL(file);
+    try { updateDog(dog.id, { imageUrl: await prepareImage(file, { maxDim: 800, maxBytes: 120_000 }) }); }
+    catch (err: any) { window.alert(err?.message || 'Could not use that photo. Please try another.'); }
+    setUploading(false);
   };
 
   const toggleHealth = (field: keyof Pick<HealthLog, 'water' | 'foodMorning' | 'foodEvening'>, current?: boolean) => {

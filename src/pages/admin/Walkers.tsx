@@ -5,6 +5,7 @@ import { useApp } from '../../context/AppContext';
 import type { User } from '../../types';
 import { getSubscriptionStatus, SUBSCRIPTION_PRICE } from '../../components/ui/SubscriptionBanner';
 import { format, parseISO } from 'date-fns';
+import { prepareImage } from '../../lib/image';
 
 function PhotoModal({ url, name, onClose }: { url: string; name: string; onClose: () => void }) {
   return (
@@ -158,12 +159,14 @@ export default function AdminWalkers() {
     return { completedWalks: walks.length, totalEarned, unpaid, paid, activeWalk };
   };
 
-  const handleAddPhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAddPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    e.target.value = '';
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = ev => setForm(f => ({ ...f, photoUrl: ev.target?.result as string }));
-    reader.readAsDataURL(file);
+    try {
+      const photoUrl = await prepareImage(file, { maxDim: 600, maxBytes: 90_000 });
+      setForm(f => ({ ...f, photoUrl }));
+    } catch (err: any) { setError(err?.message || 'Could not use that photo. Please try another.'); }
   };
 
   const handleAdd = async () => {

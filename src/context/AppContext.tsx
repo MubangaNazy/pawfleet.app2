@@ -5,6 +5,7 @@ import { requestNotificationPermission, onForegroundMessage } from '../lib/fireb
 import { identifyUser, clearUser, trackEvent } from '../lib/monitoring';
 import { goOffline } from '../lib/liveTracking';
 import { OFFLINE_MESSAGE, isNetworkFailure, sessionState, withTimeout as guardTimeout } from '../lib/netguard';
+import { shrinkDataUrl } from '../lib/image';
 
 // ── Type helpers ────────────────────────────────────────────
 const toUser = (r: any): User => ({
@@ -1422,6 +1423,41 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       'Unfortunately your walker application was not approved at this time. Contact admin for more information.',
     );
   };
+
+  // Photos that were only ever saved on one phone (or stored inside the database as a giant text blob) are
+  // shrunk and uploaded properly, so they show up on every phone. Runs once per photo, for the owner's own
+  // photos only, on the phone that actually has them.
+  const migratedPhotos = React.useRef(new Set<string>());
+  useEffect(() => {
+    if (!currentUser || currentUser.id.startsWith('1111') || currentUser.id.startsWith('2222') || currentUser.id.startsWith('4444')) return;
+    let cancelled = false;
+    (async () => {
+      if ((await sessionState()) !== true) return;
+      const me = data.users.find(u => u.id === currentUser.id) ?? currentUser;
+
+      if (me.imageUrl?.startsWith('data:') && !migratedPhotos.current.has('u:' + me.id)) {
+        migratedPhotos.current.add('u:' + me.id);
+        try {
+          const small = await shrinkDataUrl(me.imageUrl, { maxDim: 600, maxBytes: 90_000 });
+          if (!cancelled) await updateUser(me.id, { imageUrl: small }); // uploads to storage and saves the link
+        } catch (e) { console.warn('profile photo migration:', e); }
+      }
+
+      for (const d of data.dogs.filter(x => x.ownerId === me.id && x.imageUrl?.startsWith('data:'))) {
+        if (cancelled || migratedPhotos.current.has('d:' + d.id)) continue;
+        migratedPhotos.current.add('d:' + d.id);
+        try {
+          const small = await shrinkDataUrl(d.imageUrl!, { maxDim: 800, maxBytes: 120_000 });
+          const url = await withTimeout(uploadPetPhoto(small, d.id), 20000, null);
+          if (!url) { migratedPhotos.current.delete('d:' + d.id); continue; } // storage not ready yet: try again next time
+          saveDogImage(d.id, url);
+          setData(prev => ({ ...prev, dogs: prev.dogs.map(x => x.id === d.id ? { ...x, imageUrl: url } : x) }));
+          await supabase.from('dogs').update({ image_url: url }).eq('id', d.id);
+        } catch (e) { console.warn('dog photo migration:', e); }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [currentUser?.id, data.dogs.length, data.users.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <AppContext.Provider value={{

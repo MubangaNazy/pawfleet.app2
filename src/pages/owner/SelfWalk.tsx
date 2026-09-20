@@ -9,6 +9,7 @@ import { useTurnByTurn } from '../../hooks/useTurnByTurn';
 import { useMyLocation } from '../../hooks/useMyLocation';
 import { LOOP_DIRECTIONS, loopBearing, planLoopRoute, type PlannedRoute } from '../../lib/routing';
 import { LatLng, formatKm, haversineKm } from '../../lib/geo';
+import { locationSupported, watchLocation } from '../../lib/nativeLocation';
 import { getVoicePref, primeVoice, setVoicePref, stopSpeaking, voiceSupported } from '../../lib/voice';
 
 // ── Formatting helpers ───────────────────────────────────────
@@ -70,7 +71,7 @@ export default function SelfWalk() {
   const [overviewTick, setOverviewTick] = useState(0);
 
   const timerRef   = useRef<number | null>(null);
-  const watchRef   = useRef<number | null>(null);
+  const watchRef   = useRef<(() => void) | null>(null);
   const lastPosRef = useRef<LatLng | null>(null);
   const pausedRef  = useRef(false);
   const distRef    = useRef(0);
@@ -109,7 +110,7 @@ export default function SelfWalk() {
 
   const stopAll = useCallback(() => {
     if (timerRef.current)  clearInterval(timerRef.current);
-    if (watchRef.current !== null) navigator.geolocation?.clearWatch(watchRef.current);
+    watchRef.current?.();
     timerRef.current = null;
     watchRef.current = null;
     wakeRef.current?.release().catch(() => {});
@@ -142,11 +143,11 @@ export default function SelfWalk() {
       if (!pausedRef.current) setElapsed(e => e + 1);
     }, 1000);
 
-    if (!navigator.geolocation) {
+    if (!locationSupported()) {
       setGpsNote('GPS not available — time tracking only');
       return;
     }
-    watchRef.current = navigator.geolocation.watchPosition(
+    watchRef.current = watchLocation(
       (pos) => {
         const ll: LatLng = [pos.coords.latitude, pos.coords.longitude];
         setCurrentPos(ll);
@@ -164,7 +165,6 @@ export default function SelfWalk() {
         lastPosRef.current = ll;
       },
       () => setGpsNote('GPS signal weak — distance may be approximate'),
-      { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
     );
   };
 

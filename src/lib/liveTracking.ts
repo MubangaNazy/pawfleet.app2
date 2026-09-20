@@ -3,6 +3,7 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 import { LatLng, haversineKm, isValidCoord, pathLengthKm } from './geo';
 import { planLoopRoute, type Maneuver } from './routing';
+import { locationSupported, watchLocation, type LocationError, type LocationFix } from './nativeLocation';
 
 /* ────────────────────────────────────────────────────────────────────────────
  * 1. LIVE WALKER ROSTER  (who is online right now, and where)
@@ -116,7 +117,7 @@ export function useWalkerOnline(): OnlineState {
   );
 }
 
-let watchId: number | null = null;
+let stopWatchFn: (() => void) | null = null;
 let myId = '';
 let saveBase = false;
 let lastSentAt = 0;
@@ -141,7 +142,7 @@ function persist(isOnline: boolean, pos?: LatLng | null) {
   if (pos) lastPersisted = pos;
 }
 
-function onFix(p: GeolocationPosition) {
+function onFix(p: LocationFix) {
   const pos: LatLng = [p.coords.latitude, p.coords.longitude];
   const now = Date.now();
   const first = !onlineState.online;
@@ -155,7 +156,7 @@ function onFix(p: GeolocationPosition) {
   if (first || (now - lastPersistAt > 60_000 && moved > 0.03) || now - lastPersistAt > 5 * 60_000) persist(true, pos);
 }
 
-function onFixError(e: GeolocationPositionError) {
+function onFixError(e: LocationError) {
   if (e.code === 1) {
     stopWatch();
     setOnlineState({ online: false, starting: false, error: 'Location permission is blocked. Allow location for PawFleet in your browser or phone settings, then try again.' });
@@ -167,14 +168,14 @@ function onFixError(e: GeolocationPositionError) {
 }
 
 function stopWatch() {
-  if (watchId !== null) { navigator.geolocation.clearWatch(watchId); watchId = null; }
+  if (stopWatchFn) { stopWatchFn(); stopWatchFn = null; }
   if (heartbeat) { clearInterval(heartbeat); heartbeat = null; }
 }
 
 /** Start broadcasting this walker's live position. `hasBase` = walker already saved a service location. */
 export function goOnline(userId: string, hasBase: boolean) {
   if (onlineState.online || onlineState.starting) return;
-  if (!('geolocation' in navigator)) {
+  if (!locationSupported()) {
     setOnlineState({ error: 'This device does not support GPS location.' });
     return;
   }
@@ -183,7 +184,7 @@ export function goOnline(userId: string, hasBase: boolean) {
   lastSentAt = 0; lastSentPos = null;
   setOnlineState({ starting: true, error: null });
   ensureChannel();
-  watchId = navigator.geolocation.watchPosition(onFix, onFixError, { enableHighAccuracy: true, maximumAge: 3000, timeout: 25_000 });
+  stopWatchFn = watchLocation(onFix, onFixError);
   heartbeat = setInterval(() => { lastSentAt = Date.now(); sendPos(); }, HEARTBEAT_MS);
   try { localStorage.setItem(RESUME_KEY, userId); } catch { /* private mode */ }
 }
@@ -279,7 +280,7 @@ let session: WalkSession | null = null;
 const sessionListeners = new Set<() => void>();
 let sessCh: RealtimeChannel | null = null;
 let sessReady = false;
-let sessWatch: number | null = null;
+let sessStop: (() => void) | null = null;
 let sessSentAt = 0;
 
 const trailKey = (id: string) => `pawfleet_trail_${id}`;
@@ -341,10 +342,10 @@ export function startWalkSession(opts: { walkId: string; startMs: number; minute
   });
   sessCh = ch;
 
-  if (!('geolocation' in navigator)) { patchSession({ gpsError: true }); return; }
+  if (!locationSupported()) { patchSession({ gpsError: true }); return; }
 
   let planning = !!plan;
-  sessWatch = navigator.geolocation.watchPosition(
+  sessStop = watchLocation(
     p => {
       if (!session || session.walkId !== opts.walkId) return;
       const pt: LatLng = [p.coords.latitude, p.coords.longitude];
@@ -371,7 +372,6 @@ export function startWalkSession(opts: { walkId: string; startMs: number; minute
       }
     },
     () => patchSession({ gpsError: true }),
-    { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
   );
 }
 
@@ -387,7 +387,7 @@ export function setWalkPlan(route: RouteMsg) {
 export function stopWalkSession(): LatLng[] {
   if (!session) return [];
   const { trail, walkId } = session;
-  if (sessWatch !== null) { navigator.geolocation.clearWatch(sessWatch); sessWatch = null; }
+  if (sessStop) { sessStop(); sessStop = null; }
   if (sessCh) { supabase.removeChannel(sessCh); sessCh = null; }
   sessReady = false;
   try { localStorage.removeItem(trailKey(walkId)); localStorage.removeItem(planKey(walkId)); } catch { /* private mode */ }

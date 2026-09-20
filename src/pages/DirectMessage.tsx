@@ -4,6 +4,7 @@ import { ArrowLeft, Send, Mic, MicOff, Trash2, AlertCircle } from 'lucide-react'
 import { supabase } from '../lib/supabase';
 import { useApp } from '../context/AppContext';
 import { markDirectRead } from '../lib/directMessages';
+import { OFFLINE_MESSAGE, isNetworkFailure, sessionState } from '../lib/netguard';
 import { format } from 'date-fns';
 
 interface DM {
@@ -172,8 +173,7 @@ export default function DirectMessage() {
       setTimeout(() => setSendError(''), 9000);
     };
     // Demo/expired logins have no real session, so the database would silently refuse the message.
-    const { data: sess } = await supabase.auth.getSession();
-    if (!sess.session) { fail('Your login session has expired. Please log out and log back in to send messages.'); return; }
+    if ((await sessionState()) === false) { fail('Your login session has expired. Please log out and log back in to send messages.'); return; }
     const { error } = await supabase.from('direct_messages').insert({
       id: tempId, conversation_id: cid, sender_id: currentUser.id, text: msg,
     });
@@ -187,7 +187,7 @@ export default function DirectMessage() {
       } else if (error.code === '23503') {
         fail('This person could not be found. They may not have finished creating their account.');
       } else {
-        fail(`Message not sent: ${error.message}`);
+        fail(isNetworkFailure(error.message) ? OFFLINE_MESSAGE : `Message not sent: ${error.message}`);
       }
       return;
     }

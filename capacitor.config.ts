@@ -8,8 +8,12 @@ const config: CapacitorConfig = {
     Geolocation: {
       permissions: ['coarseLocation', 'fineLocation'],
     },
+    // Web requests go through the phone's own network stack, so they are not throttled while the app is in the background.
+    CapacitorHttp: { enabled: true },
   },
   android: {
+    // Stops Android pausing location updates after 5 minutes in the background.
+    useLegacyBridge: true,
     allowMixedContent: false,
     backgroundColor: '#1B4332',
   },

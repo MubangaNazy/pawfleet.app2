@@ -4,6 +4,7 @@ import { User, Dog, Walk, Payment, WalkerStats, WalkerBadge, AppData, Role, Badg
 import { requestNotificationPermission, onForegroundMessage } from '../lib/firebase';
 import { identifyUser, clearUser, trackEvent } from '../lib/monitoring';
 import { goOffline } from '../lib/liveTracking';
+import { OFFLINE_MESSAGE, isNetworkFailure, sessionState, withTimeout as guardTimeout } from '../lib/netguard';
 
 // ── Type helpers ────────────────────────────────────────────
 const toUser = (r: any): User => ({
@@ -560,7 +561,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     try {
       const authResult = await Promise.race([
         supabase.auth.signInWithPassword({ email, password: pw }),
-        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('auth timeout')), 10000)),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('auth timeout')), 30000)),
       ]);
       const { data: authData, error: authErr } = authResult as Awaited<ReturnType<typeof supabase.auth.signInWithPassword>>;
 
@@ -573,6 +574,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (lower.includes('email not confirmed') || lower.includes('not confirmed')) {
           return { user: null, error: 'Please confirm your email address before signing in. Check your inbox (and spam folder).' };
         }
+        if (isNetworkFailure(msg)) return { user: null, error: OFFLINE_MESSAGE };
         // Surface the real error for anything else
         return { user: null, error: msg || 'Sign-in failed. Please try again.' };
       }
@@ -619,7 +621,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
     } catch (e: any) {
       if (e?.message === 'auth timeout') {
-        return { user: null, error: 'Connection timed out. Please check your internet and try again.' };
+        return { user: null, error: OFFLINE_MESSAGE };
       }
       console.error('Login error:', e);
       return { user: null, error: 'Something went wrong. Please try again.' };
@@ -812,6 +814,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const friendlyDbError = (error: { code?: string; message?: string }): string => {
     if (error.code === '23503') return "Your account or your dog's profile is not fully saved yet. Please log out, log back in and try again.";
     if (error.code === '42501') return 'You do not have permission to do that. Please log in again.';
+    if (error.code === 'timeout' || isNetworkFailure(error.message)) return OFFLINE_MESSAGE;
     return error.message || 'Something went wrong. Please try again.';
   };
 
@@ -902,10 +905,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // Awaitable version: the caller only shows "booked" once the database confirms it.
   const createWalkAsync = async (walk: Omit<Walk, 'id' | 'createdAt'>): Promise<{ walk?: Walk; error?: string }> => {
-    const { data: sess } = await supabase.auth.getSession();
-    if (!sess.session) return { error: 'Your session has expired. Please log out and log back in.' };
+    if ((await sessionState()) === false) return { error: 'Your session has expired. Please log out and log back in.' };
     const newWalk = buildWalk(walk);
-    const { error } = await supabase.from('walks').insert(walkInsertRow(newWalk));
+    const saved: any = await guardTimeout(Promise.resolve(supabase.from('walks').insert(walkInsertRow(newWalk))), 30000, { error: { code: 'timeout', message: 'timeout' } } as any);
+    const error = saved?.error ?? null;
     if (error) {
       console.error('createWalkAsync:', error);
       return { error: friendlyDbError(error) };
@@ -1221,8 +1224,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const createDog = async (dog: Omit<Dog, 'id'>): Promise<{ dog?: Dog; error?: string; warning?: string }> => {
-    const { data: sess } = await supabase.auth.getSession();
-    if (!sess.session) return { error: 'Your session has expired. Please log out, log back in and add your pet again.' };
+    if ((await sessionState()) === false) return { error: 'Your session has expired. Please log out, log back in and add your pet again.' };
 
     const newDog: Dog = { ...dog, id: crypto.randomUUID(), healthLogs: [] };
     const row = (age: number | null, notes: string | undefined) => ({
@@ -1231,12 +1233,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       animal_type: dog.animalType ?? 'dog', image_url: null,
     });
 
-    let { error } = await supabase.from('dogs').insert(row(dog.age ?? null, dog.notes));
+    const runInsert = async (r: ReturnType<typeof row>): Promise<any> => {
+      const res: any = await withTimeout(Promise.resolve(supabase.from('dogs').insert(r)), 30000, { error: { code: 'timeout', message: 'timeout' } } as any);
+      return res?.error ?? null;
+    };
+    let error: any = await runInsert(row(dog.age ?? null, dog.notes));
     if (error?.code === '22P02' && dog.age != null) {
       const w = wholeYearAge(dog.age, dog.notes);
       newDog.age = w.age;
       newDog.notes = w.notes;
-      ({ error } = await supabase.from('dogs').insert(row(w.age, w.notes)));
+      error = await runInsert(row(w.age, w.notes));
     }
     if (error) {
       console.error('createDog:', error);

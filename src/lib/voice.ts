@@ -4,10 +4,14 @@
  * that starts a walk.
  */
 
+import { Capacitor } from '@capacitor/core';
+import { TextToSpeech } from '@capacitor-community/text-to-speech';
+
 const PREF_KEY = 'pawfleet_voice';
+const native = (): boolean => { try { return Capacitor.isNativePlatform(); } catch { return false; } };
 
 export const voiceSupported = (): boolean =>
-  typeof window !== 'undefined' && 'speechSynthesis' in window && typeof SpeechSynthesisUtterance !== 'undefined';
+  native() || (typeof window !== 'undefined' && 'speechSynthesis' in window && typeof SpeechSynthesisUtterance !== 'undefined');
 
 export const getVoicePref = (): boolean => {
   try { return localStorage.getItem(PREF_KEY) !== 'off'; } catch { return true; }
@@ -27,6 +31,11 @@ function pickVoice(): SpeechSynthesisVoice | null {
 /** Say something now. By default it cuts off whatever was being said, so directions never queue up late. */
 export function speak(text: string, opts: { interrupt?: boolean } = {}) {
   if (!voiceSupported() || !text) return;
+  if (native()) {
+    // The phone's own speech engine keeps working with the screen off; the browser one does not.
+    TextToSpeech.speak({ text, lang: 'en-GB', rate: 1.0, pitch: 1.0, volume: 1.0, category: 'ambient', queueStrategy: opts.interrupt === false ? 1 : 0 }).catch(() => {});
+    return;
+  }
   try {
     const synth = window.speechSynthesis;
     if (opts.interrupt !== false) synth.cancel();
@@ -41,6 +50,7 @@ export function speak(text: string, opts: { interrupt?: boolean } = {}) {
 
 export function stopSpeaking() {
   if (!voiceSupported()) return;
+  if (native()) { TextToSpeech.stop().catch(() => {}); return; }
   try { window.speechSynthesis.cancel(); } catch { /* ignore */ }
 }
 

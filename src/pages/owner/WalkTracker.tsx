@@ -8,6 +8,7 @@ import { format } from 'date-fns';
 import LiveRouteMap from '../../components/map/LiveRouteMap';
 import { useWalkRoom, type RouteMsg } from '../../lib/liveTracking';
 import { isValidCoord } from '../../lib/geo';
+import { locationSupported, watchLocation } from '../../lib/nativeLocation';
 
 type LatLng = [number, number];
 const LUSAKA: LatLng = [-15.4167, 28.2833];
@@ -94,9 +95,9 @@ export default function WalkTracker() {
   // If the owner chose "Live Location" when booking, share where to meet them until the walk starts.
   const shareLive = walk?.status === 'assigned' && !!walk?.notes?.includes('PICKUP:live');
   useEffect(() => {
-    if (!shareLive || !('geolocation' in navigator)) return;
+    if (!shareLive || !locationSupported()) return;
     let last = 0;
-    const id = navigator.geolocation.watchPosition(
+    const stop = watchLocation(
       p => {
         const pt: LatLng = [p.coords.latitude, p.coords.longitude];
         setMyPos(pt);
@@ -104,9 +105,8 @@ export default function WalkTracker() {
         if (now - last > 3000) { last = now; send('owner-pos', { lat: pt[0], lng: pt[1] }); }
       },
       () => {},
-      { enableHighAccuracy: true, maximumAge: 4000, timeout: 15000 },
     );
-    return () => { navigator.geolocation.clearWatch(id); setMyPos(null); };
+    return () => { stop(); setMyPos(null); };
   }, [shareLive, send]);
 
   // Auto-show rating modal shortly after walk completes (if not already rated)

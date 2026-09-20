@@ -4,6 +4,7 @@ import { ArrowLeft, Crosshair, MessageCircle, Phone, Play } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import LiveRouteMap, { MapLine, MapMarker } from '../../components/map/LiveRouteMap';
 import { useWalkRoom } from '../../lib/liveTracking';
+import { locationSupported, watchLocation } from '../../lib/nativeLocation';
 import { LatLng, LUSAKA, formatKm, haversineKm, isValidCoord } from '../../lib/geo';
 import { getWalkingRoute, type PlannedRoute } from '../../lib/routing';
 import GuidanceBanner from '../../components/map/GuidanceBanner';
@@ -48,8 +49,8 @@ export default function WalkerNav() {
 
   // Track my GPS and let the owner watch me arrive.
   useEffect(() => {
-    if (!('geolocation' in navigator)) { setGpsError(true); return; }
-    const id = navigator.geolocation.watchPosition(
+    if (!locationSupported()) { setGpsError(true); return; }
+    const stop = watchLocation(
       p => {
         const pos: LatLng = [p.coords.latitude, p.coords.longitude];
         setMyPos(pos);
@@ -61,9 +62,8 @@ export default function WalkerNav() {
         }
       },
       () => setGpsError(true),
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 3000 },
     );
-    return () => navigator.geolocation.clearWatch(id);
+    return stop;
   }, [send]);
 
   // Real walking route. Fetched once, and again only if the target moves (the owner is walking towards you).

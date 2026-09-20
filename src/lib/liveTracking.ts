@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from '
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 import { LatLng, haversineKm, isValidCoord, pathLengthKm } from './geo';
-import { planLoopRoute } from './routing';
+import { planLoopRoute, type Maneuver } from './routing';
 
 /* ────────────────────────────────────────────────────────────────────────────
  * 1. LIVE WALKER ROSTER  (who is online right now, and where)
@@ -217,7 +217,7 @@ export function shouldResumeOnline(userId: string): boolean {
 
 export interface WalkerPosMsg { lat: number; lng: number; distKm?: number; elapsedSec?: number; ts?: number }
 export interface OwnerPosMsg { lat: number; lng: number; ts?: number }
-export interface RouteMsg { points: LatLng[]; distanceKm: number; durationMin: number; source: string }
+export interface RouteMsg { points: LatLng[]; distanceKm: number; durationMin: number; source: string; maneuvers?: Maneuver[] }
 
 export interface RoomHandlers {
   onWalkerPos?: (m: WalkerPosMsg) => void;
@@ -310,7 +310,7 @@ export function useWalkSession(): WalkSession | null {
   );
 }
 
-export function startWalkSession(opts: { walkId: string; startMs: number; minutes: number; pickup?: LatLng | null }) {
+export function startWalkSession(opts: { walkId: string; startMs: number; minutes: number; pickup?: LatLng | null; bearing?: number }) {
   if (session?.walkId === opts.walkId) return;
   if (session) stopWalkSession();
 
@@ -361,9 +361,9 @@ export function startWalkSession(opts: { walkId: string; startMs: number; minute
 
       if (!planning) {
         planning = true;
-        planLoopRoute(opts.pickup ?? pt, opts.minutes, opts.walkId).then(r => {
+        planLoopRoute(opts.pickup ?? pt, opts.minutes, opts.walkId, { bearing: opts.bearing }).then(r => {
           if (!session || session.walkId !== opts.walkId) return;
-          const msg: RouteMsg = { points: r.points, distanceKm: r.distanceKm, durationMin: r.durationMin, source: r.source };
+          const msg: RouteMsg = { points: r.points, distanceKm: r.distanceKm, durationMin: r.durationMin, source: r.source, maneuvers: r.maneuvers };
           try { localStorage.setItem(planKey(opts.walkId), JSON.stringify(msg)); } catch { /* quota */ }
           patchSession({ plan: msg });
           sessSend('route', msg);
@@ -373,6 +373,14 @@ export function startWalkSession(opts: { walkId: string; startMs: number; minute
     () => patchSession({ gpsError: true }),
     { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
   );
+}
+
+/** Replace the planned route mid-walk (the walker strayed and was re-routed) and tell the owner. */
+export function setWalkPlan(route: RouteMsg) {
+  if (!session) return;
+  try { localStorage.setItem(planKey(session.walkId), JSON.stringify(route)); } catch { /* quota */ }
+  patchSession({ plan: route });
+  sessSend('route', route);
 }
 
 /** Stop tracking and return the recorded trail so it can be saved with the finished walk. */

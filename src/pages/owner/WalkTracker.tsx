@@ -272,6 +272,12 @@ export default function WalkTracker() {
           </div>
         )}
 
+        {plan && !isCompleted && (
+          <div className="absolute top-3 left-3 z-[1000] bg-white/95 backdrop-blur rounded-xl px-3 py-1.5 shadow text-[11px] font-semibold text-ink">
+            Planned route · {plan.distanceKm.toFixed(1)} km · about {plan.durationMin} min
+          </div>
+        )}
+
         {/* Waiting spinner */}
         {isActive && !livePos && displayPos && (
           <div className="absolute top-3 left-1/2 -translate-x-1/2 bg-white/95 text-ink text-xs px-3 py-1.5 rounded-xl shadow font-semibold z-[1000] flex items-center gap-2">

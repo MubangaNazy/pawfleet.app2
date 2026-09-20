@@ -115,7 +115,8 @@ interface AppContextType {
   cancelWalk: (walkId: string, reason?: string, cancelledBy?: 'owner' | 'walker') => void;
   markPaymentPaid: (paymentId: string, method?: 'cash' | 'mobile_money' | 'bank' | 'online') => void;
   confirmPaymentReceived: (paymentId: string) => void;
-  createDog: (dog: Omit<Dog, 'id'>) => Dog;
+  /** Saves to the database first. Resolves with an error message if the pet could not be saved. */
+  createDog: (dog: Omit<Dog, 'id'>) => Promise<{ dog?: Dog; error?: string; warning?: string }>;
   updateDog: (id: string, updates: Partial<Dog>) => void;
   logHealth: (dogId: string, date: string, field: 'water' | 'foodMorning' | 'foodEvening', value: boolean) => void;
   addUser: (user: Omit<User, 'id' | 'createdAt'>) => User;
@@ -253,20 +254,31 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       );
       const [u, d, w, p, s, n] = await Promise.race([fetchAll, timeout]);
 
-      // Only accept a result where we got real data (not empty due to missing session)
-      const users = (u.data || []).map(toUser);
-      const rawDogs = (d.data || []).map(toDog);
-      const fresh = {
-        users:         mergeUserImages(users),
-        dogs:          mergeDogImages(rawDogs),
-        walks:         (w.data || []).map(toWalk),
-        payments:      (p.data || []).map(toPayment),
-        walkerStats:   (s.data || []).map(toWalkerStats),
-        notifications: (n.data || []).map(toNotification),
-      };
-      setData(fresh);
-      // Persist for crash-recovery
-      try { localStorage.setItem(DATA_CACHE_KEY, JSON.stringify(fresh)); } catch { /* quota */ }
+      // If the pets query fails (for example the health-log join), retry it plainly instead of showing no pets.
+      let dogRows: any[] | null = d.error ? null : d.data;
+      if (d.error) {
+        console.warn('dogs load failed, retrying without health logs:', d.error.message);
+        const retry = await supabase.from('dogs').select('*').order('created_at');
+        dogRows = retry.error ? null : retry.data;
+      }
+      [['users', u], ['walks', w], ['payments', p], ['walker_stats', s], ['notifications', n]].forEach(([name, r]: any) => {
+        if (r.error) console.warn(`${name} load failed:`, r.error.message);
+      });
+
+      // A failed query keeps what we already have. Only a successful one replaces it.
+      setData(prev => {
+        const fresh = {
+          users:         u.error ? prev.users : mergeUserImages((u.data || []).map(toUser)),
+          dogs:          dogRows ? mergeDogImages(dogRows.map(toDog)) : prev.dogs,
+          walks:         w.error ? prev.walks : (w.data || []).map(toWalk),
+          payments:      p.error ? prev.payments : (p.data || []).map(toPayment),
+          walkerStats:   s.error ? prev.walkerStats : (s.data || []).map(toWalkerStats),
+          notifications: n.error ? prev.notifications : (n.data || []).map(toNotification),
+        };
+        // Persist for crash-recovery
+        try { localStorage.setItem(DATA_CACHE_KEY, JSON.stringify(fresh)); } catch { /* quota */ }
+        return fresh;
+      });
     };
 
     try {
@@ -774,6 +786,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const logout = () => {
     goOffline();
+    // The cache holds other people's data too. Do not leave it behind for the next person on this phone.
+    try { localStorage.removeItem(DATA_CACHE_KEY); } catch { /* private mode */ }
     supabase.auth.signOut().catch(() => {});
     clearUser();
     setCurrentUser(null);
@@ -789,6 +803,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     scheduled_date: w.scheduledDate, price: w.price,
     walker_earning: w.walkerEarning, notes: w.notes || null,
     duration: w.duration ?? null,
+    ...(w.routePoints?.length ? { route_points: JSON.stringify(w.routePoints) } : {}),
     start_lat: w.startLocation?.lat ?? null,
     start_lng: w.startLocation?.lng ?? null,
     start_address: w.startLocation?.address ?? null,
@@ -808,6 +823,32 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const isGroomingAddon = !!walk.notes?.includes('Add-on: Grooming');
     const ownerName = owner?.name || 'An owner';
     const dogName = dog?.name || 'their dog';
+    const adminIds = data.users.filter(u => u.role === 'admin').map(u => u.id);
+
+    // Vet visit: goes to the chosen clinic (or every vet account), plus walkers if transport was requested.
+    if (/^VET BOOKING:/.test(walk.notes ?? '')) {
+      const service = (walk.notes ?? '').split('\n')[0].replace('VET BOOKING: ', '');
+      const vetIds = walk.walkerId ? [walk.walkerId] : data.users.filter(u => u.role === 'vet').map(u => u.id);
+      const msg = `${ownerName} booked ${service} for ${dogName}.`;
+      [...vetIds, ...adminIds].forEach(id => sendNotification(id, 'walk_booked', 'New Vet Appointment 🏥', msg, { walkId: walk.id }));
+      if (walk.notes?.includes('Walker transport requested')) {
+        data.users.filter(u => u.role === 'walker' && (!u.walkerStatus || u.walkerStatus === 'active'))
+          .forEach(w => sendNotification(w.id, 'walk_booked', 'Vet Transport Job 🚗', `${ownerName} needs ${dogName} taken to the vet. K${walk.walkerEarning} earning.`, { walkId: walk.id }));
+      }
+      trackEvent('vet_booked', { dogId: walk.dogId, price: walk.price });
+      return;
+    }
+
+    // Training request: goes to the chosen trainer, or every approved trainer.
+    if (/^TRAINING:/.test(walk.notes ?? '')) {
+      const trainerIds = walk.walkerId
+        ? [walk.walkerId]
+        : data.users.filter(u => u.role === 'walker' && (u.pricing as any)?.trainerStatus === 'approved').map(u => u.id);
+      const msg = `${ownerName} wants to train ${dogName}. Open the request to see the details.`;
+      [...trainerIds, ...adminIds].forEach(id => sendNotification(id, 'walk_booked', 'New Training Request 🎓', msg, { walkId: walk.id }));
+      trackEvent('training_booked', { dogId: walk.dogId, price: walk.price });
+      return;
+    }
 
     let notifyTitle: string;
     let notifyMsg: string;
@@ -1167,51 +1208,89 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     } catch { return null; }
   };
 
-  const createDog = (dog: Omit<Dog, 'id'>): Dog => {
-    const newDog: Dog = { ...dog, id: crypto.randomUUID(), healthLogs: [] };
-    // Always save to localStorage as fast cache
-    if (dog.imageUrl) saveDogImage(newDog.id, dog.imageUrl);
-    setData(prev => ({ ...prev, dogs: [...prev.dogs, newDog] }));
+  const withTimeout = <T,>(p: Promise<T>, ms: number, fallback: T): Promise<T> =>
+    Promise.race([p, new Promise<T>(resolve => setTimeout(() => resolve(fallback), ms))]);
 
-    const doInsert = async () => {
-      let imageUrl: string | null = null;
-      if (dog.imageUrl?.startsWith('data:')) {
-        // Try to upload to Storage so image syncs to other devices
-        imageUrl = await uploadPetPhoto(dog.imageUrl, newDog.id);
-        if (imageUrl) {
-          // Update local state so this device also shows the URL (not just base64)
-          setData(prev => ({
-            ...prev,
-            dogs: prev.dogs.map(d => d.id === newDog.id ? { ...d, imageUrl: imageUrl! } : d),
-          }));
-          saveDogImage(newDog.id, imageUrl);
-        }
+  // The dogs.age column may be an integer. Owners enter things like "8 months" (0.67 years), which an integer
+  // column rejects. Keep the exact age when the database accepts it, otherwise store whole years and put the
+  // exact age in the notes so nothing is lost.
+  const wholeYearAge = (age: number, notes?: string) => {
+    const months = Math.round(age * 12);
+    const label = months < 24 ? `${months} months old` : `${(Math.round(age * 10) / 10)} years old`;
+    return { age: Math.floor(age), notes: [label, notes].filter(Boolean).join(' · ') };
+  };
+
+  const createDog = async (dog: Omit<Dog, 'id'>): Promise<{ dog?: Dog; error?: string; warning?: string }> => {
+    const { data: sess } = await supabase.auth.getSession();
+    if (!sess.session) return { error: 'Your session has expired. Please log out, log back in and add your pet again.' };
+
+    const newDog: Dog = { ...dog, id: crypto.randomUUID(), healthLogs: [] };
+    const row = (age: number | null, notes: string | undefined) => ({
+      id: newDog.id, name: dog.name, breed: dog.breed ?? null, age,
+      owner_id: dog.ownerId, notes: notes ?? null,
+      animal_type: dog.animalType ?? 'dog', image_url: null,
+    });
+
+    let { error } = await supabase.from('dogs').insert(row(dog.age ?? null, dog.notes));
+    if (error?.code === '22P02' && dog.age != null) {
+      const w = wholeYearAge(dog.age, dog.notes);
+      newDog.age = w.age;
+      newDog.notes = w.notes;
+      ({ error } = await supabase.from('dogs').insert(row(w.age, w.notes)));
+    }
+    if (error) {
+      console.error('createDog:', error);
+      return { error: friendlyDbError(error) };
+    }
+
+    // Saved. Show it right away, then add the photo in the background.
+    if (dog.imageUrl) saveDogImage(newDog.id, dog.imageUrl);
+    setData(prev => prev.dogs.some(d => d.id === newDog.id) ? prev : ({ ...prev, dogs: [...prev.dogs, newDog] }));
+
+    let warning: string | undefined;
+    if (dog.imageUrl?.startsWith('data:')) {
+      const url = await withTimeout(uploadPetPhoto(dog.imageUrl, newDog.id), 20000, null);
+      if (url) {
+        saveDogImage(newDog.id, url);
+        setData(prev => ({ ...prev, dogs: prev.dogs.map(d => d.id === newDog.id ? { ...d, imageUrl: url } : d) }));
+        const { error: imgErr } = await supabase.from('dogs').update({ image_url: url }).eq('id', newDog.id);
+        if (imgErr) console.warn('createDog image_url:', imgErr.message);
+      } else {
+        warning = 'Saved, but the photo could not be uploaded. It shows on this phone only for now.';
       }
-      const { error } = await supabase.from('dogs').insert({
-        id: newDog.id, name: dog.name, breed: dog.breed ?? null, age: dog.age ?? null,
-        owner_id: dog.ownerId, notes: dog.notes ?? null,
-        animal_type: dog.animalType ?? 'dog',
-        image_url: imageUrl,
-      });
-      if (error) console.error('createDog:', error);
-    };
-    doInsert();
-    return newDog;
+    }
+    return { dog: newDog, warning };
   };
 
   const updateDog = (id: string, updates: Partial<Dog>) => {
-    // Save image to localStorage if updated
+    // Keep the photo on this device straight away, then push it to storage so other devices see it too.
     if (updates.imageUrl) saveDogImage(id, updates.imageUrl);
     setData(prev => ({ ...prev, dogs: prev.dogs.map(d => d.id === id ? { ...d, ...updates } : d) }));
     const db: Record<string, any> = {};
     if (updates.name !== undefined)  db.name = updates.name;
     if (updates.breed !== undefined) db.breed = updates.breed;
-    if (updates.age !== undefined)   db.age = updates.age;
     if (updates.notes !== undefined) db.notes = updates.notes;
-    if (Object.keys(db).length > 0) {
-      supabase.from('dogs').update(db).eq('id', id)
-        .then(({ error }) => { if (error) console.error('updateDog:', error); });
-    }
+    const save = async () => {
+      if (updates.age !== undefined) {
+        const { error } = await supabase.from('dogs').update({ ...db, age: updates.age }).eq('id', id);
+        if (error?.code === '22P02' && updates.age != null) {
+          const w = wholeYearAge(updates.age, updates.notes);
+          await supabase.from('dogs').update({ ...db, age: w.age, notes: w.notes }).eq('id', id);
+        } else if (error) console.error('updateDog:', error);
+      } else if (Object.keys(db).length > 0) {
+        const { error } = await supabase.from('dogs').update(db).eq('id', id);
+        if (error) console.error('updateDog:', error);
+      }
+      if (updates.imageUrl?.startsWith('data:')) {
+        const url = await withTimeout(uploadPetPhoto(updates.imageUrl, id), 20000, null);
+        if (url) {
+          saveDogImage(id, url);
+          setData(prev => ({ ...prev, dogs: prev.dogs.map(d => d.id === id ? { ...d, imageUrl: url } : d) }));
+          await supabase.from('dogs').update({ image_url: url }).eq('id', id);
+        }
+      }
+    };
+    save();
   };
 
   const logHealth = (dogId: string, date: string, field: 'water' | 'foodMorning' | 'foodEvening', value: boolean) => {

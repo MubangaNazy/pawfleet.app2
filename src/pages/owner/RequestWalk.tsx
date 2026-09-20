@@ -16,7 +16,7 @@ import LiveRouteMap from '../../components/map/LiveRouteMap';
 import { useWalkersLive } from '../../lib/liveTracking';
 import { isValidCoord } from '../../lib/geo';
 import { geocodeAddress, reverseGeocode } from '../../lib/geocode';
-import { planLoopRoute, type PlannedRoute } from '../../lib/routing';
+import { LOOP_DIRECTIONS, loopBearing, planLoopRoute, type PlannedRoute } from '../../lib/routing';
 import type { WalkerPricing } from '../../types';
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
@@ -48,6 +48,7 @@ export default function OwnerRequestWalk() {
   const [bookingError, setBookingError] = useState('');
   const [createdWalkId, setCreatedWalkId] = useState<string | null>(null);
   const [route, setRoute] = useState<PlannedRoute | null>(null);
+  const [routeOption, setRouteOption] = useState(0);
   const [geoStatus, setGeoStatus] = useState<'idle' | 'looking' | 'found' | 'missing'>('idle');
   const [selectedArea, setSelectedArea] = useState('');
   const [createdWalkPrice, setCreatedWalkPrice] = useState(0);
@@ -149,12 +150,13 @@ export default function OwnerRequestWalk() {
     if (pickupLat == null || pickupLng == null) return;
     const ctrl = new AbortController();
     const t = setTimeout(() => {
-      planLoopRoute([pickupLat, pickupLng], duration, `${pickupLat.toFixed(3)},${pickupLng.toFixed(3)}`, ctrl.signal)
+      const seed = `${pickupLat.toFixed(3)},${pickupLng.toFixed(3)}`;
+      planLoopRoute([pickupLat, pickupLng], duration, seed, { bearing: loopBearing(seed, routeOption), signal: ctrl.signal })
         .then(r => { if (!ctrl.signal.aborted) setRoute(r); })
         .catch(() => {});
     }, 500);
     return () => { clearTimeout(t); ctrl.abort(); };
-  }, [pickupLat, pickupLng, duration]);
+  }, [pickupLat, pickupLng, duration, routeOption]);
 
   const handleUseCurrentLocation = async () => {
     setGpsLoading(true);
@@ -208,9 +210,13 @@ export default function OwnerRequestWalk() {
       : new Date(`${schedDate}T${schedTime}:00`).toISOString();
 
     const pickupTag = pickupMode === 'live' ? 'PICKUP:live|' : 'PICKUP:manual|';
+    // The route the owner chose: the walker's app rebuilds the same loop from this direction.
+    const routeTag = pickupLat != null && pickupLng != null
+      ? `ROUTE:${loopBearing(`${pickupLat.toFixed(3)},${pickupLng.toFixed(3)}`, routeOption)}|`
+      : '';
     const notes = addGrooming
-      ? `${pickupTag}DURATION:${duration}|Add-on: Grooming requested | Payment: after_service`
-      : `${pickupTag}DURATION:${duration}|Payment: after_service`;
+      ? `${pickupTag}DURATION:${duration}|${routeTag}Add-on: Grooming requested | Payment: after_service`
+      : `${pickupTag}DURATION:${duration}|${routeTag}Payment: after_service`;
 
     setSubmitting(true);
     setBookingError('');
@@ -609,7 +615,7 @@ export default function OwnerRequestWalk() {
           <div className="bg-white rounded-2xl shadow-sm border border-[#DDE9E2] overflow-hidden">
             <div className="px-4 pt-4 pb-2 flex items-center justify-between">
               <p className="text-xs font-bold text-ink-muted uppercase tracking-wider">Your {duration}-minute walk route</p>
-              {route && <span className="text-[11px] font-bold" style={{ color: '#2B8A50' }}>{route.distanceKm.toFixed(1)} km loop</span>}
+              {route && <span className="text-[11px] font-bold" style={{ color: '#2B8A50' }}>{route.distanceKm.toFixed(1)} km · ~{route.durationMin} min</span>}
             </div>
             <div className="relative h-44 bg-[#EBF5EF]">
               {route ? (
@@ -625,9 +631,18 @@ export default function OwnerRequestWalk() {
                 </div>
               )}
             </div>
-            <p className="px-4 py-2.5 text-[11px] text-ink-muted leading-relaxed">
-              Your walker follows a loop like this from your door and back. You can watch it happen live.
-            </p>
+            <div className="px-4 py-3 flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-xs font-semibold text-ink-secondary">{LOOP_DIRECTIONS[routeOption]}</p>
+                <p className="text-[11px] text-ink-muted leading-snug">
+                  Your walker follows this loop from your door and back, with voice directions. You can watch it live.
+                </p>
+              </div>
+              <button type="button" onClick={() => setRouteOption(o => (o + 1) % LOOP_DIRECTIONS.length)}
+                className="shrink-0 text-xs font-bold px-3 py-2 rounded-xl" style={{ color: '#2B8A50', background: '#EBF5EF' }}>
+                Try another
+              </button>
+            </div>
           </div>
         )}
 

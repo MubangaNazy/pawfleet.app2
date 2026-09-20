@@ -87,6 +87,11 @@ See `docs/REALIGNMENT.md` for the diagnosis, system map and two-phone test.
 - Planned route: `planLoopRoute` in `src/lib/routing.ts`. Walker's app-wide walk session broadcasts it on `walk-live-<walkId>`.
 - Demo logins are off unless `VITE_ENABLE_DEMO=true` (they have no real session or DB rows).
 - Chat SQL and realtime publication: `supabase/migrations/20260919_realign_chat_and_live.sql`.
+- Pets/photos SQL: `supabase/migrations/20260920_dogs_photos_permissions.sql`. `dogs.age` was an integer, which silently rejected fractional ages. `createDog` is now awaited and retries with whole years.
+- Chat inbox: `src/lib/directMessages.ts` (conversations, unread counts kept per device).
+- Turn-by-turn: `src/lib/guidance.ts` (pure, tested), `src/hooks/useTurnByTurn.ts`, `src/lib/voice.ts` (phone speech), `src/components/map/GuidanceBanner.tsx`. Used by My Walk, walker live walk and walker navigation.
+- Nearby vets: `src/lib/nearbyPlaces.ts` (OpenStreetMap, sparse in Zambia) merged with vets registered on PawFleet.
+- Grooming packages and plans live in `src/lib/groomingPackages.ts`; illustrations in `src/components/ui/GroomIllustrations.tsx`.
 
 ## Pending / Known Issues
 - [x] **RLS CRITICAL — passwords exposed**: migrated all users to Supabase Auth (2026-06-08) — password column cleared to '', plain-text fallback removed from login code

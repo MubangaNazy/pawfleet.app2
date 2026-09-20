@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Send, Mic, MicOff, Trash2, AlertCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useApp } from '../context/AppContext';
+import { markDirectRead } from '../lib/directMessages';
 import { format } from 'date-fns';
 
 interface DM {
@@ -57,7 +58,7 @@ function convId(a: string, b: string) {
 
 export default function DirectMessage() {
   const { userId: otherUserId } = useParams<{ userId: string }>();
-  const { data, currentUser, sendNotification } = useApp();
+  const { data, currentUser, sendNotification, markNotificationRead } = useApp();
   const navigate = useNavigate();
   // Read users through a ref so a walker's live position updates never tear down the chat subscription.
   const usersRef = useRef(data.users);
@@ -123,6 +124,15 @@ export default function DirectMessage() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // Everything on screen counts as read: clear this chat's unread badge and its bell notifications.
+  useEffect(() => {
+    if (!otherUserId || messages.length === 0) return;
+    markDirectRead(otherUserId, messages[messages.length - 1].created_at);
+    data.notifications
+      .filter(n => n.type === 'chat_message' && !n.read && n.userId === currentUser?.id && n.data?.fromUserId === otherUserId)
+      .forEach(n => markNotificationRead(n.id));
+  }, [messages.length, otherUserId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => () => { recognitionRef.current?.stop(); }, []);
 

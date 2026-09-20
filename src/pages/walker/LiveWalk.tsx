@@ -1,11 +1,14 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, Phone, MessageCircle, Square, Clock, MapPin, Zap, AlertTriangle, Camera } from 'lucide-react';
 import LiveRouteMap from '../../components/map/LiveRouteMap';
 import { useApp } from '../../context/AppContext';
 import { supabase } from '../../lib/supabase';
-import { startWalkSession, stopWalkSession, useWalkSession } from '../../lib/liveTracking';
-import { plannedMinutes } from '../../lib/routing';
+import { setWalkPlan, startWalkSession, stopWalkSession, useWalkSession } from '../../lib/liveTracking';
+import { plannedBearing, plannedMinutes, type PlannedRoute } from '../../lib/routing';
+import GuidanceBanner from '../../components/map/GuidanceBanner';
+import { useTurnByTurn } from '../../hooks/useTurnByTurn';
+import { getVoicePref, primeVoice, setVoicePref, voiceSupported } from '../../lib/voice';
 import { isValidCoord } from '../../lib/geo';
 
 type LatLng = [number, number];
@@ -117,6 +120,7 @@ export default function WalkerLiveWalk() {
       startMs: walk.startTime ? new Date(walk.startTime).getTime() : Date.now(),
       minutes: plannedMinutes(walk),
       pickup,
+      bearing: plannedBearing(walk),
     });
   }, [walkId, isActive]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -126,6 +130,23 @@ export default function WalkerLiveWalk() {
     setRoute(mine.trail);
     setGpsError(mine.gpsError);
   }, [mine?.pos, mine?.trail, mine?.gpsError]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Turn-by-turn along the route the owner chose. Voice is on by default and can be muted.
+  const [voiceOn, setVoiceOn] = useState(getVoicePref);
+  const planRoute = useMemo(
+    () => (mine?.plan ? ({ ...mine.plan, source: mine.plan.source === 'roads' ? 'roads' : 'approx' } as PlannedRoute) : null),
+    [mine?.plan],
+  );
+  const tbt = useTurnByTurn({
+    route: planRoute,
+    pos: myPos,
+    enabled: isActive && !!planRoute,
+    voice: voiceOn && voiceSupported(),
+    mode: 'loop',
+    sessionKey: walkId ?? '',
+    startText: `Starting the ${walk ? plannedMinutes(walk) : 30} minute walk.`,
+    onRoute: r => setWalkPlan(r),
+  });
 
   // Get current position for display even when not yet active
   useEffect(() => {
@@ -164,6 +185,7 @@ export default function WalkerLiveWalk() {
     setStarting(true);
     const loc = myPos ? { lat: myPos[0], lng: myPos[1] } : { lat: LUSAKA[0], lng: LUSAKA[1] };
     startWalk(walkId, loc);
+    if (voiceOn && voiceSupported()) primeVoice('Voice directions on');
     if (owner) {
       sendNotification(
         owner.id, 'walk_started',
@@ -313,9 +335,15 @@ export default function WalkerLiveWalk() {
           )}
         </div>
 
+        {isActive && plan && (
+          <GuidanceBanner className="absolute top-3 left-3 right-3 z-[1001]" tbt={tbt} voiceOn={voiceOn} voiceAvailable={voiceSupported()}
+            onToggleVoice={() => { const n = !voiceOn; setVoiceOn(n); setVoicePref(n); if (n) primeVoice('Voice directions on'); }}
+            endLabel="the starting point" />
+        )}
+
         {/* Planned route status */}
         {isActive && currentPos && (
-          <div className="absolute top-3 left-3 z-[1000] flex items-center gap-2">
+          <div className={`absolute ${plan ? 'top-[92px]' : 'top-3'} left-3 z-[1000] flex items-center gap-2`}>
             <button type="button"
               onClick={() => { setOverview(true); setOverviewTick(t => t + 1); }}
               className="h-9 px-3 rounded-2xl bg-white shadow-lg text-[11px] font-bold text-ink active:scale-95">
@@ -331,7 +359,7 @@ export default function WalkerLiveWalk() {
           </div>
         )}
         {isActive && currentPos && (
-          <div className="absolute top-14 left-3 z-[1000] max-w-[70%] bg-white/95 backdrop-blur rounded-xl px-3 py-1.5 shadow text-[11px] font-semibold text-ink">
+          <div className={`absolute ${plan ? 'top-[138px]' : 'top-14'} left-3 z-[1000] max-w-[70%] bg-white/95 backdrop-blur rounded-xl px-3 py-1.5 shadow text-[11px] font-semibold text-ink`}>
             {plan
               ? `Follow the dashed route · ${plan.distanceKm.toFixed(1)} km loop for ${plannedMin} min${plan.source === 'approx' ? ' (approximate)' : ''}`
               : `Planning your ${plannedMin}-minute route…`}

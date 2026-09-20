@@ -6,6 +6,7 @@ import { Navigation, MessageCircle, ChevronRight, Star, Users } from 'lucide-rea
 import { useApp } from '../../context/AppContext';
 import Onboarding from '../../components/ui/Onboarding';
 import { SkeletonOwnerDashboard } from '../../components/ui/Skeleton';
+import { useDirectInbox } from '../../lib/directMessages';
 
 // ── Scroll-reveal wrapper ────────────────────────────────────
 function Reveal({ children, delay = 0, className = '' }: { children: ReactNode; delay?: number; className?: string }) {
@@ -106,11 +107,8 @@ export default function OwnerDashboard() {
   const activeVetWalks = myWalks.filter(
     w => (w.status === 'active' || w.status === 'assigned') && w.notes?.startsWith('VET BOOKING:')
   );
-  const unreadChatNotifications = data.notifications.filter(
-    n => n.userId === currentUser?.id && !n.read && n.type.startsWith('walk')
-  );
-
-  const unreadChat = unreadChatNotifications.length;
+  // Real unread messages (not booking notifications).
+  const { unreadTotal: unreadChat } = useDirectInbox(currentUser?.id);
 
   // Auto-rotating slideshow
   const [slide, setSlide] = useState(0);

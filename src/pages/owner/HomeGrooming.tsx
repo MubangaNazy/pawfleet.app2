@@ -5,16 +5,9 @@ import { useApp } from '../../context/AppContext';
 import { useWalkersLive } from '../../lib/liveTracking';
 import { geocodeAddress, reverseGeocode } from '../../lib/geocode';
 import { LatLng, formatKm, haversineKm, isValidCoord } from '../../lib/geo';
+import { GROOM_PACKAGES as PACKAGES, GROOM_PLANS, planPrice, type PlanId } from '../../lib/groomingPackages';
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
-
-const PACKAGES = [
-  { id: 'bath_brush', label: 'Bath & Brush',      desc: 'Shampoo, blow-dry, brush-out',                      price: 249, icon: '🛁',  isVet: false },
-  { id: 'full_groom', label: 'Full Groom',         desc: 'Bath, trim, nail clip, ear clean',                  price: 399, icon: '💅',  isVet: false },
-  { id: 'nail_trim',  label: 'Nail Trim Only',     desc: 'Quick nail clip & file',                            price: 99,  icon: '✂️', isVet: false },
-  { id: 'spa',        label: 'Pamper Spa',         desc: 'Full groom + teeth clean + paw massage',            price: 599, icon: '✨',  isVet: false },
-  { id: 'vet_groom',  label: 'Vet Clinic Grooming', desc: 'Professional grooming at a partner vet clinic — includes a health check', price: 450, icon: '🏥', isVet: true },
-];
 
 const SEDATION_FEE = 180;
 
@@ -27,7 +20,8 @@ export default function HomeGrooming() {
   const myDogs = data.dogs.filter(d => d.ownerId === currentUser?.id);
 
   const [dogId, setDogId]       = useState(myDogs[0]?.id ?? '');
-  const [pkg, setPkg]           = useState('full_groom');
+  const [pkg, setPkg]           = useState(() => PACKAGES.some(p => p.id === params.get('package')) ? params.get('package')! : 'full_groom');
+  const [plan, setPlan]         = useState<PlanId | ''>(() => GROOM_PLANS.some(p => p.id === params.get('plan')) ? (params.get('plan') as PlanId) : '');
   const [date, setDate]         = useState(todayStr());
   const [time, setTime]         = useState('10:00');
   const [address, setAddress]   = useState('');
@@ -45,7 +39,10 @@ export default function HomeGrooming() {
 
   const selectedPkg = PACKAGES.find(p => p.id === pkg)!;
   const isVetGrooming = selectedPkg?.isVet;
-  const totalPrice = selectedPkg ? selectedPkg.price + (needsSedation && isVetGrooming ? SEDATION_FEE : 0) : 0;
+  const beforePlan = selectedPkg ? selectedPkg.price + (needsSedation && isVetGrooming ? SEDATION_FEE : 0) : 0;
+  const activePlan = isVetGrooming ? '' : plan;
+  const totalPrice = planPrice(beforePlan, activePlan);
+  const planMeta = GROOM_PLANS.find(p => p.id === activePlan);
   const canSubmit = !!dogId && !!pkg && !!date && !!time && address.trim().length > 3 && temperament !== '' && !submitting;
 
   // Type-an-address → coordinates, so the groomer gets a real point on the map.
@@ -122,7 +119,7 @@ export default function HomeGrooming() {
       price: totalPrice,
       walkerEarning: Math.round(totalPrice * 0.75),
       startLocation: { lat: coords?.[0], lng: coords?.[1], address: address.trim() },
-      notes: `${isVetGrooming ? 'VET_GROOMING' : 'GROOMING'}: ${selectedPkg.label} — ${dog?.name ?? 'Dog'}\nAddress: ${address.trim()}\nTemperament: ${temperament}${sedationNote}${notes ? `\nNotes: ${notes}` : ''}`,
+      notes: `${isVetGrooming ? 'VET_GROOMING' : 'GROOMING'}: ${selectedPkg.label} — ${dog?.name ?? 'Dog'}\nAddress: ${address.trim()}\nTemperament: ${temperament}${planMeta ? `\nPlan: ${planMeta.label} (${planMeta.discountPct}% off every visit)` : ''}${sedationNote}${notes ? `\nNotes: ${notes}` : ''}`,
     });
     setSubmitting(false);
     if (res.error) { setBookingError(res.error); return; }
@@ -338,6 +335,23 @@ export default function HomeGrooming() {
           ))}
         </div>
 
+        {/* Plan */}
+        {!isVetGrooming && (
+          <div>
+            <p className="text-sm font-bold text-ink mb-1">How often?</p>
+            <p className="text-xs text-ink-muted mb-3">Regular grooming costs less per visit. You book the first visit now.</p>
+            <div className="grid grid-cols-3 gap-2">
+              {([['', 'Just once', ''], ...GROOM_PLANS.map(p => [p.id, p.id === 'monthly' ? 'Monthly' : 'Twice a month', `Save ${p.discountPct}%`])] as [string, string, string][]).map(([id, label, sub]) => (
+                <button key={id || 'once'} type="button" onClick={() => setPlan(id as PlanId | '')}
+                  className={`flex flex-col items-center gap-0.5 py-3 rounded-2xl border-2 text-center transition-all ${plan === id ? 'border-primary bg-primary/5' : 'border-surface-border bg-white'}`}>
+                  <span className={`text-xs font-bold ${plan === id ? 'text-primary' : 'text-ink'}`}>{label}</span>
+                  <span className="text-[10px] font-semibold" style={{ color: sub ? '#B45309' : '#9CA3AF' }}>{sub || 'Full price'}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Date & time */}
         <div>
           <p className="text-sm font-bold text-ink mb-3">When?</p>
@@ -440,6 +454,12 @@ export default function HomeGrooming() {
             <div className="flex items-center justify-between mb-1">
               <p className="text-sm text-ink-muted">Sedation fee</p>
               <p className="text-sm font-semibold text-red-600">+K{SEDATION_FEE}</p>
+            </div>
+          )}
+          {planMeta && (
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-sm text-ink-muted">{planMeta.label} discount ({planMeta.discountPct}%)</p>
+              <p className="text-sm font-semibold" style={{ color: '#2B8A50' }}>−K{beforePlan - totalPrice}</p>
             </div>
           )}
           <div className="flex items-center justify-between pt-2 border-t border-surface-border mt-1">

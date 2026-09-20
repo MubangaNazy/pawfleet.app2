@@ -6,6 +6,9 @@ import LiveRouteMap, { MapLine, MapMarker } from '../../components/map/LiveRoute
 import { useWalkRoom } from '../../lib/liveTracking';
 import { LatLng, LUSAKA, formatKm, haversineKm, isValidCoord } from '../../lib/geo';
 import { getWalkingRoute, type PlannedRoute } from '../../lib/routing';
+import GuidanceBanner from '../../components/map/GuidanceBanner';
+import { useTurnByTurn } from '../../hooks/useTurnByTurn';
+import { getVoicePref, setVoicePref, primeVoice, voiceSupported } from '../../lib/voice';
 
 /**
  * Walker heads to the pickup. Shows a real walking route, follows the owner's live
@@ -28,6 +31,7 @@ export default function WalkerNav() {
   const [route, setRoute] = useState<PlannedRoute | null>(null);
   const [gpsError, setGpsError] = useState(false);
   const [fitTick, setFitTick] = useState(0);
+  const [voiceOn, setVoiceOn] = useState(getVoicePref);
 
   const lastSentAt = useRef(0);
   const lastRouteFrom = useRef<LatLng | null>(null);
@@ -62,20 +66,31 @@ export default function WalkerNav() {
     return () => navigator.geolocation.clearWatch(id);
   }, [send]);
 
-  // Real walking route. Recalculated when the walker strays or the target moves, not on every GPS tick.
+  // Real walking route. Fetched once, and again only if the target moves (the owner is walking towards you).
+  // Straying from the route is handled by the turn-by-turn guide, which re-routes on its own.
   useEffect(() => {
     if (!myPos || !target) return;
-    const now = Date.now();
     const key = `${target[0].toFixed(4)},${target[1].toFixed(4)}`;
-    const moved = lastRouteFrom.current ? haversineKm(lastRouteFrom.current, myPos) : Infinity;
-    if (lastRouteKey.current === key && (moved < 0.12 || now - lastRouteAt.current < 20000)) return;
+    const targetMoved = lastRouteFrom.current ? haversineKm(lastRouteFrom.current, target) : Infinity;
+    if (lastRouteKey.current && targetMoved < 0.08) return;
     lastRouteKey.current = key;
-    lastRouteFrom.current = myPos;
-    lastRouteAt.current = now;
+    lastRouteFrom.current = target; // remember the target we routed to
+    lastRouteAt.current = Date.now();
     getWalkingRoute(myPos, target).then(setRoute);
   }, [myPos, target?.[0], target?.[1]]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const distKm = myPos && target ? (route?.distanceKm ?? haversineKm(myPos, target)) : null;
+  const tbt = useTurnByTurn({
+    route,
+    pos: myPos,
+    enabled: !!route && !!myPos,
+    voice: voiceOn && voiceSupported(),
+    mode: 'destination',
+    sessionKey: walkId ?? '',
+    startText: 'Heading to the pickup.',
+    onRoute: setRoute,
+  });
+
+  const distKm = myPos && target ? (route ? tbt.remainingKm : haversineKm(myPos, target)) : null;
   const straightKm = myPos && target ? haversineKm(myPos, target) : null;
   const arrived = straightKm != null && straightKm < 0.06;
 
@@ -124,9 +139,15 @@ export default function WalkerNav() {
           bottomPadding={40}
         />
         <button type="button" onClick={() => setFitTick(t => t + 1)} aria-label="Fit route"
-          className="absolute top-3 left-3 z-[1000] w-10 h-10 rounded-2xl bg-white shadow-lg flex items-center justify-center active:scale-95">
+          className="absolute bottom-3 right-3 z-[1000] w-10 h-10 rounded-2xl bg-white shadow-lg flex items-center justify-center active:scale-95">
           <Crosshair className="w-5 h-5 text-ink" />
         </button>
+
+        {route && (
+          <GuidanceBanner className="absolute top-3 left-3 right-3 z-[1001]" tbt={tbt} voiceOn={voiceOn} voiceAvailable={voiceSupported()}
+            onToggleVoice={() => { const n = !voiceOn; setVoiceOn(n); setVoicePref(n); if (n) primeVoice('Voice directions on'); }}
+            endLabel="the pickup point" />
+        )}
 
         {!target && (
           <div className="absolute inset-x-4 top-3 z-[1000] flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3">

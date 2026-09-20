@@ -107,6 +107,7 @@ function AddDogModal({ onClose }: { onClose: () => void }) {
   const [ageUnit, setAgeUnit] = useState<'years' | 'months'>('years');
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
 
   const handlePhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -119,10 +120,11 @@ function AddDogModal({ onClose }: { onClose: () => void }) {
     e.preventDefault();
     if (!currentUser || !name.trim()) return;
     setSaving(true);
+    setSaveError('');
     const ageInYears = ageValue
       ? (ageUnit === 'months' ? Number(ageValue) / 12 : Number(ageValue))
       : undefined;
-    createDog({
+    const result = await createDog({
       name: name.trim(),
       breed: breed || undefined,
       age: ageInYears,
@@ -132,7 +134,16 @@ function AddDogModal({ onClose }: { onClose: () => void }) {
       healthLogs: [],
       animalType,
     });
-    await new Promise(r => setTimeout(r, 400));
+    if (result.error) {
+      setSaving(false);
+      setSaveError(result.error);
+      return;
+    }
+    if (result.warning) {
+      setSaveError(result.warning);
+      setTimeout(onClose, 2200);
+      return;
+    }
     onClose();
   };
 
@@ -243,7 +254,7 @@ function AddDogModal({ onClose }: { onClose: () => void }) {
             <input
               type="number" min="0"
               max={ageUnit === 'months' ? '240' : '30'}
-              step="1"
+              step="any"
               value={ageValue} onChange={e => setAgeValue(e.target.value)}
               placeholder={ageUnit === 'months' ? 'e.g. 3' : 'e.g. 2'}
               className="w-full h-11 px-4 rounded-xl border border-surface-border bg-white text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-primary transition-all" />
@@ -257,6 +268,13 @@ function AddDogModal({ onClose }: { onClose: () => void }) {
               placeholder="Allergies, favourite treats, special behaviour..."
               className="w-full px-4 py-3 rounded-xl border border-surface-border bg-white text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-primary transition-all resize-none" />
           </div>
+
+          {saveError && (
+            <div className="rounded-xl border px-4 py-3 text-xs font-medium leading-relaxed"
+              style={saving ? { background: '#FFFBEB', borderColor: '#FDE68A', color: '#92400E' } : { background: '#FEF2F2', borderColor: '#FECACA', color: '#B91C1C' }}>
+              {saveError}
+            </div>
+          )}
 
           <button type="submit" disabled={saving || !name.trim()}
             className="w-full h-12 rounded-xl text-white font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all"

@@ -9,6 +9,7 @@ import { GeoLocation, WalkStatus } from '../../types';
 import { supabase } from '../../lib/supabase';
 import { StaggerList, StaggerItem } from '../../components/ui/Anim';
 import { NoWalksIllustration } from '../../components/ui/Illustrations';
+import { canWalkerTakeOpenJob } from '../../lib/jobs';
 
 const CANCEL_REASONS = [
   { id: 'not_home',  label: 'Owner not home',        icon: '🏠' },
@@ -48,7 +49,7 @@ export default function WalkerMyWalks() {
 
   // Only show pending unassigned walks for TODAY or past — not future bookings
   const availableWalks = data.walks
-    .filter(w => w.status === 'pending' && !w.walkerId && new Date(w.scheduledDate) <= todayEnd)
+    .filter(w => w.status === 'pending' && !w.walkerId && new Date(w.scheduledDate) <= todayEnd && canWalkerTakeOpenJob(w, currentUser))
     .sort((a, b) => new Date(a.scheduledDate).getTime() - new Date(b.scheduledDate).getTime());
 
   const myWalks = data.walks

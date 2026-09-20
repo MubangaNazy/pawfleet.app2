@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import maplibregl from 'maplibre-gl';
-import 'maplibre-gl/dist/maplibre-gl.css';
-import { ArrowLeft, AlertTriangle, Check, Navigation, MapPin, ChevronRight, Search } from 'lucide-react';
+import { ArrowLeft, Check, ChevronRight, ExternalLink, Loader2, MapPin, MessageCircle, Navigation, Phone, Search } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
-import { supabase } from '../../lib/supabase';
+import LiveRouteMap, { MapMarker } from '../../components/map/LiveRouteMap';
+import { useMyLocation } from '../../hooks/useMyLocation';
+import { scanVetClinics, type OsmPlace } from '../../lib/nearbyPlaces';
+import { LatLng, formatKm, haversineKm, isValidCoord } from '../../lib/geo';
 
 /* ── Hero slides ─────────────────────────────────────────── */
 const VET_HERO_SLIDES = [
@@ -23,161 +24,226 @@ const VET_SERVICES = [
   { id: 'emergency',   label: 'Emergency Visit',  icon: '🚨', price: 800, color: '#DC2626', includes: ['Urgent care', 'Injury treatment', 'Priority booking'] },
 ];
 
-const VET_CLINICS = [
-  { id: 1, name: 'Lusaka Veterinary Clinic',  address: 'Cairo Rd, Lusaka',      lat: -15.4131, lng: 28.2822, hours: 'Mon–Sat 8am–6pm',   rating: '4.9' },
-  { id: 2, name: 'PetCare Lusaka',             address: 'Kabulonga, Lusaka',     lat: -15.4408, lng: 28.3100, hours: 'Mon–Fri 8am–5pm',   rating: '4.8' },
-  { id: 3, name: 'Animal Health Centre',       address: 'Woodlands, Lusaka',     lat: -15.4285, lng: 28.3000, hours: 'Mon–Sun 7am–8pm',   rating: '4.9' },
-  { id: 4, name: 'VetZam Clinic',              address: 'Roma, Lusaka',          lat: -15.4500, lng: 28.3200, hours: 'Mon–Sat 9am–6pm',   rating: '4.7' },
+// Clinics we already know in Lusaka. Shown only when they are not already found by the live scan.
+const KNOWN_CLINICS = [
+  { id: 'listed-1', name: 'Lusaka Veterinary Clinic', address: 'Cairo Rd, Lusaka',  lat: -15.4131, lng: 28.2822, hours: 'Mon–Sat 8am–6pm', rating: '4.9' },
+  { id: 'listed-2', name: 'PetCare Lusaka',            address: 'Kabulonga, Lusaka', lat: -15.4408, lng: 28.3100, hours: 'Mon–Fri 8am–5pm', rating: '4.8' },
+  { id: 'listed-3', name: 'Animal Health Centre',      address: 'Woodlands, Lusaka', lat: -15.4285, lng: 28.3000, hours: 'Mon–Sun 7am–8pm', rating: '4.9' },
+  { id: 'listed-4', name: 'VetZam Clinic',             address: 'Roma, Lusaka',      lat: -15.4500, lng: 28.3200, hours: 'Mon–Sat 9am–6pm', rating: '4.7' },
 ];
 
 const WALKER_FEE          = 150;
 const AGGRESSIVE_SURCHARGE = 600;
 
-/* ── Vet Map ──────────────────────────────────────────────── */
-function VetMap({ userLat, userLng }: { userLat: number | null; userLng: number | null }) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const mapRef       = useRef<maplibregl.Map | null>(null);
-
-  useEffect(() => {
-    if (!containerRef.current) return;
-    const map = new maplibregl.Map({
-      container: containerRef.current,
-      style:     'https://tiles.openfreemap.org/styles/liberty',
-      center:    [28.2833, -15.4167],
-      zoom:      11.5,
-      attributionControl: false,
-    });
-    mapRef.current = map;
-
-    map.on('load', () => {
-      VET_CLINICS.forEach(c => {
-        const el = document.createElement('div');
-        el.style.cssText = 'width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#0F766E,#0891B2);border:2.5px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;font-size:16px;cursor:pointer;';
-        el.textContent = '🏥';
-        new maplibregl.Marker({ element: el, anchor: 'center' })
-          .setLngLat([c.lng, c.lat])
-          .setPopup(new maplibregl.Popup({ offset: 20 }).setHTML(
-            `<div style="font-size:13px;font-weight:700;color:#0F766E">${c.name}</div>
-             <div style="font-size:11px;color:#555;margin-top:2px">${c.address}</div>
-             <div style="font-size:11px;color:#0891B2;margin-top:2px">⏰ ${c.hours}</div>
-             <div style="font-size:11px;color:#F59E0B;margin-top:2px">⭐ ${c.rating}</div>`
-          ))
-          .addTo(map);
-      });
-    });
-    return () => { map.remove(); mapRef.current = null; };
-  }, []);
-
-  useEffect(() => {
-    if (!mapRef.current || userLat == null || userLng == null) return;
-    const el = document.createElement('div');
-    el.style.cssText = 'width:16px;height:16px;border-radius:50%;background:#3B82F6;border:3px solid white;box-shadow:0 2px 8px rgba(59,130,246,0.6);';
-    new maplibregl.Marker({ element: el, anchor: 'center' })
-      .setLngLat([userLng, userLat])
-      .addTo(mapRef.current);
-    mapRef.current.flyTo({ center: [userLng, userLat], zoom: 12.5, duration: 1200 });
-  }, [userLat, userLng]);
-
-  return <div ref={containerRef} style={{ width: '100%', height: '100%' }} />;
+interface Clinic {
+  id: string;
+  name: string;
+  address: string;
+  phone?: string;
+  hours: string;
+  rating?: string;
+  lat: number | null;
+  lng: number | null;
+  /** pawfleet = registered vet you can book in the app. osm / listed = found on the map, confirm by phone. */
+  source: 'pawfleet' | 'osm' | 'listed';
+  vetUserId?: string;
+  distKm: number | null;
 }
 
-/* ── Build clinic list from DB vets + hardcoded fallback ── */
-function buildClinics(dbVets: { id: string; name: string; serviceLat?: number; serviceLng?: number; phone?: string }[]) {
-  if (dbVets.length > 0) {
-    return dbVets
-      .filter(v => v.serviceLat && v.serviceLng)
-      .map((v, i) => ({ id: i + 1, name: v.name, address: 'PawFleet Verified Vet', lat: v.serviceLat!, lng: v.serviceLng!, hours: 'Contact for hours', rating: '✓ Verified' }));
-  }
-  return VET_CLINICS; // fallback
-}
+const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
 
 /* ── Main Page ───────────────────────────────────────────── */
 export default function VetBooking() {
   const navigate = useNavigate();
-  const { data, currentUser } = useApp();
+  const { data, currentUser, createWalkAsync } = useApp();
+  const loc = useMyLocation(true);
   const ownerPets = data.dogs.filter(d => d.ownerId === currentUser?.id);
   const today     = new Date().toISOString().split('T')[0];
-
-  // DB-registered vets — show them instead of hardcoded clinics when available
-  const dbVets = data.users.filter(u => u.role === 'vet');
-  const activeClinics = buildClinics(dbVets);
 
   const [heroSlide,       setHeroSlide]      = useState(0);
   const [selectedPet,     setSelectedPet]    = useState(ownerPets[0]?.id ?? '');
   const [serviceId,       setServiceId]      = useState('checkup');
-  const [selectedClinic,  setSelectedClinic] = useState(activeClinics[0]?.id ?? 1);
+  const [selectedClinic,  setSelectedClinic] = useState('');
+  const [clinicSearch,    setClinicSearch]   = useState('');
+  const [radius,          setRadius]         = useState<number | 'all'>('all');
+  const [areaText,        setAreaText]       = useState('');
+  const [areaMissing,     setAreaMissing]    = useState(false);
+  const [isAggressive,    setIsAggressive]   = useState(false);
+  const [needsTransport,  setNeedsTransport] = useState(false);
+  const [bookingDate,     setBookingDate]    = useState('');
+  const [bookingTime,     setBookingTime]    = useState('09:00');
+  const [submitting,      setSubmitting]     = useState(false);
+  const [bookingError,    setBookingError]   = useState('');
+  const [done,            setDone]           = useState(false);
+  const [osm,             setOsm]            = useState<OsmPlace[]>([]);
+  const [scanning,        setScanning]       = useState(false);
+  const [scanned,         setScanned]        = useState(false);
+  const [fitTick,         setFitTick]        = useState(0);
 
   useEffect(() => {
     const id = setInterval(() => setHeroSlide(s => (s + 1) % VET_HERO_SLIDES.length), 4500);
     return () => clearInterval(id);
   }, []);
-  const [clinicSearch,    setClinicSearch]   = useState('');
-  const [isAggressive,    setIsAggressive]   = useState(false);
-  const [needsTransport,  setNeedsTransport] = useState(false);
-  const [bookingDate,     setBookingDate]    = useState('');
-  const [bookingTime,     setBookingTime]    = useState('09:00');
-  const [userLat,         setUserLat]        = useState<number | null>(null);
-  const [userLng,         setUserLng]        = useState<number | null>(null);
-  const [locLoading,      setLocLoading]     = useState(false);
-  const [submitting,      setSubmitting]     = useState(false);
-  const [done,            setDone]           = useState(false);
 
+  // The pet list loads a moment after the page, so pick the first pet once it arrives.
+  useEffect(() => { if (!selectedPet && ownerPets[0]) setSelectedPet(ownerPets[0].id); }, [ownerPets.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Scan the area around the owner for clinics on the map. Best effort: PawFleet vets show immediately.
+  const posKey = loc.pos ? `${loc.pos[0].toFixed(3)},${loc.pos[1].toFixed(3)}` : '';
+  useEffect(() => {
+    if (!loc.pos) return;
+    let cancelled = false;
+    setScanning(true);
+    setScanned(false);
+    scanVetClinics(loc.pos, 20).then(places => { if (!cancelled) { setOsm(places); setScanned(true); } })
+      .finally(() => { if (!cancelled) setScanning(false); });
+    return () => { cancelled = true; };
+  }, [posKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Everything we can offer, merged and sorted by distance.
+  const clinics: Clinic[] = useMemo(() => {
+    const out: Clinic[] = [];
+    const dist = (lat: number | null, lng: number | null) => (loc.pos && lat != null && lng != null ? haversineKm(loc.pos, [lat, lng]) : null);
+    const seen = (name: string, lat: number | null, lng: number | null) => out.some(c =>
+      norm(c.name) === norm(name) || (lat != null && lng != null && c.lat != null && c.lng != null && haversineKm([c.lat, c.lng], [lat, lng]) < 0.15));
+
+    data.users.filter(u => u.role === 'vet').forEach(u => {
+      const has = isValidCoord(u.serviceLat, u.serviceLng);
+      out.push({
+        id: `pf-${u.id}`, name: u.businessName || u.name, address: u.businessAddress || 'PawFleet verified vet',
+        phone: u.phone, hours: 'Contact for hours', rating: '✓ Verified',
+        lat: has ? u.serviceLat! : null, lng: has ? u.serviceLng! : null,
+        source: 'pawfleet', vetUserId: u.id, distKm: has ? dist(u.serviceLat!, u.serviceLng!) : null,
+      });
+    });
+    osm.forEach(p => {
+      if (seen(p.name, p.lat, p.lng)) return;
+      out.push({ id: p.id, name: p.name, address: p.address, phone: p.phone, hours: p.hours || 'Call for hours', lat: p.lat, lng: p.lng, source: 'osm', distKm: dist(p.lat, p.lng) });
+    });
+    KNOWN_CLINICS.forEach(k => {
+      if (seen(k.name, k.lat, k.lng)) return;
+      out.push({ ...k, source: 'listed', distKm: dist(k.lat, k.lng) });
+    });
+
+    return out.sort((a, b) => {
+      if (a.distKm == null && b.distKm == null) return (a.source === 'pawfleet' ? -1 : 0) - (b.source === 'pawfleet' ? -1 : 0);
+      if (a.distKm == null) return 1;
+      if (b.distKm == null) return -1;
+      return a.distKm - b.distKm;
+    });
+  }, [data.users, osm, loc.pos]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const visible = clinics.filter(c => {
+    const q = clinicSearch.toLowerCase().trim();
+    if (q && !c.name.toLowerCase().includes(q) && !c.address.toLowerCase().includes(q)) return false;
+    if (radius !== 'all' && c.distKm != null && c.distKm > radius) return false;
+    return true;
+  });
+
+  // Default to the nearest clinic you can book in the app, else the nearest overall.
+  useEffect(() => {
+    if (selectedClinic && clinics.some(c => c.id === selectedClinic)) return;
+    setSelectedClinic((clinics.find(c => c.source === 'pawfleet') ?? clinics[0])?.id ?? '');
+  }, [clinics]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const chosen = clinics.find(c => c.id === selectedClinic) ?? null;
   const service = VET_SERVICES.find(s => s.id === serviceId) ?? VET_SERVICES[0];
   const total   = service.price + (isAggressive ? AGGRESSIVE_SURCHARGE : 0) + (needsTransport ? WALKER_FEE : 0);
+  const within10 = clinics.filter(c => c.distKm != null && c.distKm <= 10).length;
 
-  const getLocation = () => {
-    if (!navigator.geolocation) return;
-    setLocLoading(true);
-    navigator.geolocation.getCurrentPosition(
-      pos => { setUserLat(pos.coords.latitude); setUserLng(pos.coords.longitude); setLocLoading(false); },
-      ()  => setLocLoading(false),
-      { timeout: 10000 }
-    );
+  const markers: MapMarker[] = useMemo(() => {
+    const m: MapMarker[] = [];
+    if (loc.pos) m.push({ id: 'me', lat: loc.pos[0], lng: loc.pos[1], kind: 'me', title: 'You' });
+    visible.forEach(c => {
+      if (c.lat == null || c.lng == null) return;
+      m.push({ id: c.id, lat: c.lat, lng: c.lng, kind: c.source === 'pawfleet' ? 'vet' : 'vet-listed', selected: c.id === selectedClinic, title: c.name });
+    });
+    return m;
+  }, [visible, loc.pos, selectedClinic]);
+
+  const mapCenter: LatLng = loc.pos ?? (chosen?.lat != null ? [chosen.lat, chosen.lng!] : [-15.4167, 28.2833]);
+
+  const searchArea = async () => {
+    setAreaMissing(false);
+    const ok = await loc.setFromText(areaText);
+    if (!ok) setAreaMissing(true);
   };
 
   const handleBook = async () => {
-    if (!selectedPet || !bookingDate || !currentUser) return;
+    if (!selectedPet || !bookingDate || !currentUser || !chosen) return;
     setSubmitting(true);
-    const clinic = activeClinics.find(c => c.id === selectedClinic) ?? activeClinics[0];
+    setBookingError('');
     const note = [
       `VET BOOKING: ${service.label}`,
-      `📍 Clinic: ${clinic.name}`,
+      `📍 Clinic: ${chosen.name}`,
+      `Clinic address: ${chosen.address}`,
+      chosen.phone ? `Clinic phone: ${chosen.phone}` : null,
+      chosen.lat != null && chosen.lng != null ? `ClinicGeo: ${chosen.lat.toFixed(5)},${chosen.lng.toFixed(5)}` : null,
+      chosen.source !== 'pawfleet' ? 'Clinic is not on PawFleet: confirm the slot with them by phone' : null,
       isAggressive   ? '⚠️ Aggressive animal — sedation required' : null,
       needsTransport ? '🚗 Walker transport requested'             : null,
       `Total: K${total}`,
     ].filter(Boolean).join('\n');
 
-    await supabase.from('walks').insert({
-      id: crypto.randomUUID(), dog_id: selectedPet, owner_id: currentUser.id,
-      walker_id: null, status: 'pending',
-      scheduled_date: `${bookingDate}T${bookingTime}:00`,
-      notes: note, price: total, walker_earning: needsTransport ? WALKER_FEE : 0,
-      duration: 60, created_at: new Date().toISOString(),
+    const res = await createWalkAsync({
+      dogId: selectedPet,
+      ownerId: currentUser.id,
+      walkerId: chosen.vetUserId,
+      status: 'pending',
+      scheduledDate: new Date(`${bookingDate}T${bookingTime}:00`).toISOString(),
+      duration: 60,
+      price: total,
+      walkerEarning: needsTransport ? WALKER_FEE : 0,
+      notes: note,
+      startLocation: needsTransport && loc.pos ? { lat: loc.pos[0], lng: loc.pos[1], address: 'Owner location (pickup for vet transport)' } : undefined,
     });
     setSubmitting(false);
+    if (res.error) { setBookingError(res.error); return; }
     setDone(true);
   };
 
   /* ── Success screen ── */
-  if (done) {
-    const bookedClinic = activeClinics.find(c => c.id === selectedClinic) ?? activeClinics[0];
+  if (done && chosen) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center px-6 text-center bg-white gap-5">
         <div className="w-24 h-24 rounded-3xl flex items-center justify-center text-5xl shadow-lg"
           style={{ background: 'linear-gradient(135deg,#0F766E,#0891B2)' }}>🏥</div>
         <div>
-          <h2 className="text-2xl font-extrabold text-ink mb-2">Booking Confirmed!</h2>
-          <p className="text-sm text-ink-muted">Your appointment has been sent to the clinic below.</p>
+          <h2 className="text-2xl font-extrabold text-ink mb-2">Request sent!</h2>
+          <p className="text-sm text-ink-muted">
+            {chosen.source === 'pawfleet'
+              ? 'The clinic has been notified and will confirm your slot.'
+              : 'Please call the clinic to confirm your slot. We have saved your request.'}
+          </p>
         </div>
         <div className="w-full max-w-xs space-y-3">
           <div className="rounded-2xl p-4 text-left" style={{ background: '#F0FDFA', border: '1px solid #A5F3FC' }}>
-            <p className="text-[11px] text-teal-600 font-bold uppercase tracking-wider mb-1">Assigned Clinic</p>
-            <p className="text-base font-extrabold text-ink">{bookedClinic.name}</p>
-            <p className="text-xs text-ink-muted mt-0.5">{bookedClinic.address}</p>
-            <p className="text-xs text-teal-600 mt-0.5">⏰ {bookedClinic.hours}</p>
+            <p className="text-[11px] text-teal-600 font-bold uppercase tracking-wider mb-1">Your clinic</p>
+            <p className="text-base font-extrabold text-ink">{chosen.name}</p>
+            <p className="text-xs text-ink-muted mt-0.5">{chosen.address}</p>
+            <p className="text-xs text-teal-600 mt-0.5">⏰ {chosen.hours}</p>
+            <div className="flex flex-wrap gap-2 mt-3">
+              {chosen.phone && (
+                <a href={`tel:${chosen.phone}`} className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-white" style={{ background: '#0F766E' }}>
+                  <Phone className="w-3.5 h-3.5" /> Call
+                </a>
+              )}
+              {chosen.lat != null && chosen.lng != null && (
+                <a href={`https://www.google.com/maps/dir/?api=1&destination=${chosen.lat},${chosen.lng}`} target="_blank" rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border border-teal-300 text-teal-700 bg-white">
+                  <ExternalLink className="w-3.5 h-3.5" /> Directions
+                </a>
+              )}
+              {chosen.vetUserId && (
+                <button type="button" onClick={() => navigate(`/owner/dm/${chosen.vetUserId}`)}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border border-teal-300 text-teal-700 bg-white">
+                  <MessageCircle className="w-3.5 h-3.5" /> Message
+                </button>
+              )}
+            </div>
           </div>
           <div className="rounded-2xl px-6 py-3 text-center" style={{ background: '#EBF5EF' }}>
-            <p className="text-xs text-ink-muted font-semibold uppercase tracking-wider">Total Due</p>
+            <p className="text-xs text-ink-muted font-semibold uppercase tracking-wider">Estimated total</p>
             <p className="text-3xl font-extrabold mt-1" style={{ color: '#0F766E' }}>K{total}</p>
           </div>
         </div>
@@ -200,7 +266,6 @@ export default function VetBooking() {
             className="absolute inset-0 w-full h-full object-cover"
             style={{ opacity: heroSlide === i ? 1 : 0, transition: 'opacity 0.9s ease' }} />
         ))}
-        {/* Slide dots */}
         <div className="absolute bottom-4 right-4 flex gap-1.5 items-center z-10">
           {VET_HERO_SLIDES.map((_, i) => (
             <div key={i} className="rounded-full transition-all duration-400"
@@ -209,22 +274,21 @@ export default function VetBooking() {
         </div>
         <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, rgba(15,118,110,0.55) 0%, rgba(0,0,0,0.70) 100%)' }} />
 
-        {/* Back button */}
-        <button type="button" onClick={() => navigate(-1)}
+        <button type="button" onClick={() => navigate(-1)} aria-label="Back"
           className="absolute top-4 left-4 w-9 h-9 rounded-xl bg-white/20 backdrop-blur flex items-center justify-center text-white hover:bg-white/30">
           <ArrowLeft className="w-5 h-5" />
         </button>
 
-        {/* Hero text */}
         <div className="absolute bottom-5 left-5 right-5">
           <div className="flex items-center gap-2 mb-2">
-            <span className="px-2.5 py-1 rounded-full text-[11px] font-bold text-white"
-              style={{ background: 'rgba(8,145,178,0.85)' }}>
-              🏥 {activeClinics.length} {dbVets.length > 0 ? 'Verified Vets' : 'Partner Clinics'} in Lusaka
+            <span className="px-2.5 py-1 rounded-full text-[11px] font-bold text-white" style={{ background: 'rgba(8,145,178,0.85)' }}>
+              {loc.pos
+                ? `🏥 ${within10} clinic${within10 === 1 ? '' : 's'} within 10 km`
+                : `🏥 ${clinics.length} clinic${clinics.length === 1 ? '' : 's'} listed`}
             </span>
           </div>
           <h1 className="text-2xl font-extrabold text-white leading-tight">Veterinary Care</h1>
-          <p className="text-white/80 text-sm mt-0.5">Expert vet visits for your dogs and cats</p>
+          <p className="text-white/80 text-sm mt-0.5">Find a vet near you and book in minutes</p>
         </div>
       </div>
 
@@ -293,12 +357,9 @@ export default function VetBooking() {
 
         {/* ── Toggles ── */}
         <div className="space-y-3">
-          {/* Aggressive */}
           <div className={`flex items-center gap-4 p-4 rounded-2xl border-2 transition-all cursor-pointer ${isAggressive ? 'border-amber-400 bg-amber-50' : 'border-surface-border bg-white'}`}
             onClick={() => setIsAggressive(v => !v)}>
-            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-xl shrink-0 ${isAggressive ? 'bg-amber-100' : 'bg-surface-secondary'}`}>
-              ⚠️
-            </div>
+            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-xl shrink-0 ${isAggressive ? 'bg-amber-100' : 'bg-surface-secondary'}`}>⚠️</div>
             <div className="flex-1">
               <p className="text-sm font-bold text-ink">Aggressive Animal</p>
               <p className="text-xs text-ink-muted">Requires sedation for safe handling</p>
@@ -309,16 +370,14 @@ export default function VetBooking() {
             </div>
           </div>
 
-          {/* Transport */}
           <div className={`flex items-center gap-4 p-4 rounded-2xl border-2 transition-all cursor-pointer ${needsTransport ? 'border-primary bg-primary/5' : 'border-surface-border bg-white'}`}
             onClick={() => setNeedsTransport(v => !v)}>
-            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-xl shrink-0 ${needsTransport ? 'bg-primary/10' : 'bg-surface-secondary'}`}>
-              🚗
-            </div>
+            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-xl shrink-0 ${needsTransport ? 'bg-primary/10' : 'bg-surface-secondary'}`}>🚗</div>
             <div className="flex-1">
               <p className="text-sm font-bold text-ink">Walker Transport</p>
               <p className="text-xs text-ink-muted">Walker picks up your pet and takes them to the clinic</p>
               {needsTransport && <p className="text-xs font-bold text-primary mt-0.5">+K{WALKER_FEE} transport fee</p>}
+              {needsTransport && !loc.pos && <p className="text-[11px] text-amber-600 mt-0.5">Share your location below so the walker can find you.</p>}
             </div>
             <div className={`w-12 h-6 rounded-full transition-colors relative shrink-0 ${needsTransport ? 'bg-primary' : 'bg-surface-border'}`}>
               <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all ${needsTransport ? 'left-6' : 'left-0.5'}`} />
@@ -337,65 +396,108 @@ export default function VetBooking() {
             <p className="text-xs font-bold text-ink-muted uppercase tracking-wider mb-2">Time</p>
             <select value={bookingTime} onChange={e => setBookingTime(e.target.value)}
               className="w-full border border-surface-border rounded-2xl px-3 py-3 text-sm text-ink focus:outline-none focus:border-primary bg-white">
-              {['08:00','09:00','10:00','11:00','14:00','15:00','16:00'].map(t => (
-                <option key={t} value={t}>{t}</option>
-              ))}
+              {['08:00','09:00','10:00','11:00','14:00','15:00','16:00'].map(t => <option key={t} value={t}>{t}</option>)}
             </select>
           </div>
         </div>
 
-        {/* ── Map ── */}
+        {/* ── Nearby clinics ── */}
         <div>
           <div className="flex items-center justify-between mb-3">
-            <p className="text-xs font-bold text-ink-muted uppercase tracking-wider">Nearest Clinics</p>
-            <button type="button" onClick={getLocation}
+            <p className="text-xs font-bold text-ink-muted uppercase tracking-wider">Vets near you</p>
+            <button type="button" onClick={() => { loc.request(); setFitTick(t => t + 1); }}
               className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-xl transition-colors"
               style={{ color: '#0891B2', background: '#F0FDFA', border: '1px solid #A5F3FC' }}>
               <Navigation className="w-3 h-3" />
-              {locLoading ? 'Locating…' : userLat ? '✓ Located' : 'Use My Location'}
+              {loc.status === 'asking' ? 'Locating…' : loc.pos ? (loc.source === 'typed' ? 'Use GPS instead' : '✓ Located') : 'Use My Location'}
             </button>
           </div>
-          <div className="rounded-3xl overflow-hidden border border-surface-border shadow-sm" style={{ height: 220 }}>
-            <VetMap userLat={userLat} userLng={userLng} />
+
+          {/* Status of the scan */}
+          <div className="flex items-center gap-2 text-[11px] mb-3 px-3 py-2 rounded-xl bg-surface-secondary text-ink-secondary">
+            {scanning ? <><Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" /> Scanning your area for clinics…</>
+              : loc.pos ? <><MapPin className="w-3.5 h-3.5 shrink-0" style={{ color: '#0891B2' }} />
+                  {clinics.filter(c => c.distKm != null).length} clinic{clinics.filter(c => c.distKm != null).length === 1 ? '' : 's'} found around {loc.source === 'typed' ? 'the area you entered' : 'you'}
+                  {scanned && osm.length === 0 ? '. The map has few clinics listed here, so registered vets are shown first.' : '.'}</>
+              : loc.status === 'asking' ? <><Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" /> Waiting for your location…</>
+              : <>Location is off. Type your area to find vets near you.</>}
           </div>
-          <p className="text-[11px] text-ink-muted mt-2 text-center">Tap 🏥 markers to see clinic details</p>
+
+          {/* Area fallback */}
+          {!loc.pos && loc.status !== 'asking' && (
+            <div className="flex gap-2 mb-3">
+              <input type="text" value={areaText} onChange={e => setAreaText(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') searchArea(); }}
+                placeholder="e.g. Kabulonga, Lusaka or Ndola"
+                className="flex-1 border border-surface-border rounded-2xl px-4 py-2.5 text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-primary bg-white" />
+              <button type="button" onClick={searchArea} disabled={loc.lookingUp || areaText.trim().length < 3}
+                className="px-4 rounded-2xl text-xs font-bold text-white disabled:opacity-40" style={{ background: '#0F766E' }}>
+                {loc.lookingUp ? '…' : 'Find'}
+              </button>
+            </div>
+          )}
+          {areaMissing && <p className="text-xs text-amber-600 mb-3">We could not find that place. Try a nearby suburb or town name.</p>}
+
+          {/* Map */}
+          <div className="relative rounded-3xl overflow-hidden border border-surface-border shadow-sm" style={{ height: 240 }}>
+            <LiveRouteMap
+              markers={markers}
+              center={mapCenter}
+              zoom={12}
+              fitKey={`${posKey}|${markers.length > 1 ? 'm' : ''}|${fitTick}`}
+              onSelect={id => { if (id !== 'me') setSelectedClinic(id); }}
+            />
+          </div>
+          <p className="text-[11px] text-ink-muted mt-2 text-center">Tap a 🏥 pin to choose that clinic. Teal pins are registered on PawFleet.</p>
         </div>
 
         {/* ── Clinic selection ── */}
         <div>
           <p className="text-xs font-bold text-ink-muted uppercase tracking-wider mb-3">Select a Clinic</p>
-          {/* Search */}
+
+          <div className="flex gap-1.5 mb-3 overflow-x-auto pb-1 scrollbar-none">
+            {([['all', 'All'], [5, '5 km'], [10, '10 km'], [25, '25 km']] as const).map(([val, label]) => (
+              <button key={String(val)} type="button" onClick={() => setRadius(val)}
+                className={`px-3.5 py-1.5 rounded-full text-xs font-bold shrink-0 border transition-all ${radius === val ? 'text-white border-transparent' : 'text-ink-secondary border-surface-border bg-white'}`}
+                style={radius === val ? { background: '#0F766E' } : {}}>
+                {val === 'all' ? 'All' : `Within ${label}`}
+              </button>
+            ))}
+          </div>
+
           <div className="relative mb-3">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-muted pointer-events-none" />
-            <input
-              type="text"
-              placeholder="Search clinics by name or area…"
-              value={clinicSearch}
-              onChange={e => setClinicSearch(e.target.value)}
-              className="w-full border border-surface-border rounded-2xl pl-10 pr-4 py-2.5 text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-primary bg-white"
-            />
+            <input type="text" placeholder="Search clinics by name or area…" value={clinicSearch} onChange={e => setClinicSearch(e.target.value)}
+              className="w-full border border-surface-border rounded-2xl pl-10 pr-4 py-2.5 text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-primary bg-white" />
           </div>
+
           <div className="space-y-2">
-            {activeClinics.filter(c => {
-              const q = clinicSearch.toLowerCase().trim();
-              return !q || c.name.toLowerCase().includes(q) || c.address.toLowerCase().includes(q);
-            }).map(c => (
+            {visible.length === 0 && (
+              <p className="text-sm text-ink-muted text-center py-6">No clinics match. Try a wider distance.</p>
+            )}
+            {visible.map(c => (
               <button key={c.id} type="button" onClick={() => setSelectedClinic(c.id)}
                 className={`w-full flex items-center gap-3 p-3.5 rounded-2xl border-2 text-left transition-all ${
-                  selectedClinic === c.id
-                    ? 'border-primary bg-primary/5 shadow-sm'
-                    : 'border-surface-border bg-white hover:bg-surface-hover'
+                  selectedClinic === c.id ? 'border-primary bg-primary/5 shadow-sm' : 'border-surface-border bg-white hover:bg-surface-hover'
                 }`}>
                 <div className="w-10 h-10 rounded-2xl flex items-center justify-center text-xl shrink-0"
-                  style={{ background: selectedClinic === c.id ? '#EBF5EF' : 'linear-gradient(135deg,#F0FDFA,#CFFAFE)' }}>🏥</div>
+                  style={{ background: c.source === 'pawfleet' ? 'linear-gradient(135deg,#CCFBF1,#CFFAFE)' : '#F1F5F9' }}>🏥</div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold text-ink truncate">{c.name}</p>
-                  <p className="text-xs text-ink-muted">{c.address}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-bold text-ink truncate">{c.name}</p>
+                    {c.source === 'pawfleet' && (
+                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0" style={{ background: '#CCFBF1', color: '#0F766E' }}>On PawFleet</span>
+                    )}
+                  </div>
+                  <p className="text-xs text-ink-muted truncate">{c.address}</p>
+                  <p className="text-[11px] text-ink-muted mt-0.5">
+                    {c.distKm != null ? <span className="font-bold" style={{ color: '#0891B2' }}>{formatKm(c.distKm)} away</span> : 'Distance unknown'}
+                    {c.phone ? ' · tap to call after booking' : ''}
+                  </p>
                 </div>
-                <div className="text-right shrink-0 flex flex-col items-end gap-0.5">
-                  <p className="text-xs font-bold text-amber-500">⭐ {c.rating}</p>
-                  <p className="text-[10px] text-ink-muted">{c.hours.split(' ')[0]}</p>
-                  {selectedClinic === c.id && <Check className="w-3.5 h-3.5 text-primary mt-0.5" />}
+                <div className="text-right shrink-0">
+                  {c.rating && <p className="text-xs font-bold text-amber-500">⭐ {c.rating}</p>}
+                  {selectedClinic === c.id && <Check className="w-4 h-4 text-primary mt-1 ml-auto" />}
                 </div>
               </button>
             ))}
@@ -428,18 +530,27 @@ export default function VetBooking() {
                 <span className="text-3xl font-extrabold text-white">K{total}</span>
               </div>
             </div>
+            <p className="text-white/60 text-[11px] mt-3">Prices are guides. The clinic confirms the final amount.</p>
           </div>
         </div>
 
+        {bookingError && (
+          <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3">
+            <p className="text-xs font-bold text-red-700">Request not sent</p>
+            <p className="text-xs text-red-600 mt-0.5 leading-relaxed">{bookingError}</p>
+          </div>
+        )}
+
         {/* ── Book button ── */}
         <button type="button" onClick={handleBook}
-          disabled={!selectedPet || !bookingDate || submitting || ownerPets.length === 0}
+          disabled={!selectedPet || !bookingDate || !chosen || submitting || ownerPets.length === 0}
           className="w-full py-4 rounded-2xl font-bold text-white text-base disabled:opacity-40 transition-all active:scale-95 flex items-center justify-center gap-3"
           style={{ background: 'linear-gradient(135deg,#0F766E,#0891B2)', boxShadow: '0 4px 20px rgba(8,145,178,0.35)' }}>
           {submitting
-            ? <><div className="w-5 h-5 rounded-full border-2 border-white/40 border-t-white animate-spin" /> Booking…</>
+            ? <><div className="w-5 h-5 rounded-full border-2 border-white/40 border-t-white animate-spin" /> Sending…</>
             : <>🏥 Book Vet Visit &nbsp;·&nbsp; K{total}</>}
         </button>
+        {!bookingDate && ownerPets.length > 0 && <p className="text-center text-xs text-ink-muted -mt-3">Pick a date to continue</p>}
 
       </div>
     </div>

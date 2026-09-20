@@ -98,9 +98,25 @@ function EditModal({ onClose }: { onClose: () => void }) {
 }
 
 export default function VetProfile() {
-  const { currentUser, data, logout } = useApp();
+  const { currentUser, data, logout, updateUser } = useApp();
   const navigate = useNavigate();
   const [showLogout, setShowLogout] = useState(false);
+  const [locSaving, setLocSaving] = useState(false);
+  const [locDone, setLocDone] = useState(false);
+
+  // Vets who save their clinic location appear in owners' "vets near me" scan.
+  const saveClinicLocation = () => {
+    if (!currentUser || !('geolocation' in navigator)) return;
+    setLocSaving(true);
+    navigator.geolocation.getCurrentPosition(
+      async p => {
+        await updateUser(currentUser.id, { serviceLat: p.coords.latitude, serviceLng: p.coords.longitude });
+        setLocSaving(false); setLocDone(true); setTimeout(() => setLocDone(false), 3000);
+      },
+      () => setLocSaving(false),
+      { enableHighAccuracy: true, timeout: 12000 },
+    );
+  };
   const [showEdit,   setShowEdit]   = useState(false);
 
   const initials = currentUser?.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || 'VC';
@@ -161,7 +177,7 @@ export default function VetProfile() {
         <div className="bg-white border border-surface-border rounded-2xl overflow-hidden divide-y divide-surface-border">
           {[
             { icon: '🏥', label: 'Clinic Type',      value: 'Veterinary Partner' },
-            { icon: '📍', label: 'Location',          value: 'Lusaka, Zambia' },
+            { icon: '📍', label: 'Map location',      value: currentUser?.serviceLat != null ? 'Saved. Owners nearby can find you' : 'Not set. Owners cannot find you yet' },
             { icon: '⏰', label: 'Operating Hours',   value: 'Mon–Sat 8am–6pm' },
             { icon: '📞', label: 'Contact',           value: currentUser?.phone ?? '' },
           ].map(item => (
@@ -174,6 +190,20 @@ export default function VetProfile() {
             </div>
           ))}
         </div>
+
+        {/* Put the clinic on the map */}
+        <button type="button" onClick={saveClinicLocation} disabled={locSaving}
+          className="w-full flex items-center gap-3 px-4 py-4 bg-white border border-surface-border rounded-2xl hover:bg-surface-secondary transition-colors text-left">
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: '#F0FDFA' }}>
+            <MapPin className="w-4 h-4" style={{ color: '#0891B2' }} />
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-medium text-ink">
+              {locSaving ? 'Getting GPS…' : locDone ? '✓ Clinic location saved' : currentUser?.serviceLat != null ? 'Update clinic location' : 'Set my clinic location'}
+            </p>
+            <p className="text-xs text-ink-muted">Stand at your clinic and tap. Owners searching for a vet nearby will see you first.</p>
+          </div>
+        </button>
 
         {/* Logout */}
         <button type="button" onClick={() => setShowLogout(true)}

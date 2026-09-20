@@ -1,8 +1,11 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, MessageCircle, Phone, CheckCircle2, ChevronRight, AlertCircle } from 'lucide-react';
+import { ArrowLeft, MessageCircle, Phone, CheckCircle2, ChevronRight, AlertCircle, Navigation, Loader2, MapPin } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
-import { supabase } from '../../lib/supabase';
+import LiveRouteMap, { MapMarker } from '../../components/map/LiveRouteMap';
+import { useMyLocation } from '../../hooks/useMyLocation';
+import { useWalkersLive } from '../../lib/liveTracking';
+import { LatLng, formatKm, haversineKm, isValidCoord } from '../../lib/geo';
 
 const PACKAGES = [
   {
@@ -29,14 +32,40 @@ function initials(name: string) {
 
 export default function DogTraining() {
   const navigate = useNavigate();
-  const { currentUser, data } = useApp();
+  const { currentUser, data, createWalkAsync } = useApp();
+  const loc = useMyLocation(true);
+  const live = useWalkersLive(currentUser?.id);
+  const [areaText, setAreaText] = useState('');
+  const [areaMissing, setAreaMissing] = useState(false);
 
   const myDogs = data.dogs.filter(d => d.ownerId === currentUser?.id);
 
-  // Only walkers approved as trainers (trainerStatus: 'approved' in pricing JSONB)
-  const trainers = data.users.filter(
-    u => u.role === 'walker' && (u.pricing as any)?.trainerStatus === 'approved'
-  );
+  // Only walkers approved as trainers (trainerStatus: 'approved' in pricing JSONB).
+  // Live trainers first, then nearest to you.
+  const trainers = data.users
+    .filter(u => u.role === 'walker' && (u.pricing as any)?.trainerStatus === 'approved')
+    .map(u => {
+      const l = live[u.id];
+      const pos: LatLng | null = l ? [l.lat, l.lng]
+        : isValidCoord(u.onlineLat, u.onlineLng) ? [u.onlineLat!, u.onlineLng!]
+        : isValidCoord(u.serviceLat, u.serviceLng) ? [u.serviceLat!, u.serviceLng!] : null;
+      return { ...u, _live: !!l, _pos: pos, _distKm: loc.pos && pos ? haversineKm(loc.pos, pos) : null };
+    })
+    .sort((a, b) => {
+      if (a._live !== b._live) return a._live ? -1 : 1;
+      if (a._distKm == null && b._distKm == null) return 0;
+      if (a._distKm == null) return 1;
+      if (b._distKm == null) return -1;
+      return a._distKm - b._distKm;
+    });
+
+  const trainerMarkers: MapMarker[] = [
+    ...(loc.pos ? [{ id: 'me', lat: loc.pos[0], lng: loc.pos[1], kind: 'me' as const, title: 'You' }] : []),
+    ...trainers.filter(t => t._pos).map(t => ({
+      id: t.id, lat: t._pos![0], lng: t._pos![1], kind: 'trainer' as const,
+      live: t._live, selected: false, title: t.name,
+    })),
+  ];
 
   const [selectedPackages, setSelectedPackages] = useState<string[]>([]);
   const [dogSize, setDogSize] = useState<'small' | 'large'>('small');
@@ -65,21 +94,20 @@ export default function DogTraining() {
     const dog = myDogs.find(d => d.id === selectedDog);
     const trainer = trainers.find(t => t.id === selectedTrainer);
     const pkgNames = selectedPackages.map(p => PACKAGES.find(pk => pk.id === p)?.name).join(' + ');
-    const { error: dbErr } = await supabase.from('walks').insert({
-      id: crypto.randomUUID(),
-      owner_id: currentUser.id,
-      dog_id: selectedDog || null,
-      walker_id: trainer?.id || null,
+    const res = await createWalkAsync({
+      ownerId: currentUser.id,
+      dogId: selectedDog,
+      walkerId: trainer?.id,
       status: 'pending',
-      scheduled_date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
+      scheduledDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
       price: basePrice,
-      walker_earning: Math.round(basePrice * 0.8),
+      walkerEarning: Math.round(basePrice * 0.8),
       duration: sessionMin * 14,
+      startLocation: loc.pos ? { lat: loc.pos[0], lng: loc.pos[1], address: 'Owner location' } : undefined,
       notes: `TRAINING: ${pkgNames} | Dog: ${dog?.name ?? 'N/A'} | Size: ${dogSize} | Session: ${sessionMin} min/day | Trainer: ${trainer?.name ?? 'TBC'} | Price: K${basePrice}`,
-      created_at: new Date().toISOString(),
     });
     setBooking(false);
-    if (dbErr) setError('Booking failed. Please try again.');
+    if (res.error) setError(res.error);
     else setSuccess(true);
   };
 
@@ -206,7 +234,46 @@ export default function DogTraining() {
 
         {/* ── Trainers ── */}
         <section>
-          <p className="text-xs font-bold text-ink-muted uppercase tracking-wide mb-2.5">Choose a trainer</p>
+          <div className="flex items-center justify-between mb-2.5">
+            <p className="text-xs font-bold text-ink-muted uppercase tracking-wide">Trainers near you</p>
+            <button type="button" onClick={loc.request}
+              className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-xl"
+              style={{ color: '#2B8A50', background: '#EBF5EF' }}>
+              <Navigation className="w-3 h-3" />
+              {loc.status === 'asking' ? 'Locating…' : loc.pos ? '✓ Located' : 'Use my location'}
+            </button>
+          </div>
+
+          {!loc.pos && loc.status !== 'asking' && (
+            <div className="mb-3">
+              <div className="flex gap-2">
+                <input type="text" value={areaText} onChange={e => setAreaText(e.target.value)}
+                  placeholder="Location is off. Type your area, e.g. Kabulonga"
+                  className="flex-1 border border-surface-border rounded-2xl px-4 py-2.5 text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-primary bg-white" />
+                <button type="button" disabled={loc.lookingUp || areaText.trim().length < 3}
+                  onClick={async () => { setAreaMissing(false); if (!(await loc.setFromText(areaText))) setAreaMissing(true); }}
+                  className="px-4 rounded-2xl text-xs font-bold text-white disabled:opacity-40" style={{ background: '#1B4332' }}>
+                  {loc.lookingUp ? '…' : 'Find'}
+                </button>
+              </div>
+              {areaMissing && <p className="text-xs text-amber-600 mt-2">We could not find that place. Try a nearby suburb or town.</p>}
+            </div>
+          )}
+
+          {trainerMarkers.length > 1 && (
+            <div className="relative rounded-2xl overflow-hidden border border-surface-border mb-3" style={{ height: 200 }}>
+              <LiveRouteMap
+                markers={trainerMarkers}
+                center={loc.pos ?? [-15.4167, 28.2833]}
+                zoom={12}
+                fitKey={`${loc.pos ? 'me' : ''}|${trainerMarkers.length}`}
+                onSelect={id => { if (id !== 'me') setSelectedTrainer(id); }}
+              />
+            </div>
+          )}
+          {loc.status === 'asking' && (
+            <p className="flex items-center gap-2 text-[11px] text-ink-muted mb-3"><Loader2 className="w-3.5 h-3.5 animate-spin" /> Finding trainers around you…</p>
+          )}
 
           {trainers.length === 0 ? (
             <div className="rounded-2xl border border-surface-border p-6 text-center">
@@ -235,6 +302,10 @@ export default function DogTraining() {
                     <div className="flex-1 min-w-0">
                       <p className="font-bold text-ink text-sm leading-tight">{trainer.name}</p>
                       <p className="text-xs text-ink-muted mt-0.5">Certified Dog Trainer · PawFleet Verified</p>
+                      <p className="text-[11px] font-medium mt-0.5 flex items-center gap-1" style={{ color: trainer._live ? '#16A34A' : '#9CA3AF' }}>
+                        {trainer._live ? '● Online now' : '○ Offline'}
+                        {trainer._distKm != null && <><MapPin className="w-3 h-3 ml-1" />{formatKm(trainer._distKm)} away</>}
+                      </p>
                     </div>
 
                     {/* Actions */}
@@ -332,13 +403,19 @@ export default function DogTraining() {
               Have questions about training packages or schedules? Reach out directly.
             </p>
             <div className="space-y-3">
-              <a href={`https://wa.me/${chatTrainer.phone.replace(/[\s+]/g, '')}`}
+              <a href={`https://wa.me/${(chatTrainer.phone || '').replace(/[\s+]/g, '')}`}
                 target="_blank" rel="noopener noreferrer"
                 className="flex items-center gap-3 w-full py-3.5 px-4 rounded-2xl font-semibold text-white text-sm"
                 style={{ background: '#25D366' }}>
                 <span className="text-lg">💬</span>
                 Chat on WhatsApp
               </a>
+              <button type="button" onClick={() => navigate(`/owner/dm/${chatTrainer.id}`)}
+                className="flex items-center gap-3 w-full py-3.5 px-4 rounded-2xl font-semibold text-sm text-white"
+                style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)' }}>
+                <MessageCircle className="w-4 h-4" />
+                Message in PawFleet
+              </button>
               <a href={`tel:${chatTrainer.phone}`}
                 className="flex items-center gap-3 w-full py-3.5 px-4 rounded-2xl font-semibold text-sm border-2 border-surface-border text-ink">
                 <Phone className="w-4 h-4 text-ink-secondary" />

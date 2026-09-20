@@ -91,3 +91,36 @@ Use two real registered accounts. Walker phone is approved. Owner phone has one 
 - **Groomers are walkers with a grooming price.** A separate groomer role and profile is the next step if you want dedicated groomers.
 - **Payments before service.** Booking still says "pay after service". Wire the Lenco flow into the confirm step when you are ready.
 - **Type errors in older files** (`MyWalks`, `Register`, `Badge`, `seed`) predate this work. The build does not type-check, so they do not block shipping.
+
+## 7. Second round (2026-09-20)
+
+| Area | What was wrong | What changed |
+|---|---|---|
+| Pets disappearing | The `dogs.age` column only holds whole numbers. "8 months" became 0.67 and the database refused the whole pet, silently. The pet only existed on that phone until the next login | Saving now waits for the database and shows the real error. If a fractional age is refused it saves whole years and keeps the exact age in the notes. Run the SQL to allow fractions |
+| Pet photos | No pet in the database has a photo URL, so uploads never worked | Photos upload after the pet is saved. The SQL creates the buckets and upload permission |
+| Stale data after logout | The cached copy of everyone's data stayed on the phone | Cleared on logout. A failed query no longer wipes pets that were already loaded |
+| Chat inbox | It only listed walk chats. The badge counted booking notifications, not messages | New Messages tab with every conversation, last message, time and real unread counts. Opening a chat clears it |
+| Grooming page | Remote stock photos (the Bath and Brush one was broken), no structure | Original illustrations, one list of packages with what is included, time and price, and plans that take 10% or 15% off every visit. The booking form uses the same list |
+| Vets | Four hard-coded clinics, no real scan, bookings that saved nothing when they failed | Scans the area with your GPS or a typed town, merges vets registered on PawFleet with clinics found on the map, sorts by distance, and books through the same checked path. Vets can save their clinic location from their profile |
+| Trainers | No location, no distance | Distance, live status and a map. Bookings notify the chosen trainer |
+| Open jobs | Vet visits and training requests appeared as walks for every walker | Walkers only see jobs they can take |
+| My Walk | Free tracking only | Choose 20, 30, 45 or 60 minutes, preview a real-road loop with distance, time and turns, try another route, and follow it with voice directions |
+| Walk routes | Route could not be chosen | The owner picks a route when booking and the walker's phone rebuilds the same loop |
+
+### Voice directions
+
+- Built on the phone's own speech engine. No key, no cost.
+- Says the start, "In 100 metres, turn left onto Cairo Road", then "Turn left onto Cairo Road" at the corner, "Halfway" and the arrival.
+- If the walker strays more than about 50 m it says "Off route. Recalculating.", plans a way back to the next turn, and keeps the walk the same length.
+- Used on My Walk, on the walker's live walk (following the owner's chosen loop) and on the way to a pickup.
+- Speech needs one tap first, so it is unlocked by the Start button. There is a mute button on the map.
+- Tested against a real Lusaka route with a simulated walker, including a stray.
+
+### Vets: what to expect
+
+OpenStreetMap lists few clinics in Zambia (about 6 near Lusaka, none found around Ndola) and its public servers are slow. The scan therefore adds to, and never replaces, vets registered with PawFleet. The fix that matters is getting real vets onto PawFleet with their clinic location saved.
+
+### SQL to run
+
+1. `supabase/migrations/20260919_realign_chat_and_live.sql` (if not done)
+2. `supabase/migrations/20260920_dogs_photos_permissions.sql`

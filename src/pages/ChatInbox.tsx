@@ -1,14 +1,26 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
-import { format } from 'date-fns';
+import { format, isToday, isYesterday } from 'date-fns';
 import { MessageCircle, ArrowLeft, ChevronRight, Search, UserPlus } from 'lucide-react';
+import { refreshDirectMessages, useDirectInbox } from '../lib/directMessages';
+
+type Tab = 'messages' | 'walks' | 'people';
+
+const stamp = (iso: string) => {
+  const d = new Date(iso);
+  return isToday(d) ? format(d, 'h:mm a') : isYesterday(d) ? 'Yesterday' : format(d, 'MMM d');
+};
 
 export default function ChatInbox() {
   const { data, currentUser } = useApp();
   const navigate = useNavigate();
-  const [tab, setTab] = useState<'walks' | 'people'>('walks');
+  const inbox = useDirectInbox(currentUser?.id);
+  const [tab, setTab] = useState<Tab>('messages');
   const [search, setSearch] = useState('');
+
+  // Pick up anything that arrived while this screen was closed.
+  useEffect(() => { refreshDirectMessages(); }, []);
 
   if (!currentUser) return null;
 
@@ -41,6 +53,12 @@ export default function ChatInbox() {
   const base = roleBase[currentUser.role] ?? '/owner';
   const dmPath = (uid: string) => `${base}/dm/${uid}`;
 
+  const tabs: { key: Tab; label: string; badge?: number }[] = [
+    { key: 'messages', label: 'Messages', badge: inbox.unreadTotal },
+    { key: 'walks', label: 'Walk Chats' },
+    { key: 'people', label: 'Find People' },
+  ];
+
   return (
     <div className="min-h-screen flex flex-col max-w-lg mx-auto" style={{ background: '#F4F7F5' }}>
       {/* Header */}
@@ -58,16 +76,78 @@ export default function ChatInbox() {
         </div>
         {/* Tab bar */}
         <div className="flex border-b border-white/20">
-          {([['walks', 'Walk Chats'], ['people', 'Find People']] as const).map(([key, label]) => (
+          {tabs.map(({ key, label, badge }) => (
             <button key={key} onClick={() => setTab(key)}
-              className={`flex-1 py-2.5 text-sm font-bold transition-all ${
+              className={`flex-1 py-2.5 text-sm font-bold transition-all flex items-center justify-center gap-1.5 ${
                 tab === key ? 'text-white border-b-2 border-white' : 'text-white/55'
               }`}>
               {label}
+              {!!badge && badge > 0 && (
+                <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+                  {badge > 9 ? '9+' : badge}
+                </span>
+              )}
             </button>
           ))}
         </div>
       </div>
+
+      {/* Direct messages */}
+      {tab === 'messages' && (
+        <div className="flex-1 p-4 space-y-2">
+          {!inbox.loaded ? (
+            <div className="flex justify-center py-16">
+              <div className="w-6 h-6 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+            </div>
+          ) : inbox.conversations.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
+              <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ background: '#EBF5EF' }}>
+                <MessageCircle className="w-8 h-8" style={{ color: '#2B8A50' }} />
+              </div>
+              <p className="text-ink-muted text-sm font-medium">No messages yet</p>
+              <p className="text-ink-muted text-xs max-w-xs">Messages you send and receive show up here.</p>
+              <button onClick={() => setTab('people')}
+                className="mt-2 flex items-center gap-2 px-4 py-2.5 rounded-2xl text-white text-sm font-bold"
+                style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)' }}>
+                <UserPlus className="w-4 h-4" /> Start a conversation
+              </button>
+            </div>
+          ) : (
+            inbox.conversations.map(c => {
+              const other = data.users.find(u => u.id === c.otherId);
+              const mine = c.last.sender_id === currentUser.id;
+              return (
+                <Link key={c.otherId} to={dmPath(c.otherId)}
+                  className="flex items-center gap-3 bg-white rounded-2xl border border-surface-border p-3.5 shadow-sm hover:shadow-md transition-all active:scale-[0.98]">
+                  <div className="w-12 h-12 rounded-full overflow-hidden flex items-center justify-center font-bold text-white shrink-0"
+                    style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)' }}>
+                    {other?.imageUrl
+                      ? <img src={other.imageUrl} alt={other.name} className="w-full h-full object-cover" />
+                      : <span className="text-base">{other?.name?.[0]?.toUpperCase() || '?'}</span>}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-baseline justify-between gap-2">
+                      <p className={`text-sm truncate ${c.unread ? 'font-extrabold text-ink' : 'font-bold text-ink'}`}>{other?.name || 'Unknown user'}</p>
+                      <span className="text-[10px] text-ink-muted shrink-0">{stamp(c.last.created_at)}</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-2 mt-0.5">
+                      <p className={`text-xs truncate ${c.unread ? 'text-ink font-semibold' : 'text-ink-muted'}`}>
+                        {mine ? 'You: ' : ''}{c.last.text}
+                      </p>
+                      {c.unread > 0 && (
+                        <span className="min-w-[20px] h-5 px-1.5 rounded-full text-white text-[10px] font-bold flex items-center justify-center shrink-0"
+                          style={{ background: '#2B8A50' }}>
+                          {c.unread > 9 ? '9+' : c.unread}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </Link>
+              );
+            })
+          )}
+        </div>
+      )}
 
       {/* Walk Chats tab */}
       {tab === 'walks' && (

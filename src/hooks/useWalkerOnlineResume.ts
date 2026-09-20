@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { goOnline, shouldResumeOnline, startWalkSession, stopWalkSession, useWalkSession } from '../lib/liveTracking';
-import { plannedMinutes } from '../lib/routing';
+import { plannedBearing, plannedMinutes } from '../lib/routing';
 import { isValidCoord, type LatLng } from '../lib/geo';
 
 /** If a walker was online when the app was last closed, go live again once they are logged in and approved. */
@@ -38,6 +38,7 @@ export function useActiveWalkSession() {
       startMs: active.startTime ? new Date(active.startTime).getTime() : Date.now(),
       minutes: plannedMinutes(active),
       pickup,
+      bearing: plannedBearing(active),
     });
   }, [active?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 

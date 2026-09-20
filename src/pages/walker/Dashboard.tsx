@@ -11,6 +11,8 @@ import WalkRequestPopup, { getDeclinedWalks, addDeclinedWalk } from '../../compo
 import { WalkingDogIllustration } from '../../components/ui/Illustrations';
 import type { User } from '../../types';
 import GoOnlineCard from '../../components/walker/GoOnlineCard';
+import { useDirectInbox } from '../../lib/directMessages';
+import { canWalkerTakeOpenJob } from '../../lib/jobs';
 
 const WALK_SLIDES = [
   'https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=1200&q=85',
@@ -20,6 +22,7 @@ const WALK_SLIDES = [
 
 export default function WalkerDashboard() {
   const { data, currentUser, getWalkerStats, loading, sendNotification } = useApp();
+  const { unreadTotal: unreadMessages } = useDirectInbox(currentUser?.id);
 
   const [popupWalkId, setPopupWalkId] = useState<string | null>(null);
   const [showTrainerModal, setShowTrainerModal] = useState(false);
@@ -62,7 +65,7 @@ export default function WalkerDashboard() {
     .slice(0, 5);
 
   const availableWalks = data.walks
-    .filter(w => w.status === 'pending' && !w.walkerId && !declinedIds.has(w.id))
+    .filter(w => w.status === 'pending' && !w.walkerId && !declinedIds.has(w.id) && canWalkerTakeOpenJob(w, currentUser))
     .sort((a, b) => new Date(a.scheduledDate).getTime() - new Date(b.scheduledDate).getTime())
     .slice(0, 3);
 
@@ -274,7 +277,7 @@ export default function WalkerDashboard() {
             { to: '/walker/schedule', emoji: '📅', label: 'Schedule', badge: null, badgeType: 'amber' as const },
             { to: '/walker/earnings', emoji: '💰', label: 'Earnings', badge: null, badgeType: 'amber' as const },
             { to: '/walker/guide',    emoji: '📖', label: 'Guide',    badge: null, badgeType: 'amber' as const },
-            { to: '/walker/chats',    emoji: '💬', label: 'Chat',     badge: unreadWalkerNotifs.length > 0 ? unreadWalkerNotifs.length : null, badgeType: 'red' as const },
+            { to: '/walker/chats',    emoji: '💬', label: 'Chat',     badge: unreadMessages > 0 ? unreadMessages : null, badgeType: 'red' as const },
           ];
           return (
             <div className="grid grid-cols-5 gap-3">

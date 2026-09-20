@@ -145,8 +145,8 @@ export default function PaymentMethods() {
 
         {/* Info banner */}
         <div className="rounded-2xl p-4 text-xs text-white/90 leading-relaxed" style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)' }}>
-          <p className="font-bold mb-1">Secure Payments via Lenco</p>
-          <p className="opacity-80">All payments are processed securely. PawFleet never stores your card details.</p>
+          <p className="font-bold mb-1">How payments work</p>
+          <p className="opacity-80">Walk payments are settled directly between you and your walker — cash or mobile money. PawFleet keeps a record for transparency.</p>
         </div>
       </div>
     </div>

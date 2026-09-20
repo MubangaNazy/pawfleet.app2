@@ -9,6 +9,8 @@ import { SkeletonWalkerDashboard } from '../../components/ui/Skeleton';
 import { StatusBadge } from '../../components/ui/Badge';
 import WalkRequestPopup, { getDeclinedWalks, addDeclinedWalk } from '../../components/ui/WalkRequestPopup';
 import { WalkingDogIllustration } from '../../components/ui/Illustrations';
+import type { User } from '../../types';
+import GoOnlineCard from '../../components/walker/GoOnlineCard';
 
 const WALK_SLIDES = [
   'https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=1200&q=85',
@@ -17,13 +19,11 @@ const WALK_SLIDES = [
 ];
 
 export default function WalkerDashboard() {
-  const { data, currentUser, getWalkerStats, loading, updateUser } = useApp();
+  const { data, currentUser, getWalkerStats, loading, sendNotification } = useApp();
 
   const [popupWalkId, setPopupWalkId] = useState<string | null>(null);
-  const [toggling, setToggling] = useState(false);
-  const gpsIntervalRef = React.useRef<number | null>(null);
+  const [showTrainerModal, setShowTrainerModal] = useState(false);
   const shownPopupsRef = React.useRef<Set<string>>(new Set());
-  // Walks this walker has already declined — hidden from their available list
   const [declinedIds, setDeclinedIds] = React.useState<Set<string>>(
     () => currentUser ? getDeclinedWalks(currentUser.id) : new Set()
   );
@@ -75,51 +75,8 @@ export default function WalkerDashboard() {
     setPopupWalkId(null);
   };
 
-  const isOnline = currentUser?.isOnline ?? false;
-
-  // Resume GPS broadcasting if already online when Dashboard mounts
-  useEffect(() => {
-    if (isOnline && currentUser) {
-      gpsIntervalRef.current = window.setInterval(() => {
-        navigator.geolocation?.getCurrentPosition(p => {
-          updateUser(currentUser.id, { onlineLat: p.coords.latitude, onlineLng: p.coords.longitude });
-        });
-      }, 30000);
-    }
-    return () => { if (gpsIntervalRef.current !== null) { clearInterval(gpsIntervalRef.current); gpsIntervalRef.current = null; } };
-  }, []); // runs once on mount / cleanup on unmount
-
-  const handleToggleOnline = async () => {
-    if (!currentUser || toggling) return;
-    setToggling(true);
-    if (!isOnline) {
-      try {
-        const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
-          navigator.geolocation
-            ? navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000 })
-            : reject(new Error('no_geo'));
-        });
-        await updateUser(currentUser.id, {
-          isOnline: true,
-          onlineLat: pos.coords.latitude,
-          onlineLng: pos.coords.longitude,
-          wentOnlineAt: new Date().toISOString(),
-        });
-        gpsIntervalRef.current = window.setInterval(() => {
-          navigator.geolocation.getCurrentPosition(p => {
-            updateUser(currentUser.id, { onlineLat: p.coords.latitude, onlineLng: p.coords.longitude });
-          });
-        }, 30000);
-      } catch {
-        // GPS unavailable — go online without location
-        await updateUser(currentUser.id, { isOnline: true, wentOnlineAt: new Date().toISOString() });
-      }
-    } else {
-      if (gpsIntervalRef.current !== null) { clearInterval(gpsIntervalRef.current); gpsIntervalRef.current = null; }
-      await updateUser(currentUser.id, { isOnline: false });
-    }
-    setToggling(false);
-  };
+  // Check if walker has already applied to be a trainer
+  const trainerStatus = (currentUser?.pricing as any)?.trainerStatus as string | undefined;
 
   const gamStats = getWalkerStats(currentUser?.id || '');
 
@@ -154,7 +111,32 @@ export default function WalkerDashboard() {
           <div className="flex items-start justify-between gap-4">
             <div className="text-white">
               <p className="text-white/70 text-sm mb-1">{format(new Date(), 'EEEE, MMMM d')}</p>
-              <h1 className="text-[28px] font-extrabold tracking-tight leading-tight">{greeting}, {firstName} 🐾</h1>
+              <h1 className="mt-0.5 flex items-center gap-2 flex-wrap">
+                <span
+                  className="text-[28px] font-black italic tracking-tight"
+                  style={{
+                    background: 'linear-gradient(135deg, #A7F3D0 0%, #ffffff 50%, #52B788 100%)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    animation: 'fadeSlideIn 0.6s ease both',
+                  }}
+                >
+                  {greeting}, {firstName}
+                </span>
+                <span className="text-[28px]" style={{ animation: 'pawBounce 1.2s ease 0.5s both' }}>🐾</span>
+              </h1>
+              <style>{`
+                @keyframes fadeSlideIn {
+                  from { opacity: 0; transform: translateY(8px); }
+                  to   { opacity: 1; transform: translateY(0); }
+                }
+                @keyframes pawBounce {
+                  0%   { opacity: 0; transform: scale(0.4) rotate(-20deg); }
+                  60%  { transform: scale(1.25) rotate(8deg); }
+                  80%  { transform: scale(0.92) rotate(-4deg); }
+                  100% { opacity: 1; transform: scale(1) rotate(0deg); }
+                }
+              `}</style>
               <p className="text-white/70 text-sm mt-1 font-medium">Here's your day</p>
             </div>
             {gamStats.streak > 0 && (
@@ -218,35 +200,47 @@ export default function WalkerDashboard() {
       </div>
 
       <div className="px-4 space-y-4">
-        {/* Go Online / Offline toggle */}
-        <div
-          className="rounded-2xl overflow-hidden transition-all duration-300"
-          style={isOnline
-            ? { background: 'linear-gradient(135deg, #1B4332, #2B8A50)', boxShadow: '0 4px 20px rgba(43,138,80,0.35)' }
-            : { background: '#fff', border: '1px solid #E5E7EB', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
-          <div className="flex items-center gap-4 px-5 py-4">
+        {/* Go online so owners nearby can find and book you */}
+        <GoOnlineCard />
+
+        {/* Become a Trainer CTA */}
+        {trainerStatus !== 'approved' && (
+          <button type="button" onClick={() => setShowTrainerModal(true)}
+            className="w-full flex items-center gap-4 px-5 py-4 rounded-2xl text-left transition-all active:scale-[0.98]"
+            style={trainerStatus === 'applied'
+              ? { background: '#FFFBEB', border: '1.5px solid #FDE68A' }
+              : { background: 'linear-gradient(135deg, #0f3020 0%, #1B4332 60%, #2B8A50 100%)', boxShadow: '0 4px 18px rgba(27,67,50,0.32)' }}>
+            {/* Trainer icon */}
+            <div className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0"
+              style={{ background: trainerStatus === 'applied' ? 'rgba(245,158,11,0.15)' : 'rgba(255,255,255,0.14)' }}>
+              <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
+                {/* Whistle body */}
+                <rect x="2" y="11" width="14" height="8" rx="4" fill={trainerStatus === 'applied' ? '#92400E' : 'white'} opacity="0.9"/>
+                {/* Whistle mouthpiece */}
+                <rect x="14" y="13" width="8" height="4" rx="2" fill={trainerStatus === 'applied' ? '#92400E' : 'white'} opacity="0.85"/>
+                {/* Whistle hole */}
+                <circle cx="7" cy="15" r="1.8" fill={trainerStatus === 'applied' ? '#FFFBEB' : '#1B4332'}/>
+                {/* Sound waves */}
+                <path d="M20 8 Q22 10 22 13" stroke={trainerStatus === 'applied' ? '#92400E' : 'white'} strokeWidth="1.5" strokeLinecap="round" fill="none" opacity="0.7"/>
+                <path d="M22 6 Q25 9.5 25 13" stroke={trainerStatus === 'applied' ? '#92400E' : 'white'} strokeWidth="1.5" strokeLinecap="round" fill="none" opacity="0.45"/>
+                {/* Paw badge */}
+                <circle cx="5.5" cy="5.5" r="4" fill={trainerStatus === 'applied' ? '#F59E0B' : '#52B788'}/>
+                <circle cx="5.5" cy="5.5" r="1.4" fill="white"/>
+                <circle cx="3.2" cy="3.5" r="0.9" fill="white"/>
+                <circle cx="7.8" cy="3.5" r="0.9" fill="white"/>
+              </svg>
+            </div>
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-0.5">
-                {isOnline && <span className="w-2.5 h-2.5 rounded-full bg-green-300 animate-pulse shrink-0" />}
-                <p className={`font-extrabold text-sm ${isOnline ? 'text-white' : 'text-ink'}`}>
-                  {toggling ? (isOnline ? 'Going offline…' : 'Going online…') : isOnline ? "You're Online" : "You're Offline"}
-                </p>
-              </div>
-              <p className={`text-xs truncate ${isOnline ? 'text-white/70' : 'text-ink-muted'}`}>
-                {isOnline ? 'Owners can see you — accepting walks' : 'Go online to appear on owners\' map'}
+              <p className={`font-extrabold text-sm ${trainerStatus === 'applied' ? 'text-amber-800' : 'text-white'}`}>
+                {trainerStatus === 'applied' ? 'Trainer Application Pending' : 'Become a Dog Trainer'}
+              </p>
+              <p className={`text-xs mt-0.5 ${trainerStatus === 'applied' ? 'text-amber-600' : 'text-white/65'}`}>
+                {trainerStatus === 'applied' ? 'Under review by admin — we\'ll notify you' : 'Earn more by offering training services'}
               </p>
             </div>
-            {/* iOS-style toggle */}
-            <button
-              type="button"
-              onClick={handleToggleOnline}
-              disabled={toggling}
-              className={`relative shrink-0 w-14 h-7 rounded-full transition-all duration-300 disabled:opacity-60 focus:outline-none ${isOnline ? 'bg-green-400' : 'bg-gray-300'}`}
-              aria-label={isOnline ? 'Go Offline' : 'Go Online'}>
-              <span className={`absolute top-0.5 left-0.5 w-6 h-6 rounded-full bg-white shadow-md transition-transform duration-300 ${isOnline ? 'translate-x-7' : 'translate-x-0'}`} />
-            </button>
-          </div>
-        </div>
+            {trainerStatus !== 'applied' && <ChevronRight className="w-5 h-5 text-white/60 shrink-0" />}
+          </button>
+        )}
 
         {/* Active Walk Banner */}
         {activeWalk && (
@@ -334,7 +328,7 @@ export default function WalkerDashboard() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-ink">{dog?.name || 'Unknown Dog'}</p>
-                      <p className="text-xs text-ink-muted">{owner?.name} · {format(new Date(walk.scheduledDate), 'MMM d, h:mm a')}</p>
+                      <p className="text-xs text-ink-muted">{owner?.name}{walk.scheduledDate ? ` · ${format(new Date(walk.scheduledDate), 'MMM d, h:mm a')}` : ''}</p>
                     </div>
                     <div className="flex flex-col items-end gap-1 shrink-0">
                       <span className="text-xs font-bold" style={{ color: '#1B4332' }}>K{walk.walkerEarning}</span>
@@ -401,7 +395,7 @@ export default function WalkerDashboard() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-ink">{dog?.name}</p>
-                      <p className="text-xs text-ink-muted">{format(new Date(walk.scheduledDate), 'MMM d, h:mm a')}</p>
+                      <p className="text-xs text-ink-muted">{walk.scheduledDate ? format(new Date(walk.scheduledDate), 'MMM d, h:mm a') : ''}</p>
                     </div>
                     <div className="flex items-center gap-2">
                       <StatusBadge status={walk.status} />
@@ -509,6 +503,157 @@ export default function WalkerDashboard() {
           onDecline={() => handlePopupDecline(popupWalkId)}
         />
       )}
+
+      {/* ── Trainer Application Modal ── */}
+      {showTrainerModal && (
+        <TrainerApplicationModal
+          walker={currentUser!}
+          onClose={() => setShowTrainerModal(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── Trainer Application Modal ──────────────────────────────────
+function TrainerApplicationModal({ walker, onClose }: { walker: User; onClose: () => void }) {
+  const { updateUser, sendNotification, data } = useApp();
+  const [step, setStep] = React.useState<'info' | 'form' | 'done'>('info');
+  const [experience, setExperience] = React.useState('');
+  const [motivation, setMotivation] = React.useState('');
+  const [submitting, setSubmitting] = React.useState(false);
+
+  const adminUser = data.users.find(u => u.role === 'admin');
+
+  const handleSubmit = async () => {
+    setSubmitting(true);
+    const existing = (walker.pricing as any) || {};
+    await updateUser(walker.id, {
+      pricing: {
+        ...existing,
+        trainerStatus: 'applied',
+        trainerAppliedAt: new Date().toISOString(),
+        experience,
+        motivation,
+      },
+    });
+    const adminId = adminUser?.id ?? '47ba55a7-0484-4047-bd56-1aa383aa1c7b';
+    sendNotification(adminId, 'trainer_application', 'Trainer Application', `${walker.name} has applied to become a dog trainer`, {
+      walkerId: walker.id, walkerName: walker.name, experience, motivation,
+    });
+    setSubmitting(false);
+    setStep('done');
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/55 backdrop-blur-sm z-50 flex items-end"
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="w-full max-w-lg mx-auto bg-white rounded-t-3xl overflow-hidden"
+        style={{ maxHeight: '92vh' }} onClick={e => e.stopPropagation()}>
+
+        {/* Handle */}
+        <div className="flex justify-center pt-3 pb-1">
+          <div className="w-10 h-1 rounded-full bg-surface-border" />
+        </div>
+
+        {step === 'info' && (
+          <div className="px-6 pb-10">
+            {/* Icon */}
+            <div className="flex justify-center mt-4 mb-5">
+              <div className="w-20 h-20 rounded-3xl flex items-center justify-center"
+                style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)' }}>
+                <svg width="44" height="44" viewBox="0 0 44 44" fill="none">
+                  <rect x="4" y="20" width="22" height="13" rx="6.5" fill="white" opacity="0.9"/>
+                  <rect x="24" y="23" width="14" height="7" rx="3.5" fill="white" opacity="0.85"/>
+                  <circle cx="12" cy="26" r="3" fill="#1B4332"/>
+                  <path d="M33 13 Q36 17 36 22" stroke="white" strokeWidth="2.5" strokeLinecap="round" fill="none" opacity="0.7"/>
+                  <path d="M36 10 Q40 16 40 22" stroke="white" strokeWidth="2.5" strokeLinecap="round" fill="none" opacity="0.4"/>
+                  <circle cx="10" cy="10" r="7" fill="#52B788"/>
+                  <circle cx="10" cy="10" r="2.5" fill="white"/>
+                  <circle cx="6.5" cy="6.5" r="1.5" fill="white"/>
+                  <circle cx="13.5" cy="6.5" r="1.5" fill="white"/>
+                </svg>
+              </div>
+            </div>
+            <h2 className="text-xl font-extrabold text-ink text-center mb-1">Become a Dog Trainer</h2>
+            <p className="text-sm text-ink-secondary text-center mb-6">Join PawFleet's certified trainer programme and earn more</p>
+
+            <div className="space-y-3 mb-7">
+              {[
+                { icon: '💰', title: 'Higher earnings', desc: 'Trainers earn K3,500–K6,000 per training package' },
+                { icon: '📋', title: 'Flexible schedule', desc: '35–60 min daily sessions, 14-day programmes' },
+                { icon: '🎓', title: 'PawFleet certified', desc: 'Get a verified trainer badge on your profile' },
+                { icon: '🐕', title: 'Basic & security training', desc: 'Commands, aggression control, protection training' },
+              ].map(item => (
+                <div key={item.title} className="flex items-start gap-3 p-3.5 rounded-2xl border border-surface-border">
+                  <span className="text-xl shrink-0">{item.icon}</span>
+                  <div>
+                    <p className="font-bold text-ink text-sm">{item.title}</p>
+                    <p className="text-xs text-ink-muted mt-0.5">{item.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <button onClick={() => setStep('form')}
+              className="w-full py-4 rounded-2xl text-white font-extrabold text-base"
+              style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)', boxShadow: '0 8px 24px rgba(27,67,50,0.3)' }}>
+              Apply Now →
+            </button>
+          </div>
+        )}
+
+        {step === 'form' && (
+          <div className="px-6 pb-10">
+            <h2 className="text-lg font-extrabold text-ink mb-1 mt-4">Your application</h2>
+            <p className="text-sm text-ink-muted mb-5">Tell us about your experience with dogs</p>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-ink-muted uppercase tracking-wide mb-1.5">Dog handling experience</label>
+                <textarea
+                  value={experience}
+                  onChange={e => setExperience(e.target.value)}
+                  rows={3}
+                  placeholder="E.g. I've been handling dogs for 3 years, helped train guard dogs..."
+                  className="w-full px-4 py-3 rounded-2xl border border-surface-border text-sm text-ink resize-none focus:outline-none focus:border-primary"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-ink-muted uppercase tracking-wide mb-1.5">Why do you want to be a trainer?</label>
+                <textarea
+                  value={motivation}
+                  onChange={e => setMotivation(e.target.value)}
+                  rows={3}
+                  placeholder="E.g. I'm passionate about working with dogs and want to help owners..."
+                  className="w-full px-4 py-3 rounded-2xl border border-surface-border text-sm text-ink resize-none focus:outline-none focus:border-primary"
+                />
+              </div>
+            </div>
+
+            <button onClick={handleSubmit} disabled={submitting || !experience.trim()}
+              className="w-full py-4 rounded-2xl text-white font-extrabold text-base mt-6 disabled:opacity-50"
+              style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)', boxShadow: '0 8px 24px rgba(27,67,50,0.3)' }}>
+              {submitting ? 'Submitting…' : 'Submit Application'}
+            </button>
+          </div>
+        )}
+
+        {step === 'done' && (
+          <div className="px-6 pb-12 text-center">
+            <p className="text-5xl mt-8 mb-4">🎉</p>
+            <h2 className="text-xl font-extrabold text-ink mb-2">Application Submitted!</h2>
+            <p className="text-sm text-ink-secondary mb-8">
+              The admin will review your application and contact you within 48 hours. You'll get a notification when approved.
+            </p>
+            <button onClick={onClose}
+              className="w-full py-4 rounded-2xl text-white font-bold"
+              style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)' }}>
+              Back to Dashboard
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

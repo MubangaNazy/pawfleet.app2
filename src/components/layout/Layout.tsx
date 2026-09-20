@@ -7,6 +7,7 @@ import { Sidebar } from './Sidebar';
 import { BottomNav } from './BottomNav';
 import RatingModal from '../ui/RatingModal';
 import { useApp } from '../../context/AppContext';
+import { useActiveWalkSession, useWalkerOnlineResume } from '../../hooks/useWalkerOnlineResume';
 
 export function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -14,6 +15,10 @@ export function Layout() {
   const { currentUser, data, markNotificationRead } = useApp();
   const isOwner  = currentUser?.role === 'owner';
   const isWalker = currentUser?.role === 'walker';
+
+  // Walkers: resume "online" after an app restart, and keep an active walk's GPS tracking alive on every screen.
+  useWalkerOnlineResume();
+  useActiveWalkSession();
 
   // Auto rating popup for owners — fires when a walk_completed notification arrives
   const [ratingInfo, setRatingInfo] = useState<{ walkId: string; walkerName: string } | null>(null);

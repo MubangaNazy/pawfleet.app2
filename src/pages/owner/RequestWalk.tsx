@@ -1,37 +1,33 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { CheckCircle, Star, MapPin, Zap, Calendar, Scissors, Loader2, CreditCard } from 'lucide-react';
+import { CheckCircle, Star, MapPin, Zap, Calendar, Scissors, Loader2, CreditCard, ChevronDown } from 'lucide-react';
+
+const LUSAKA_AREAS = [
+  'Libala', 'Chelstone', 'Kabulonga', 'Woodlands', 'Ibex Hill',
+  'Rhodespark', 'Northmead', 'Handsworth Park', 'Roma', 'Olympia',
+  'Avondale', 'Matero', 'Chilenje', 'Chaisa', 'Kabwata',
+  'Emmasdale', 'Mtendere', 'Foxdale', 'Garden', 'Longacres',
+];
 import { ScalePop, FadeIn, StaggerList, StaggerItem } from '../../components/ui/Anim';
 import { SuccessDogIllustration, NoPetsIllustration } from '../../components/ui/Illustrations';
 import { useApp } from '../../context/AppContext';
 import PaymentModal from '../../components/ui/PaymentModal';
-import { supabase } from '../../lib/supabase';
+import LiveRouteMap from '../../components/map/LiveRouteMap';
+import { useWalkersLive } from '../../lib/liveTracking';
+import { isValidCoord } from '../../lib/geo';
+import { geocodeAddress, reverseGeocode } from '../../lib/geocode';
+import { planLoopRoute, type PlannedRoute } from '../../lib/routing';
 import type { WalkerPricing } from '../../types';
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
 const DURATIONS = [20, 30, 40, 60];
 
-async function reverseGeocode(lat: number, lng: number): Promise<string> {
-  try {
-    const res = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`,
-      { headers: { 'Accept-Language': 'en' } }
-    );
-    const data = await res.json();
-    return data.display_name || `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-  } catch {
-    return `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-  }
-}
-
 export default function OwnerRequestWalk() {
-  const { data, currentUser, createWalk } = useApp();
+  const { data, currentUser, createWalkAsync } = useApp();
+  const live = useWalkersLive(currentUser?.id);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const walkersRef = useRef<HTMLDivElement>(null);
-  const watchIdRef = useRef<number | null>(null);
-  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
-  const liveWalkIdRef = useRef<string | null>(null);
 
   const myDogs = data.dogs.filter(d => d.ownerId === currentUser?.id);
 
@@ -44,9 +40,16 @@ export default function OwnerRequestWalk() {
   const [duration, setDuration] = useState(initialDuration);
   const [isInstant, setIsInstant] = useState(true);
   const [addGrooming, setAddGrooming] = useState(false);
-  const [selectedWalkerId, setSelectedWalkerId] = useState('');
+  const urlWalkerId = searchParams.get('walker') ?? '';
+  const [selectedWalkerId, setSelectedWalkerId] = useState(urlWalkerId);
   const [submitted, setSubmitted] = useState(false);
-  const [showWalkers, setShowWalkers] = useState(false);
+  const [showWalkers, setShowWalkers] = useState(!!urlWalkerId);
+  const [submitting, setSubmitting] = useState(false);
+  const [bookingError, setBookingError] = useState('');
+  const [createdWalkId, setCreatedWalkId] = useState<string | null>(null);
+  const [route, setRoute] = useState<PlannedRoute | null>(null);
+  const [geoStatus, setGeoStatus] = useState<'idle' | 'looking' | 'found' | 'missing'>('idle');
+  const [selectedArea, setSelectedArea] = useState('');
   const [createdWalkPrice, setCreatedWalkPrice] = useState(0);
   const [showPayModal, setShowPayModal] = useState(false);
   const [paymentDone, setPaymentDone] = useState(false);
@@ -58,8 +61,6 @@ export default function OwnerRequestWalk() {
   const [pickupAddress, setPickupAddress] = useState('');
   const [gpsLoading, setGpsLoading] = useState(false);
   const [gpsError, setGpsError] = useState('');
-  const [liveWalkId, setLiveWalkId] = useState<string | null>(null);
-  const [isBroadcasting, setIsBroadcasting] = useState(false);
 
   const selectedDog = myDogs.find(d => d.id === dogId);
   const pickupReady = pickupMode === 'live'
@@ -74,16 +75,32 @@ export default function OwnerRequestWalk() {
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
   };
   const walkers = (() => {
-    const active = data.users.filter(u => u.role === 'walker' && (!u.walkerStatus || u.walkerStatus === 'active'));
+    const active = data.users.filter(u => {
+      if (u.role !== 'walker') return false;
+      if (u.walkerStatus && u.walkerStatus !== 'active') return false;
+      if (selectedArea) {
+        const areas: string[] = (u.pricing as any)?.serviceAreas ?? [];
+        if (areas.length > 0 && !areas.includes(selectedArea)) return false;
+      }
+      return true;
+    });
     return active
-      .map(w => ({
-        ...w,
-        _distKm: (pickupLat != null && pickupLng != null && w.serviceLat != null && w.serviceLng != null)
-          ? haversineKm(pickupLat!, pickupLng!, w.serviceLat, w.serviceLng)
-          : null,
-      }))
+      .map(w => {
+        const l = live[w.id];
+        const p: [number, number] | null = l ? [l.lat, l.lng]
+          : isValidCoord(w.onlineLat, w.onlineLng) ? [w.onlineLat!, w.onlineLng!]
+          : isValidCoord(w.serviceLat, w.serviceLng) ? [w.serviceLat!, w.serviceLng!]
+          : null;
+        return {
+          ...w,
+          isOnline: !!l, // "online" means broadcasting right now; the saved DB flag can be stale
+          _distKm: (pickupLat != null && pickupLng != null && p) ? haversineKm(pickupLat, pickupLng, p[0], p[1]) : null,
+        };
+      })
       .sort((a, b) => {
-        // Online walkers always first
+        // The walker chosen on the map, then live walkers, then nearest
+        if (a.id === urlWalkerId && b.id !== urlWalkerId) return -1;
+        if (b.id === urlWalkerId && a.id !== urlWalkerId) return 1;
         if (a.isOnline && !b.isOnline) return -1;
         if (!a.isOnline && b.isOnline) return 1;
         // Then by distance
@@ -110,13 +127,34 @@ export default function OwnerRequestWalk() {
     if (myDogs.length === 1 && !dogId) setDogId(myDogs[0].id);
   }, [myDogs.length]);
 
-  // Cleanup on unmount
+  // Type-an-address: find its coordinates so the walker can navigate and the owner can preview the route.
   useEffect(() => {
-    return () => {
-      if (watchIdRef.current !== null) navigator.geolocation.clearWatch(watchIdRef.current);
-      if (channelRef.current) supabase.removeChannel(channelRef.current);
-    };
-  }, []);
+    if (pickupMode !== 'manual') return;
+    const q = pickupAddress.trim();
+    if (q.length < 6) { setPickupLat(null); setPickupLng(null); setGeoStatus('idle'); return; }
+    setGeoStatus('looking');
+    let cancelled = false;
+    const t = setTimeout(async () => {
+      const hit = await geocodeAddress(q);
+      if (cancelled) return;
+      if (hit) { setPickupLat(hit[0]); setPickupLng(hit[1]); setGeoStatus('found'); }
+      else { setPickupLat(null); setPickupLng(null); setGeoStatus('missing'); }
+    }, 900);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [pickupAddress, pickupMode]);
+
+  // Suggested loop route for the chosen duration, starting and ending at the pickup point.
+  useEffect(() => {
+    setRoute(null);
+    if (pickupLat == null || pickupLng == null) return;
+    const ctrl = new AbortController();
+    const t = setTimeout(() => {
+      planLoopRoute([pickupLat, pickupLng], duration, `${pickupLat.toFixed(3)},${pickupLng.toFixed(3)}`, ctrl.signal)
+        .then(r => { if (!ctrl.signal.aborted) setRoute(r); })
+        .catch(() => {});
+    }, 500);
+    return () => { clearTimeout(t); ctrl.abort(); };
+  }, [pickupLat, pickupLng, duration]);
 
   const handleUseCurrentLocation = async () => {
     setGpsLoading(true);
@@ -140,37 +178,6 @@ export default function OwnerRequestWalk() {
     }
   };
 
-  const startLiveBroadcast = async (walkId: string) => {
-    const channel = supabase.channel(`pickup-live-${walkId}`);
-    channelRef.current = channel;
-    liveWalkIdRef.current = walkId;
-
-    await channel.subscribe();
-
-    const broadcastPosition = (pos: GeolocationPosition) => {
-      channel.send({
-        type: 'broadcast',
-        event: 'owner-position',
-        payload: { lat: pos.coords.latitude, lng: pos.coords.longitude },
-      });
-    };
-
-    if (navigator.geolocation) {
-      watchIdRef.current = navigator.geolocation.watchPosition(broadcastPosition, undefined, {
-        enableHighAccuracy: true,
-        timeout: 15000,
-        maximumAge: 5000,
-      });
-      setIsBroadcasting(true);
-    }
-  };
-
-  const stopBroadcast = () => {
-    if (watchIdRef.current !== null) { navigator.geolocation.clearWatch(watchIdRef.current); watchIdRef.current = null; }
-    if (channelRef.current) { supabase.removeChannel(channelRef.current); channelRef.current = null; }
-    setIsBroadcasting(false);
-  };
-
   const resetPickup = () => {
     setPickupMode(null);
     setPickupLat(null);
@@ -186,11 +193,11 @@ export default function OwnerRequestWalk() {
   };
 
   const handleSubmit = (walkerId?: string) => {
-    if (!dogId || !pickupReady) return;
+    if (!dogId || !pickupReady || submitting) return;
     confirmBooking(walkerId);
   };
 
-  const confirmBooking = (walkerId?: string) => {
+  const confirmBooking = async (walkerId?: string) => {
     const selectedWalker = walkerId ? data.users.find(u => u.id === walkerId) : null;
     const walkPrice  = (selectedWalker?.pricing?.[dKey] as number | undefined) ?? minWalkPrice ?? 150;
     const groomPrice = selectedWalker?.pricing?.grooming ?? minGroomPrice ?? 249;
@@ -202,15 +209,18 @@ export default function OwnerRequestWalk() {
 
     const pickupTag = pickupMode === 'live' ? 'PICKUP:live|' : 'PICKUP:manual|';
     const notes = addGrooming
-      ? `${pickupTag}Add-on: Grooming requested | Payment: after_service`
-      : `${pickupTag}Payment: after_service`;
+      ? `${pickupTag}DURATION:${duration}|Add-on: Grooming requested | Payment: after_service`
+      : `${pickupTag}DURATION:${duration}|Payment: after_service`;
 
-    const newWalk = createWalk({
+    setSubmitting(true);
+    setBookingError('');
+    const result = await createWalkAsync({
       dogId,
       ownerId: currentUser!.id,
       walkerId: walkerId || undefined,
       status: 'pending',
       scheduledDate,
+      duration,
       price: finalPrice,
       walkerEarning: Math.round(finalPrice * 0.7),
       notes,
@@ -220,12 +230,13 @@ export default function OwnerRequestWalk() {
         address: pickupAddress || undefined,
       },
     });
+    setSubmitting(false);
 
-    if (pickupMode === 'live' && newWalk?.id) {
-      setLiveWalkId(newWalk.id);
-      startLiveBroadcast(newWalk.id);
+    if (result.error || !result.walk) {
+      setBookingError(result.error || 'Could not send your booking. Please try again.');
+      return;
     }
-
+    setCreatedWalkId(result.walk.id);
     setCreatedWalkPrice(finalPrice);
     setSubmitted(true);
   };
@@ -252,26 +263,21 @@ export default function OwnerRequestWalk() {
           )}
         </FadeIn>
 
-        {/* Live location broadcasting banner */}
-        {liveWalkId && (
-          <div className="w-full max-w-xs mb-5 px-4 py-3.5 rounded-2xl border-2 border-primary/30 bg-[#EBF5EF]">
+        {/* Follow the walk */}
+        {createdWalkId && (
+          <div className="w-full max-w-xs mb-4 px-4 py-3.5 rounded-2xl border-2 border-primary/30 bg-[#EBF5EF]">
             <div className="flex items-center gap-3">
-              <span className={`text-xl ${isBroadcasting ? 'animate-pulse' : ''}`}>📍</span>
+              <span className="text-xl">📍</span>
               <div className="flex-1">
-                <p className="text-xs font-bold text-primary">
-                  {isBroadcasting ? 'Sharing live location…' : 'Location shared'}
+                <p className="text-xs font-bold text-primary">Follow your walk live</p>
+                <p className="text-[10px] text-ink-muted font-normal">
+                  {pickupMode === 'live' ? 'Your walker can see where to meet you. ' : ''}See them arrive on the map.
                 </p>
-                <p className="text-[10px] text-ink-muted font-normal">Walker can track where to find you</p>
               </div>
-              {isBroadcasting && (
-                <button
-                  type="button"
-                  onClick={stopBroadcast}
-                  className="text-[10px] text-danger font-semibold shrink-0"
-                >
-                  Stop
-                </button>
-              )}
+              <button type="button" onClick={() => navigate(`/owner/track/${createdWalkId}`)}
+                className="text-xs font-bold text-primary shrink-0">
+                Track
+              </button>
             </div>
           </div>
         )}
@@ -310,7 +316,7 @@ export default function OwnerRequestWalk() {
           <button onClick={() => {
             setSubmitted(false); setShowWalkers(false);
             setSelectedWalkerId(''); setAddGrooming(false);
-            resetPickup(); stopBroadcast(); setLiveWalkId(null);
+            resetPickup(); setCreatedWalkId(null); setBookingError('');
             setPaymentDone(false);
           }}
             className="flex-1 py-3 rounded-2xl text-sm font-bold text-white transition-colors"
@@ -480,10 +486,44 @@ export default function OwnerRequestWalk() {
               {pickupAddress.trim().length > 3 && (
                 <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl bg-primary-50 border border-primary/20">
                   <MapPin className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
-                  <p className="text-xs text-primary font-semibold leading-relaxed">{pickupAddress}</p>
+                  <div className="min-w-0">
+                    <p className="text-xs text-primary font-semibold leading-relaxed">{pickupAddress}</p>
+                    <p className="text-[10px] mt-0.5" style={{ color: geoStatus === 'missing' ? '#B45309' : '#5A8A70' }}>
+                      {geoStatus === 'looking' && 'Finding this on the map…'}
+                      {geoStatus === 'found' && '✓ Located on the map — your walker can navigate here'}
+                      {geoStatus === 'missing' && 'Could not find this on the map. Add a landmark or area name, or use Live Location. Your walker will call you.'}
+                    </p>
+                  </div>
                 </div>
               )}
             </div>
+          )}
+        </div>
+
+        {/* ── Area selector ── */}
+        <div className="bg-white rounded-2xl shadow-sm border border-[#DDE9E2] p-4">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs font-bold text-ink-muted uppercase tracking-wider">Your area in Lusaka</p>
+            {selectedArea && (
+              <button type="button" onClick={() => setSelectedArea('')}
+                className="text-xs text-ink-muted hover:text-danger">Clear</button>
+            )}
+          </div>
+          <p className="text-xs text-ink-muted mb-3">Select your area to find walkers who cover it</p>
+          <div className="relative">
+            <select
+              value={selectedArea}
+              onChange={e => setSelectedArea(e.target.value)}
+              className="w-full appearance-none px-4 py-3 pr-10 rounded-2xl border border-surface-border text-sm text-ink bg-white focus:outline-none focus:border-primary">
+              <option value="">All areas — show every walker</option>
+              {LUSAKA_AREAS.map(a => <option key={a} value={a}>{a}</option>)}
+            </select>
+            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-muted pointer-events-none" />
+          </div>
+          {selectedArea && (
+            <p className="text-xs text-primary font-semibold mt-2 flex items-center gap-1">
+              <MapPin className="w-3 h-3" /> Showing walkers who cover {selectedArea}
+            </p>
           )}
         </div>
 
@@ -564,6 +604,33 @@ export default function OwnerRequestWalk() {
           </div>
         </div>
 
+        {/* Suggested route for the chosen length */}
+        {pickupLat != null && pickupLng != null && (
+          <div className="bg-white rounded-2xl shadow-sm border border-[#DDE9E2] overflow-hidden">
+            <div className="px-4 pt-4 pb-2 flex items-center justify-between">
+              <p className="text-xs font-bold text-ink-muted uppercase tracking-wider">Your {duration}-minute walk route</p>
+              {route && <span className="text-[11px] font-bold" style={{ color: '#2B8A50' }}>{route.distanceKm.toFixed(1)} km loop</span>}
+            </div>
+            <div className="relative h-44 bg-[#EBF5EF]">
+              {route ? (
+                <LiveRouteMap
+                  markers={[{ id: 'pickup', lat: pickupLat, lng: pickupLng, kind: 'pickup' }]}
+                  lines={[{ id: 'plan', points: route.points, dashed: true }]}
+                  fitKey={`${duration}|${route.points.length}`}
+                  center={[pickupLat, pickupLng]}
+                />
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <Loader2 className="w-6 h-6 text-primary animate-spin" />
+                </div>
+              )}
+            </div>
+            <p className="px-4 py-2.5 text-[11px] text-ink-muted leading-relaxed">
+              Your walker follows a loop like this from your door and back. You can watch it happen live.
+            </p>
+          </div>
+        )}
+
         {/* Grooming Add-on */}
         <button type="button" onClick={() => setAddGrooming(g => !g)}
           className={`w-full flex items-center gap-4 p-4 rounded-2xl border-2 transition-all text-left ${
@@ -611,6 +678,13 @@ export default function OwnerRequestWalk() {
           </span>
         </div>
 
+        {bookingError && (
+          <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3">
+            <p className="text-xs font-bold text-red-700">Booking not sent</p>
+            <p className="text-xs text-red-600 mt-0.5 leading-relaxed">{bookingError}</p>
+          </div>
+        )}
+
         {/* Find walker button */}
         <div>
           <button onClick={handleFindWalker} disabled={!dogId || !pickupReady}
@@ -645,8 +719,8 @@ export default function OwnerRequestWalk() {
             {walkers.length === 0 ? (
               <div className="text-center py-8 border-2 border-dashed border-surface-border rounded-2xl">
                 <p className="text-3xl mb-2">🦮</p>
-                <p className="text-sm font-semibold text-ink">No walkers registered yet</p>
-                <p className="text-xs text-ink-muted mt-1">Book anyway and we'll assign one shortly</p>
+                <p className="text-sm font-semibold text-ink">No approved walkers yet</p>
+                <p className="text-xs text-ink-muted mt-1">Book anyway and the first walker to accept will confirm</p>
               </div>
             ) : (
               <StaggerList className="grid grid-cols-2 gap-3">
@@ -669,7 +743,7 @@ export default function OwnerRequestWalk() {
                     <StaggerItem key={walker.id}>
                     <div
                       className={`relative overflow-hidden rounded-2xl flex flex-col btn-spring ${
-                        selectedWalkerId === walker.id ? 'ring-2 ring-primary' : ''
+                        (selectedWalkerId === walker.id || urlWalkerId === walker.id) ? 'ring-2 ring-primary' : ''
                       }`}
                       style={{ boxShadow: '0 4px 16px rgba(0,0,0,0.09)' }}>
                       {/* Image area */}
@@ -739,10 +813,14 @@ export default function OwnerRequestWalk() {
                         )}
                         <button
                           onClick={() => { setSelectedWalkerId(walker.id); handleSubmit(walker.id); }}
-                          disabled={!dogId || !pickupReady}
+                          disabled={!dogId || !pickupReady || submitting}
                           className="w-full py-2.5 rounded-xl text-xs font-bold text-white transition-colors disabled:opacity-40 active:scale-95"
                           style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)' }}>
-                          Book Now
+                          {submitting && selectedWalkerId === walker.id ? 'Booking…' : 'Book Now'}
+                        </button>
+                        <button type="button" onClick={() => navigate(`/owner/dm/${walker.id}`)}
+                          className="w-full py-1.5 text-[11px] font-bold" style={{ color: '#2B8A50' }}>
+                          Message {walker.name.split(' ')[0]}
                         </button>
                       </div>
                     </div>
@@ -752,7 +830,7 @@ export default function OwnerRequestWalk() {
               </StaggerList>
             )}
 
-            <button onClick={() => handleSubmit()} disabled={!dogId || !pickupReady}
+            <button onClick={() => { setSelectedWalkerId(''); handleSubmit(); }} disabled={!dogId || !pickupReady || submitting}
               className="w-full mt-3 py-3 rounded-2xl text-sm font-semibold text-ink-secondary border border-surface-border hover:bg-surface-hover disabled:opacity-40 transition-colors">
               Book with any available walker
             </button>

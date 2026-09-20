@@ -1,7 +1,10 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, CheckCircle } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { ArrowLeft, CheckCircle, Loader2, MapPin, MessageCircle } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { useWalkersLive } from '../../lib/liveTracking';
+import { geocodeAddress, reverseGeocode } from '../../lib/geocode';
+import { LatLng, formatKm, haversineKm, isValidCoord } from '../../lib/geo';
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
@@ -16,8 +19,10 @@ const PACKAGES = [
 const SEDATION_FEE = 180;
 
 export default function HomeGrooming() {
-  const { currentUser, data, createWalk } = useApp();
+  const { currentUser, data, createWalkAsync } = useApp();
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const live = useWalkersLive(currentUser?.id);
 
   const myDogs = data.dogs.filter(d => d.ownerId === currentUser?.id);
 
@@ -26,31 +31,101 @@ export default function HomeGrooming() {
   const [date, setDate]         = useState(todayStr());
   const [time, setTime]         = useState('10:00');
   const [address, setAddress]   = useState('');
+  const [coords, setCoords]     = useState<LatLng | null>(null);
+  const [geoStatus, setGeoStatus] = useState<'idle' | 'looking' | 'found' | 'missing'>('idle');
+  const [gpsLoading, setGpsLoading] = useState(false);
+  const [gpsError, setGpsError]     = useState('');
+  const [groomerId, setGroomerId]   = useState(params.get('groomer') ?? '');
   const [notes, setNotes]       = useState('');
   const [temperament, setTemperament] = useState<'calm' | 'nervous' | 'aggressive' | ''>('');
   const [needsSedation, setNeedsSedation] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [bookingError, setBookingError] = useState('');
 
   const selectedPkg = PACKAGES.find(p => p.id === pkg)!;
   const isVetGrooming = selectedPkg?.isVet;
   const totalPrice = selectedPkg ? selectedPkg.price + (needsSedation && isVetGrooming ? SEDATION_FEE : 0) : 0;
-  const canSubmit = dogId && pkg && date && time && address.trim().length > 3 && temperament !== '';
+  const canSubmit = !!dogId && !!pkg && !!date && !!time && address.trim().length > 3 && temperament !== '' && !submitting;
 
-  const handleBook = () => {
+  // Type-an-address → coordinates, so the groomer gets a real point on the map.
+  useEffect(() => {
+    if (gpsLoading) return;
+    const q = address.trim();
+    if (q.length < 6) { setGeoStatus('idle'); return; }
+    // An address filled in from GPS already has coordinates.
+    if (coords && geoStatus === 'found') return;
+    setGeoStatus('looking');
+    let cancelled = false;
+    const t = setTimeout(async () => {
+      const hit = await geocodeAddress(q);
+      if (cancelled) return;
+      setCoords(hit);
+      setGeoStatus(hit ? 'found' : 'missing');
+    }, 900);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [address]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const useMyLocation = () => {
+    if (!('geolocation' in navigator)) { setGpsError('This device does not support GPS.'); return; }
+    setGpsLoading(true);
+    setGpsError('');
+    navigator.geolocation.getCurrentPosition(
+      async p => {
+        const pt: LatLng = [p.coords.latitude, p.coords.longitude];
+        setCoords(pt);
+        setGeoStatus('found');
+        setAddress(await reverseGeocode(pt[0], pt[1]));
+        setGpsLoading(false);
+      },
+      () => { setGpsLoading(false); setGpsError('Could not get your location. Allow location access or type your address.'); },
+      { enableHighAccuracy: true, timeout: 12000 },
+    );
+  };
+
+  // Groomers = approved walkers who offer grooming. Live ones first, then nearest to the owner.
+  const groomers = useMemo(() => {
+    return data.users
+      .filter(u => u.role === 'walker' && (!u.walkerStatus || u.walkerStatus === 'active') && u.pricing?.grooming != null)
+      .map(u => {
+        const l = live[u.id];
+        const pos: LatLng | null = l ? [l.lat, l.lng]
+          : isValidCoord(u.onlineLat, u.onlineLng) ? [u.onlineLat!, u.onlineLng!]
+          : isValidCoord(u.serviceLat, u.serviceLng) ? [u.serviceLat!, u.serviceLng!] : null;
+        return { user: u, live: !!l, distKm: coords && pos ? haversineKm(coords, pos) : null };
+      })
+      .sort((a, b) => {
+        if (a.live !== b.live) return a.live ? -1 : 1;
+        if (a.distKm == null && b.distKm == null) return 0;
+        if (a.distKm == null) return 1;
+        if (b.distKm == null) return -1;
+        return a.distKm - b.distKm;
+      });
+  }, [data.users, live, coords]);
+
+  const chosenGroomer = groomers.find(g => g.user.id === groomerId)?.user;
+
+  const handleBook = async () => {
     if (!canSubmit || !currentUser) return;
     const dog = data.dogs.find(d => d.id === dogId);
     const scheduledDate = new Date(`${date}T${time}:00`).toISOString();
     const sedationNote = (needsSedation && isVetGrooming) ? '\nSedation: Required (animal is vicious)' : '';
-    createWalk({
+    setSubmitting(true);
+    setBookingError('');
+    const res = await createWalkAsync({
       dogId,
       ownerId: currentUser.id,
+      walkerId: groomerId || undefined,
       status: 'pending',
       scheduledDate,
       duration: 60,
       price: totalPrice,
       walkerEarning: Math.round(totalPrice * 0.75),
-      notes: `${isVetGrooming ? 'VET_GROOMING' : 'HOME_GROOMING'}: ${selectedPkg.label} — ${dog?.name ?? 'Dog'}\nAddress: ${address}\nTemperament: ${temperament}${sedationNote}${notes ? `\nNotes: ${notes}` : ''}`,
+      startLocation: { lat: coords?.[0], lng: coords?.[1], address: address.trim() },
+      notes: `${isVetGrooming ? 'VET_GROOMING' : 'GROOMING'}: ${selectedPkg.label} — ${dog?.name ?? 'Dog'}\nAddress: ${address.trim()}\nTemperament: ${temperament}${sedationNote}${notes ? `\nNotes: ${notes}` : ''}`,
     });
+    setSubmitting(false);
+    if (res.error) { setBookingError(res.error); return; }
     setSubmitted(true);
   };
 
@@ -61,9 +136,18 @@ export default function HomeGrooming() {
         <div className="w-20 h-20 rounded-full bg-white/20 flex items-center justify-center mb-6">
           <CheckCircle className="w-10 h-10 text-white" />
         </div>
-        <h2 className="text-2xl font-extrabold text-white mb-2">Booking Confirmed!</h2>
-        <p className="text-white/70 text-sm mb-2">Your home grooming for <strong className="text-white">{selectedPkg.label}</strong> is booked.</p>
-        <p className="text-white/60 text-xs mb-8">A groomer will be assigned and contact you before arrival.</p>
+        <h2 className="text-2xl font-extrabold text-white mb-2">Request sent!</h2>
+        <p className="text-white/70 text-sm mb-2">
+          Your <strong className="text-white">{selectedPkg.label}</strong> request
+          {chosenGroomer ? <> was sent to <strong className="text-white">{chosenGroomer.name}</strong></> : ' was sent to groomers near you'}.
+        </p>
+        <p className="text-white/60 text-xs mb-8">You will get a notification the moment a groomer accepts.</p>
+        {chosenGroomer && (
+          <button type="button" onClick={() => navigate(`/owner/dm/${chosenGroomer.id}`)}
+            className="mb-3 px-8 py-3 rounded-2xl bg-white/15 text-white font-bold text-sm active:scale-95 transition-transform">
+            Message {chosenGroomer.name.split(' ')[0]}
+          </button>
+        )}
         <button type="button"
           onClick={() => navigate('/owner')}
           className="px-8 py-3.5 rounded-2xl bg-white font-bold text-sm active:scale-95 transition-transform"
@@ -273,13 +357,69 @@ export default function HomeGrooming() {
           </div>
         </div>
 
-        {/* Home address */}
+        {/* Where */}
         <div>
-          <label className="text-sm font-bold text-ink mb-2 block">Home address</label>
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-sm font-bold text-ink">Where should the groomer go?</label>
+            <button type="button" onClick={useMyLocation} disabled={gpsLoading}
+              className="flex items-center gap-1 text-xs font-bold disabled:opacity-50" style={{ color: '#2B8A50' }}>
+              {gpsLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MapPin className="w-3.5 h-3.5" />}
+              Use my location
+            </button>
+          </div>
           <input type="text" value={address} placeholder="e.g. Plot 15, Kabulonga, Lusaka"
-            onChange={e => setAddress(e.target.value)}
+            onChange={e => { setAddress(e.target.value); setCoords(null); setGeoStatus('idle'); }}
             className="w-full px-4 py-3 rounded-2xl border border-surface-border text-sm text-ink focus:outline-none focus:border-primary" />
-          <p className="text-xs text-ink-muted mt-1.5">The groomer will come to this address.</p>
+          <p className="text-xs mt-1.5" style={{ color: geoStatus === 'missing' || gpsError ? '#B45309' : '#6B7280' }}>
+            {gpsError
+              || (geoStatus === 'looking' ? 'Finding this on the map…'
+              : geoStatus === 'found' ? '✓ Located on the map — nearby groomers are shown below'
+              : geoStatus === 'missing' ? 'Could not find this on the map. Add an area name or landmark, or use your location.'
+              : 'The groomer will come to this address.')}
+          </p>
+        </div>
+
+        {/* Groomers nearby */}
+        <div>
+          <p className="text-sm font-bold text-ink mb-1">Groomers near you</p>
+          <p className="text-xs text-ink-muted mb-3">Pick one, or leave it and the first available groomer will accept.</p>
+          {groomers.length === 0 ? (
+            <div className="rounded-2xl border-2 border-dashed border-surface-border p-4 text-center">
+              <p className="text-sm font-semibold text-ink">No groomers listed yet</p>
+              <p className="text-xs text-ink-muted mt-1">Book anyway and groomers will be notified as soon as they join.</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {groomers.slice(0, 8).map(({ user: g, live: isLive, distKm }) => (
+                <div key={g.id}
+                  onClick={() => setGroomerId(id => id === g.id ? '' : g.id)}
+                  className={`flex items-center gap-3 p-3 rounded-2xl border-2 cursor-pointer transition-all ${groomerId === g.id ? 'border-primary bg-primary/5' : 'border-surface-border bg-white'}`}>
+                  <div className="w-11 h-11 rounded-full overflow-hidden flex items-center justify-center text-white font-bold shrink-0"
+                    style={{ background: 'linear-gradient(135deg,#1B4332,#2B8A50)' }}>
+                    {g.imageUrl ? <img src={g.imageUrl} alt="" className="w-full h-full object-cover" /> : g.name[0]?.toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-ink truncate">{g.name}</p>
+                    <p className="text-[11px] font-medium" style={{ color: isLive ? '#16A34A' : '#9CA3AF' }}>
+                      {isLive ? '● Live now' : '○ Offline'}{distKm != null ? ` · ${formatKm(distKm)} away` : ''}
+                    </p>
+                  </div>
+                  <button type="button" aria-label={`Message ${g.name}`}
+                    onClick={e => { e.stopPropagation(); navigate(`/owner/dm/${g.id}`); }}
+                    className="w-9 h-9 rounded-xl flex items-center justify-center bg-[#EBF5EF] shrink-0">
+                    <MessageCircle className="w-4 h-4" style={{ color: '#2B8A50' }} />
+                  </button>
+                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${groomerId === g.id ? 'bg-primary border-primary' : 'border-surface-border'}`}>
+                    {groomerId === g.id && <CheckCircle className="w-3.5 h-3.5 text-white" />}
+                  </div>
+                </div>
+              ))}
+              <button type="button" onClick={() => navigate('/owner/walker-map?service=grooming')}
+                className="w-full py-2 text-xs font-bold" style={{ color: '#2B8A50' }}>
+                See groomers on the live map →
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Extra notes */}
@@ -309,11 +449,18 @@ export default function HomeGrooming() {
           <p className="text-xs text-ink-muted mt-2">Pay the groomer directly on the day. Cash or mobile money accepted.</p>
         </div>
 
+        {bookingError && (
+          <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3">
+            <p className="text-xs font-bold text-red-700">Request not sent</p>
+            <p className="text-xs text-red-600 mt-0.5 leading-relaxed">{bookingError}</p>
+          </div>
+        )}
+
         {/* Book button */}
         <button type="button" onClick={handleBook} disabled={!canSubmit}
           className="w-full py-4 rounded-2xl font-extrabold text-white text-base disabled:opacity-40 active:scale-95 transition-all shadow-lg"
           style={{ background: isVetGrooming ? 'linear-gradient(135deg,#4C1D95,#7C3AED)' : 'linear-gradient(135deg,#1B4332,#2B8A50)', boxShadow: '0 8px 24px rgba(27,67,50,0.3)' }}>
-          Book {isVetGrooming ? 'Vet Clinic Grooming' : 'Home Grooming'} · K{totalPrice}
+          {submitting ? 'Sending…' : `Book ${isVetGrooming ? 'Vet Clinic Grooming' : 'Home Grooming'} · K${totalPrice}`}
         </button>
       </div>
     </div>

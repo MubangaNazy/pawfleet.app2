@@ -1,9 +1,12 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, Phone, MessageCircle, Square, Clock, MapPin, Zap, AlertTriangle, Camera } from 'lucide-react';
-import MapLibreMap from '../../components/ui/MapLibreMap';
+import LiveRouteMap from '../../components/map/LiveRouteMap';
 import { useApp } from '../../context/AppContext';
 import { supabase } from '../../lib/supabase';
+import { startWalkSession, stopWalkSession, useWalkSession } from '../../lib/liveTracking';
+import { plannedMinutes } from '../../lib/routing';
+import { isValidCoord } from '../../lib/geo';
 
 type LatLng = [number, number];
 const LUSAKA: LatLng = [-15.4167, 28.2833];
@@ -35,13 +38,13 @@ export default function WalkerLiveWalk() {
   const [myPos, setMyPos]     = useState<LatLng | null>(null);
   const [route, setRoute]     = useState<LatLng[]>([]);
   const [elapsed, setElapsed] = useState(0);
-  const routeRef = useRef<LatLng[]>([]);
   const [gpsError, setGpsError] = useState(false);
+  const [overview, setOverview] = useState(false);
+  const [overviewTick, setOverviewTick] = useState(0);
   const [starting, setStarting] = useState(false);
   const [showPayModal, setShowPayModal] = useState(false);
   const [payMade, setPayMade]           = useState<boolean | null>(null);
   const [payMethod, setPayMethod]       = useState('');
-  const channelRef  = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
   const [chatPopup, setChatPopup]     = useState<{ senderName: string; text: string } | null>(null);
   const popupTimerRef                 = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -100,41 +103,29 @@ export default function WalkerLiveWalk() {
     };
   }, [walkId, currentUser?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // GPS + Supabase broadcast (only when active)
+  // GPS recording + live broadcast run in an app-wide session, so they keep going if the walker
+  // opens chat or another screen mid-walk.
+  const session = useWalkSession();
+  const mine = session && session.walkId === walkId ? session : null;
+
   useEffect(() => {
-    if (!walkId || !isActive) return;
-    if (!navigator.geolocation) { setGpsError(true); return; }
-
-    const channel = supabase.channel(`walk-location-${walkId}`, { config: { broadcast: { self: false } } });
-    let watchId: number | null = null;
-
-    channel.subscribe((status) => {
-      if (status !== 'SUBSCRIBED') return;
-      channelRef.current = channel;
-      watchId = navigator.geolocation.watchPosition(
-        pos => {
-          const pt: LatLng = [pos.coords.latitude, pos.coords.longitude];
-          routeRef.current = [...routeRef.current, pt];
-          setMyPos(pt);
-          setRoute(routeRef.current);
-          const distKm = totalDistance(routeRef.current);
-          const startMs = walk?.startTime ? new Date(walk.startTime).getTime() : Date.now();
-          channel.send({
-            type: 'broadcast', event: 'location',
-            payload: { lat: pt[0], lng: pt[1], distKm, elapsedSec: Math.floor((Date.now() - startMs) / 1000) },
-          });
-        },
-        () => setGpsError(true),
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
-      );
+    if (!walkId || !isActive || !walk) return;
+    const pickup: LatLng | null = isValidCoord(walk.startLocation?.lat, walk.startLocation?.lng)
+      ? [walk.startLocation!.lat!, walk.startLocation!.lng!] : null;
+    startWalkSession({
+      walkId,
+      startMs: walk.startTime ? new Date(walk.startTime).getTime() : Date.now(),
+      minutes: plannedMinutes(walk),
+      pickup,
     });
+  }, [walkId, isActive]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    return () => {
-      if (watchId !== null) navigator.geolocation.clearWatch(watchId);
-      supabase.removeChannel(channel);
-      channelRef.current = null;
-    };
-  }, [walkId, isActive]);
+  useEffect(() => {
+    if (!mine) return;
+    if (mine.pos) setMyPos(mine.pos);
+    setRoute(mine.trail);
+    setGpsError(mine.gpsError);
+  }, [mine?.pos, mine?.trail, mine?.gpsError]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Get current position for display even when not yet active
   useEffect(() => {
@@ -162,7 +153,8 @@ export default function WalkerLiveWalk() {
         await supabase.from('payments').update({ payment_method: payMethod, walker_confirmed: true, status: 'paid' }).eq('id', payment.id);
       }
     }
-    const routePointsArr: [number, number][] = routeRef.current.map(p => [p[0], p[1]]);
+    const trail = stopWalkSession();
+    const routePointsArr: [number, number][] = trail.map(p => [p[0], p[1]]);
     endWalk(walkId, loc, routePointsArr.length > 0 ? routePointsArr : undefined);
     navigate('/walker/walks');
   };
@@ -205,11 +197,15 @@ export default function WalkerLiveWalk() {
     );
   }
 
+  const pickupPt: LatLng | null = isValidCoord(walk.startLocation?.lat, walk.startLocation?.lng)
+    ? [walk.startLocation!.lat!, walk.startLocation!.lng!] : null;
   const currentPos = myPos
     ? { lat: myPos[0], lng: myPos[1] }
-    : walk.startLocation
-    ? { lat: walk.startLocation.lat, lng: walk.startLocation.lng }
+    : pickupPt
+    ? { lat: pickupPt[0], lng: pickupPt[1] }
     : null;
+  const plan = mine?.plan ?? null;
+  const plannedMin = plannedMinutes(walk);
 
   const compressImage = (file: File): Promise<string> =>
     new Promise((resolve, reject) => {
@@ -295,10 +291,19 @@ export default function WalkerLiveWalk() {
       <div className="flex-1 relative overflow-hidden" style={{ minHeight: 0 }}>
         <div style={{ position: 'absolute', inset: 0 }}>
           {currentPos ? (
-            <MapLibreMap
-              lat={currentPos.lat}
-              lng={currentPos.lng}
-              trail={route}
+            <LiveRouteMap
+              markers={[
+                ...(pickupPt ? [{ id: 'pickup', lat: pickupPt[0], lng: pickupPt[1], kind: 'pickup' as const }] : []),
+                { id: 'me', lat: currentPos.lat, lng: currentPos.lng, kind: 'dog' as const, live: isActive },
+              ]}
+              lines={[
+                ...(plan ? [{ id: 'plan', points: plan.points, color: '#52B788', width: 6, dashed: true }] : []),
+                ...(route.length > 1 ? [{ id: 'trail', points: route, color: '#1B4332', width: 4 }] : []),
+              ]}
+              center={[currentPos.lat, currentPos.lng]}
+              zoom={16}
+              follow={overview ? null : [currentPos.lat, currentPos.lng]}
+              fitKey={overview ? overviewTick : undefined}
             />
           ) : (
             <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#EBF5EF', flexDirection: 'column', gap: 12 }}>
@@ -307,6 +312,31 @@ export default function WalkerLiveWalk() {
             </div>
           )}
         </div>
+
+        {/* Planned route status */}
+        {isActive && currentPos && (
+          <div className="absolute top-3 left-3 z-[1000] flex items-center gap-2">
+            <button type="button"
+              onClick={() => { setOverview(true); setOverviewTick(t => t + 1); }}
+              className="h-9 px-3 rounded-2xl bg-white shadow-lg text-[11px] font-bold text-ink active:scale-95">
+              Whole route
+            </button>
+            {overview && (
+              <button type="button" onClick={() => setOverview(false)}
+                className="h-9 px-3 rounded-2xl text-white shadow-lg text-[11px] font-bold active:scale-95"
+                style={{ background: '#1B4332' }}>
+                Follow me
+              </button>
+            )}
+          </div>
+        )}
+        {isActive && currentPos && (
+          <div className="absolute top-14 left-3 z-[1000] max-w-[70%] bg-white/95 backdrop-blur rounded-xl px-3 py-1.5 shadow text-[11px] font-semibold text-ink">
+            {plan
+              ? `Follow the dashed route · ${plan.distanceKm.toFixed(1)} km loop for ${plannedMin} min${plan.source === 'approx' ? ' (approximate)' : ''}`
+              : `Planning your ${plannedMin}-minute route…`}
+          </div>
+        )}
 
         {/* Chat popup */}
         {chatPopup && (

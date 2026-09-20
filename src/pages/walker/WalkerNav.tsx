@@ -1,216 +1,173 @@
-import { useEffect, useRef, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
-import maplibregl from 'maplibre-gl';
-import 'maplibre-gl/dist/maplibre-gl.css';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { ArrowLeft, Crosshair, MessageCircle, Phone, Play } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import LiveRouteMap, { MapLine, MapMarker } from '../../components/map/LiveRouteMap';
+import { useWalkRoom } from '../../lib/liveTracking';
+import { LatLng, LUSAKA, formatKm, haversineKm, isValidCoord } from '../../lib/geo';
+import { getWalkingRoute, type PlannedRoute } from '../../lib/routing';
 
-function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number) {
-  const R = 6371;
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLon = (lng2 - lng1) * Math.PI / 180;
-  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-
+/**
+ * Walker heads to the pickup. Shows a real walking route, follows the owner's live
+ * position if they share it, and lets the owner watch the walker arrive.
+ */
 export default function WalkerNav() {
   const { walkId } = useParams<{ walkId: string }>();
   const navigate = useNavigate();
   const { data } = useApp();
-  const containerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<maplibregl.Map | null>(null);
-  const watchRef = useRef<number | null>(null);
-  const userMarkerRef = useRef<maplibregl.Marker | null>(null);
-  const routeSourceRef = useRef(false);
-  const [distance, setDistance] = useState<number | null>(null);
-  const [gpsError, setGpsError] = useState(false);
 
   const walk = data.walks.find(w => w.id === walkId);
-  const destLat = walk?.startLocation?.lat;
-  const destLng = walk?.startLocation?.lng;
-  const destAddr = walk?.startLocation?.address;
+  const owner = data.users.find(u => u.id === walk?.ownerId);
+  const dog = data.dogs.find(d => d.id === walk?.dogId);
+  const pickup: LatLng | null = isValidCoord(walk?.startLocation?.lat, walk?.startLocation?.lng)
+    ? [walk!.startLocation!.lat!, walk!.startLocation!.lng!] : null;
+  const pickupAddress = walk?.startLocation?.address;
 
+  const [myPos, setMyPos] = useState<LatLng | null>(null);
+  const [ownerPos, setOwnerPos] = useState<LatLng | null>(null);
+  const [route, setRoute] = useState<PlannedRoute | null>(null);
+  const [gpsError, setGpsError] = useState(false);
+  const [fitTick, setFitTick] = useState(0);
+
+  const lastSentAt = useRef(0);
+  const lastRouteFrom = useRef<LatLng | null>(null);
+  const lastRouteKey = useRef('');
+  const lastRouteAt = useRef(0);
+
+  const { send } = useWalkRoom(walkId, {
+    onOwnerPos: m => setOwnerPos([m.lat, m.lng]),
+    onReady: () => send('hello'),
+  });
+
+  // Where to walk to: the owner's live position if they are sharing it, else the booked pickup point.
+  const target: LatLng | null = ownerPos ?? pickup;
+
+  // Track my GPS and let the owner watch me arrive.
   useEffect(() => {
-    if (!containerRef.current || mapRef.current) return;
+    if (!('geolocation' in navigator)) { setGpsError(true); return; }
+    const id = navigator.geolocation.watchPosition(
+      p => {
+        const pos: LatLng = [p.coords.latitude, p.coords.longitude];
+        setMyPos(pos);
+        setGpsError(false);
+        const now = Date.now();
+        if (now - lastSentAt.current > 3000) {
+          lastSentAt.current = now;
+          send('walker-pos', { lat: pos[0], lng: pos[1] });
+        }
+      },
+      () => setGpsError(true),
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 3000 },
+    );
+    return () => navigator.geolocation.clearWatch(id);
+  }, [send]);
 
-    const dest: [number, number] = destLng != null && destLat != null
-      ? [destLng, destLat]
-      : [28.2833, -15.4167];
+  // Real walking route. Recalculated when the walker strays or the target moves, not on every GPS tick.
+  useEffect(() => {
+    if (!myPos || !target) return;
+    const now = Date.now();
+    const key = `${target[0].toFixed(4)},${target[1].toFixed(4)}`;
+    const moved = lastRouteFrom.current ? haversineKm(lastRouteFrom.current, myPos) : Infinity;
+    if (lastRouteKey.current === key && (moved < 0.12 || now - lastRouteAt.current < 20000)) return;
+    lastRouteKey.current = key;
+    lastRouteFrom.current = myPos;
+    lastRouteAt.current = now;
+    getWalkingRoute(myPos, target).then(setRoute);
+  }, [myPos, target?.[0], target?.[1]]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    const map = new maplibregl.Map({
-      container: containerRef.current,
-      style: 'https://tiles.openfreemap.org/styles/liberty',
-      center: dest,
-      zoom: 14,
-      attributionControl: false,
-    });
-    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
-    mapRef.current = map;
+  const distKm = myPos && target ? (route?.distanceKm ?? haversineKm(myPos, target)) : null;
+  const straightKm = myPos && target ? haversineKm(myPos, target) : null;
+  const arrived = straightKm != null && straightKm < 0.06;
 
-    map.on('load', () => {
-      if (destLat == null || destLng == null) return;
+  const markers: MapMarker[] = useMemo(() => {
+    const m: MapMarker[] = [];
+    if (pickup) m.push({ id: 'pickup', lat: pickup[0], lng: pickup[1], kind: 'pickup', title: pickupAddress || 'Pickup' });
+    if (ownerPos) m.push({ id: 'owner', lat: ownerPos[0], lng: ownerPos[1], kind: 'owner', live: true, title: `${owner?.name || 'Owner'} (live)` });
+    if (myPos) m.push({ id: 'me', lat: myPos[0], lng: myPos[1], kind: 'me', title: 'You' });
+    return m;
+  }, [pickup?.[0], pickup?.[1], ownerPos, myPos, pickupAddress, owner?.name]); // eslint-disable-line react-hooks/exhaustive-deps
 
-      // Pulse ring behind destination
-      const pulseEl = document.createElement('div');
-      pulseEl.style.cssText = `
-        width:60px;height:60px;border-radius:50%;
-        border:2.5px solid rgba(43,138,80,0.35);
-        pointer-events:none;
-      `;
-      pulseEl.innerHTML = `<style>
-        @keyframes pf-nav-pulse{0%,100%{opacity:.6;transform:scale(.8)}50%{opacity:.2;transform:scale(1.2)}}
-        .pf-pulse{animation:pf-nav-pulse 2s infinite}
-      </style><div class="pf-pulse" style="width:100%;height:100%;border-radius:50%;border:2px solid rgba(43,138,80,0.3)"></div>`;
-      new maplibregl.Marker({ element: pulseEl, anchor: 'center' })
-        .setLngLat([destLng, destLat])
-        .addTo(map);
-
-      // Destination pin
-      const destEl = document.createElement('div');
-      destEl.style.cssText = `
-        width:38px;height:38px;border-radius:50%;
-        background:linear-gradient(135deg,#1B4332,#2B8A50);
-        display:flex;align-items:center;justify-content:center;
-        border:3px solid white;box-shadow:0 3px 12px rgba(0,0,0,0.4);
-        cursor:pointer;
-      `;
-      destEl.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>`;
-
-      new maplibregl.Marker({ element: destEl, anchor: 'center' })
-        .setLngLat([destLng, destLat])
-        .setPopup(
-          new maplibregl.Popup({ offset: 28, closeButton: false })
-            .setHTML(`<p style="font-weight:700;font-size:12px;color:#111827;margin:0;max-width:180px">${destAddr || 'Pickup location'}</p>`)
-        )
-        .addTo(map);
-
-      // Route source + layer (dashed line)
-      map.addSource('route', {
-        type: 'geojson',
-        data: { type: 'Feature', geometry: { type: 'LineString', coordinates: [] }, properties: {} },
-      });
-      map.addLayer({
-        id: 'route',
-        type: 'line',
-        source: 'route',
-        layout: { 'line-join': 'round', 'line-cap': 'round' },
-        paint: { 'line-color': '#2B8A50', 'line-width': 3.5, 'line-dasharray': [2, 2.5] },
-      });
-      routeSourceRef.current = true;
-    });
-
-    const onPosition = (pos: GeolocationPosition) => {
-      const { latitude: lat, longitude: lng } = pos.coords;
-
-      // Blue user dot
-      if (!userMarkerRef.current) {
-        const userEl = document.createElement('div');
-        userEl.style.cssText = `
-          width:20px;height:20px;border-radius:50%;
-          background:#3B82F6;border:3px solid white;
-          box-shadow:0 2px 8px rgba(59,130,246,0.55);
-        `;
-        userMarkerRef.current = new maplibregl.Marker({ element: userEl, anchor: 'center' })
-          .setLngLat([lng, lat])
-          .addTo(map);
-      } else {
-        userMarkerRef.current.setLngLat([lng, lat]);
-      }
-
-      // Update route line
-      if (routeSourceRef.current && destLat != null && destLng != null) {
-        const src = map.getSource('route') as maplibregl.GeoJSONSource | undefined;
-        src?.setData({
-          type: 'Feature',
-          geometry: { type: 'LineString', coordinates: [[lng, lat], [destLng, destLat]] },
-          properties: {},
-        });
-      }
-
-      // Distance
-      if (destLat != null && destLng != null) {
-        setDistance(haversineKm(lat, lng, destLat, destLng));
-
-        // Fit both points
-        const bounds = new maplibregl.LngLatBounds();
-        bounds.extend([lng, lat]);
-        bounds.extend([destLng, destLat]);
-        map.fitBounds(bounds, { padding: 80, maxZoom: 16, duration: 1200 });
-      }
-    };
-
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(onPosition, () => setGpsError(true), { enableHighAccuracy: true, timeout: 10000 });
-      watchRef.current = navigator.geolocation.watchPosition(onPosition, undefined, { enableHighAccuracy: true, timeout: 12000, maximumAge: 3000 });
-    } else {
-      setGpsError(true);
-    }
-
-    return () => {
-      if (watchRef.current != null) navigator.geolocation.clearWatch(watchRef.current);
-      map.remove();
-      mapRef.current = null;
-      routeSourceRef.current = false;
-    };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const lines: MapLine[] = useMemo(
+    () => (route && route.points.length > 1 ? [{ id: 'route', points: route.points, color: '#2B8A50', width: 5 }] : []),
+    [route],
+  );
 
   return (
-    <div className="flex flex-col h-screen bg-white overflow-hidden">
+    <div className="flex flex-col h-[100dvh] bg-white overflow-hidden">
       {/* Header */}
-      <div className="flex items-center gap-3 px-4 py-3 bg-white shrink-0 z-[1001]"
-        style={{ borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
-        <button type="button" onClick={() => navigate(-1)}
-          className="w-10 h-10 flex items-center justify-center rounded-2xl active:scale-95 transition-transform"
-          style={{ background: '#F3F4F6' }}>
+      <div className="flex items-center gap-3 px-4 py-3 bg-white shrink-0 z-[1001] border-b border-black/5"
+        style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))' }}>
+        <button type="button" onClick={() => navigate(-1)} aria-label="Back"
+          className="w-10 h-10 flex items-center justify-center rounded-2xl active:scale-95 transition-transform bg-[#F3F4F6]">
           <ArrowLeft className="w-5 h-5 text-ink" />
         </button>
         <div className="flex-1 min-w-0">
-          <p className="text-[10px] text-ink-muted font-bold uppercase tracking-wider">In-app Navigation</p>
-          <p className="text-sm font-bold text-ink truncate">{destAddr || 'Navigating to pickup'}</p>
+          <p className="text-[10px] text-ink-muted font-bold uppercase tracking-wider">Heading to pickup</p>
+          <p className="text-sm font-bold text-ink truncate">{pickupAddress || (dog?.name ? `${dog.name}'s pickup` : 'Pickup location')}</p>
         </div>
-        {distance !== null && (
-          <div className="shrink-0 px-3 py-1.5 rounded-full" style={{ background: '#EBF5EF' }}>
-            <span className="text-xs font-bold" style={{ color: '#1B4332' }}>
-              {distance < 1 ? `${(distance * 1000).toFixed(0)}m` : `${distance.toFixed(1)}km`} away
-            </span>
+        {distKm != null && (
+          <div className="shrink-0 px-3 py-1.5 rounded-full bg-[#EBF5EF] text-right">
+            <p className="text-xs font-bold" style={{ color: '#1B4332' }}>{formatKm(distKm)}</p>
+            {route && <p className="text-[9px] text-ink-muted leading-none">{route.durationMin} min walk</p>}
           </div>
         )}
       </div>
 
       {/* Map */}
       <div className="flex-1 relative overflow-hidden" style={{ minHeight: 0 }}>
-        <div ref={containerRef} style={{ position: 'absolute', inset: 0 }} />
+        <LiveRouteMap
+          markers={markers}
+          lines={lines}
+          center={target ?? myPos ?? LUSAKA}
+          zoom={14}
+          fitKey={`${myPos ? 'me' : ''}|${target ? 't' : ''}|${fitTick}`}
+          bottomPadding={40}
+        />
+        <button type="button" onClick={() => setFitTick(t => t + 1)} aria-label="Fit route"
+          className="absolute top-3 left-3 z-[1000] w-10 h-10 rounded-2xl bg-white shadow-lg flex items-center justify-center active:scale-95">
+          <Crosshair className="w-5 h-5 text-ink" />
+        </button>
 
-        {!destLat && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-surface-secondary gap-3 p-6 text-center z-10">
-            <span className="text-4xl">🗺️</span>
-            <p className="text-sm text-ink-secondary">No pickup location set for this walk</p>
+        {!target && (
+          <div className="absolute inset-x-4 top-3 z-[1000] flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3">
+            <span className="text-lg">🗺️</span>
+            <p className="text-xs text-amber-800 font-medium leading-relaxed">
+              The owner typed an address we could not place on the map{pickupAddress ? ` (${pickupAddress})` : ''}. Message or call them for directions.
+            </p>
           </div>
         )}
-
         {gpsError && (
-          <div className="absolute top-3 left-3 right-3 z-[1000] flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-2.5">
+          <div className="absolute inset-x-4 top-16 z-[1000] flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-2.5">
             <span className="text-amber-600 text-lg">⚠️</span>
-            <p className="text-xs text-amber-700 font-medium">Enable GPS to see your position on the map</p>
+            <p className="text-xs text-amber-700 font-medium">Turn on GPS to see your position and route.</p>
+          </div>
+        )}
+        {ownerPos && (
+          <div className="absolute left-3 bottom-3 z-[1000] flex items-center gap-1.5 bg-white rounded-full px-3 py-1.5 shadow-lg">
+            <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+            <span className="text-[11px] font-bold text-ink">Following {owner?.name?.split(' ')[0] || 'owner'} live</span>
           </div>
         )}
       </div>
 
-      {/* Legend */}
-      <div className="bg-white border-t border-surface-border px-4 py-3 pb-6 shrink-0">
-        <div className="flex items-center justify-center gap-6">
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded-full" style={{ background: '#3B82F6', border: '2px solid white', boxShadow: '0 0 0 2px rgba(59,130,246,0.3)' }} />
-            <span className="text-xs font-medium text-ink-muted">Your location</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-px h-4 border-l-2 border-dashed" style={{ borderColor: '#2B8A50' }} />
-            <span className="text-xs font-medium text-ink-muted">Route</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded-full" style={{ background: 'linear-gradient(135deg,#1B4332,#2B8A50)' }} />
-            <span className="text-xs font-medium text-ink-muted">Pickup</span>
-          </div>
+      {/* Actions */}
+      <div className="bg-white border-t border-surface-border px-4 pt-3 shrink-0" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
+        <div className="flex items-center gap-2">
+          <Link to={`/walker/chat/${walkId}`}
+            className="w-12 h-12 rounded-2xl flex items-center justify-center bg-[#EBF5EF] shrink-0 active:scale-95" aria-label="Chat">
+            <MessageCircle className="w-5 h-5" style={{ color: '#2B8A50' }} />
+          </Link>
+          {owner?.phone && (
+            <a href={`tel:${owner.phone}`}
+              className="w-12 h-12 rounded-2xl flex items-center justify-center bg-[#EBF5EF] shrink-0 active:scale-95" aria-label="Call owner">
+              <Phone className="w-5 h-5" style={{ color: '#2B8A50' }} />
+            </a>
+          )}
+          <button type="button" onClick={() => navigate(`/walker/live/${walkId}`)}
+            className="flex-1 h-12 rounded-2xl flex items-center justify-center gap-2 text-sm font-extrabold text-white active:scale-[0.98]"
+            style={{ background: arrived ? 'linear-gradient(135deg,#1B4332,#2B8A50)' : '#1B4332', boxShadow: arrived ? '0 0 0 4px rgba(43,138,80,0.25)' : undefined }}>
+            <Play className="w-4 h-4" /> {arrived ? "I've arrived — start walk" : 'Go to walk screen'}
+          </button>
         </div>
       </div>
     </div>

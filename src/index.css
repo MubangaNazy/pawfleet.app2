@@ -35,6 +35,11 @@ html, body, #root {
 .safe-area-pb { padding-bottom: max(0.5rem, env(safe-area-inset-bottom)); }
 .safe-area-pt { padding-top: max(0px, env(safe-area-inset-top)); }
 
+/* Prevent iOS Safari from zooming on input focus (requires font-size >= 16px) */
+@supports (-webkit-touch-callout: none) {
+  input, select, textarea { font-size: 16px !important; }
+}
+
 /* Scrollbar */
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }

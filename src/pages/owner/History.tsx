@@ -19,11 +19,21 @@ const filterTabs: { label: string; value: Filter }[] = [
 ];
 
 function walkTypeInfo(notes: string | undefined) {
-  if (!notes) return { emoji: '🦮', label: 'Walk' };
-  if (notes.startsWith('HOME_GROOMING:') || notes.startsWith('GROOMING:')) return { emoji: '✂️', label: 'Grooming' };
-  if (notes.startsWith('VET BOOKING:'))   return { emoji: '🩺', label: 'Vet' };
-  if (notes.includes('GROOMING'))         return { emoji: '✂️', label: 'Grooming' };
-  return { emoji: '🦮', label: 'Walk' };
+  if (!notes) return { emoji: '🦮', label: 'Walk', isSelf: false };
+  if (notes.startsWith('SELF_WALK:'))     return { emoji: '🐕‍🦺', label: 'My Walk', isSelf: true };
+  if (notes.startsWith('HOME_GROOMING:') || notes.startsWith('GROOMING:')) return { emoji: '✂️', label: 'Grooming', isSelf: false };
+  if (notes.startsWith('VET BOOKING:'))   return { emoji: '🩺', label: 'Vet', isSelf: false };
+  if (notes.includes('GROOMING'))         return { emoji: '✂️', label: 'Grooming', isSelf: false };
+  return { emoji: '🦮', label: 'Walk', isSelf: false };
+}
+
+function parseSelfWalkNotes(notes: string) {
+  const distMatch = notes.match(/distance=(\d+)/);
+  const calMatch  = notes.match(/calories=(\d+)/);
+  const distM = distMatch ? parseInt(distMatch[1]) : 0;
+  const cal   = calMatch  ? parseInt(calMatch[1])  : 0;
+  const distLabel = distM >= 1000 ? `${(distM / 1000).toFixed(2)} km` : `${distM} m`;
+  return { distLabel, cal };
 }
 
 function dateGroupLabel(date: Date): string {
@@ -166,7 +176,7 @@ export default function OwnerHistory() {
                           <div className="flex items-center gap-1.5 mt-1.5">
                             <div className="w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold text-white shrink-0"
                               style={{ background: 'linear-gradient(135deg,#1B4332,#2B8A50)' }}>
-                              {walker.name[0]}
+                              {walker.name?.[0] ?? '?'}
                             </div>
                             <span className="text-xs text-ink-muted">{walker.name}</span>
                           </div>
@@ -184,6 +194,15 @@ export default function OwnerHistory() {
                           <Clock className="w-3 h-3" />{walk.duration} min
                         </div>
                       )}
+                      {type.isSelf && walk.notes && (() => {
+                        const { distLabel, cal } = parseSelfWalkNotes(walk.notes);
+                        return (
+                          <>
+                            {distLabel !== '0 m' && <span className="text-xs text-ink-muted">📍 {distLabel}</span>}
+                            {cal > 0 && <span className="text-xs text-ink-muted">🔥 ~{cal} kcal</span>}
+                          </>
+                        );
+                      })()}
                       {walk.status === 'active' && walk.startLocation?.address && (
                         <div className="flex items-center gap-1 text-xs text-success-dark min-w-0">
                           <MapPin className="w-3 h-3 shrink-0" />

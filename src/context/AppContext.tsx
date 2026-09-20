@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { User, Dog, Walk, Payment, WalkerStats, WalkerBadge, AppData, Role, BadgeId, AppNotification } from '../types';
 import { requestNotificationPermission, onForegroundMessage } from '../lib/firebase';
 import { identifyUser, clearUser, trackEvent } from '../lib/monitoring';
+import { goOffline } from '../lib/liveTracking';
 
 // ── Type helpers ────────────────────────────────────────────
 const toUser = (r: any): User => ({
@@ -13,6 +14,7 @@ const toUser = (r: any): User => ({
   businessAddress: r.business_address ?? undefined,
   businessType: r.business_type ?? undefined,
   nrc: r.nrc ?? undefined,
+  nrcImageUrl: r.nrc_image_url ?? undefined,
   walkerStatus: r.walker_status ?? undefined,
   serviceLat: r.service_lat ?? undefined,
   serviceLng: r.service_lng ?? undefined,
@@ -42,6 +44,7 @@ function adminReferralCode(adminId: string): string {
 const toDog = (r: any): Dog => ({
   id: r.id, name: r.name, breed: r.breed, age: r.age,
   ownerId: r.owner_id, imageUrl: r.image_url, notes: r.notes,
+  animalType: r.animal_type ?? 'dog',
   healthLogs: (r.health_logs || []).map((hl: any) => ({
     date: hl.date, water: hl.water,
     foodMorning: hl.food_morning, foodEvening: hl.food_evening,
@@ -91,17 +94,20 @@ const BADGES: Record<BadgeId, Omit<WalkerBadge, 'earnedAt'>> = {
 interface RegisterExtras {
   photoUrl?: string;
   nrc?: string;
+  nrcImageUrl?: string;
   referralCode?: string;
 }
 interface AppContextType {
   loading: boolean;
   currentUser: User | null;
   data: AppData;
-  login: (id: string, pw: string) => Promise<User | null>;
+  login: (id: string, pw: string) => Promise<{ user: User | null; error?: string }>;
   register: (name: string, phone: string, email: string, password: string, role: 'owner' | 'walker', extras?: RegisterExtras) => Promise<{ success: boolean; error?: string; user?: User; pendingApproval?: boolean }>;
   activateSubscription: (userId: string, months?: number) => void;
   logout: () => void;
   createWalk: (walk: Omit<Walk, 'id' | 'createdAt'>) => Walk;
+  /** Saves first, then reports success or a readable error. Use this for bookings the user is waiting on. */
+  createWalkAsync: (walk: Omit<Walk, 'id' | 'createdAt'>) => Promise<{ walk?: Walk; error?: string }>;
   updateWalk: (id: string, updates: Partial<Walk>) => void;
   startWalk: (walkId: string, loc: { lat: number; lng: number }) => void;
   endWalk: (walkId: string, loc: { lat: number; lng: number }, routePoints?: [number, number][]) => void;
@@ -188,7 +194,7 @@ function playShopOrderSound() {
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
-    try { return JSON.parse(sessionStorage.getItem('pawfleet_user') || 'null'); } catch { return null; }
+    try { return JSON.parse(localStorage.getItem('pawfleet_user') || 'null'); } catch { return null; }
   });
   const [data, setData] = useState<AppData>({
     users: [], dogs: [], walks: [], payments: [], walkerStats: [], notifications: [],
@@ -216,9 +222,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [currentUser?.id]);
 
   // ── Load all data ────────────────────────────────────────
+  const DATA_CACHE_KEY = 'pawfleet_data_v1';
+
   const loadData = useCallback(async () => {
     setLoading(true);
+
+    // Restore cached data immediately so the UI isn't blank while fetching
     try {
+      const cached = localStorage.getItem(DATA_CACHE_KEY);
+      if (cached) {
+        const c = JSON.parse(cached);
+        setData(c);
+        setLoading(false); // show cached UI right away, keep loading in background
+      }
+    } catch { /* corrupt cache — ignore */ }
+
+    let retried = false;
+    const attempt = async () => {
       const fetchAll = Promise.all([
         supabase.from('users').select('*').order('created_at'),
         supabase.from('dogs').select('*, health_logs(*)').order('created_at'),
@@ -227,22 +247,39 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         supabase.from('walker_stats').select('*'),
         supabase.from('notifications').select('*').order('created_at', { ascending: false }).limit(100),
       ]);
-      // 6-second timeout — if Supabase is slow/hanging, unblock the app anyway
+      // 30-second timeout — long enough for slow connections or cold Supabase starts
       const timeout = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('load_timeout')), 6000)
+        setTimeout(() => reject(new Error('load_timeout')), 30000)
       );
       const [u, d, w, p, s, n] = await Promise.race([fetchAll, timeout]);
+
+      // Only accept a result where we got real data (not empty due to missing session)
+      const users = (u.data || []).map(toUser);
       const rawDogs = (d.data || []).map(toDog);
-      setData({
-        users:         mergeUserImages((u.data || []).map(toUser)),
+      const fresh = {
+        users:         mergeUserImages(users),
         dogs:          mergeDogImages(rawDogs),
         walks:         (w.data || []).map(toWalk),
         payments:      (p.data || []).map(toPayment),
         walkerStats:   (s.data || []).map(toWalkerStats),
         notifications: (n.data || []).map(toNotification),
-      });
-    } catch (err) {
+      };
+      setData(fresh);
+      // Persist for crash-recovery
+      try { localStorage.setItem(DATA_CACHE_KEY, JSON.stringify(fresh)); } catch { /* quota */ }
+    };
+
+    try {
+      await attempt();
+    } catch (err: any) {
       console.error('loadData error:', err);
+      if (err.message === 'load_timeout' && !retried) {
+        // On timeout, wait for session confirmation then retry once
+        retried = true;
+        supabase.auth.getSession().then(({ data: { session } }) => {
+          if (session) attempt().catch(e => console.error('loadData retry failed:', e));
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -250,39 +287,79 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  // ── Auth state change (handles email confirmation link clicks) ───
+  // ── iOS/Safari login recovery ────────────────────────────────
+  // On startup, if Supabase has a valid session but our stored user is missing, re-fetch it.
+  useEffect(() => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (!session?.user) return;
+      const stored = localStorage.getItem('pawfleet_user');
+      if (!stored) {
+        const { data: row } = await supabase.from('users').select('*').eq('id', session.user.id).maybeSingle();
+        if (row) {
+          const user = toUser(row);
+          setCurrentUser(user);
+          localStorage.setItem('pawfleet_user', JSON.stringify(user));
+          loadData();
+        }
+      }
+    });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Auth state change ────────────────────────────────────────
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session?.user) {
         const authUser = session.user;
-        // Load profile from database
+        loadData();
         const { data: row } = await supabase.from('users').select('*').eq('id', authUser.id).maybeSingle();
         if (row) {
           const user = toUser(row);
           setCurrentUser(user);
-          sessionStorage.setItem('pawfleet_user', JSON.stringify(user));
-          setData(prev => ({
-            ...prev,
-            users: [...prev.users.filter(u => u.id !== user.id), user],
-          }));
+          localStorage.setItem('pawfleet_user', JSON.stringify(user));
         }
       } else if (event === 'SIGNED_OUT') {
         setCurrentUser(null);
-        sessionStorage.removeItem('pawfleet_user');
+        localStorage.removeItem('pawfleet_user');
       }
     });
     return () => subscription.unsubscribe();
-  }, []);
+  }, [loadData]);
 
   // ── Realtime subscriptions ───────────────────────────────
   useEffect(() => {
     const channel = supabase.channel('pawfleet-live')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'walks' }, (p) =>
-        setData(prev => ({ ...prev, walks: [toWalk(p.new), ...prev.walks] }))
+        setData(prev => prev.walks.some(w => w.id === p.new.id)
+          ? prev
+          : ({ ...prev, walks: [toWalk(p.new), ...prev.walks] }))
       )
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'walks' }, (p) =>
-        setData(prev => ({ ...prev, walks: prev.walks.map(w => w.id === p.new.id ? toWalk(p.new) : w) }))
-      )
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'walks' }, (p) => {
+        if (!p.new?.id) return;
+        setData(prev => ({
+          ...prev,
+          walks: prev.walks.map(w => {
+            if (w.id !== p.new.id) return w;
+            const fresh = toWalk(p.new);
+            // Supabase Realtime UPDATE payloads can be partial (only changed columns).
+            // Merge fresh over existing so fields not in the payload are preserved.
+            return {
+              ...w,
+              ...fresh,
+              scheduledDate: fresh.scheduledDate ?? w.scheduledDate,
+              dogId:         fresh.dogId         ?? w.dogId,
+              ownerId:       fresh.ownerId        ?? w.ownerId,
+              walkerId:      fresh.walkerId       ?? w.walkerId,
+              startTime:     fresh.startTime      ?? w.startTime,
+              endTime:       fresh.endTime        ?? w.endTime,
+              startLocation: fresh.startLocation  ?? w.startLocation,
+              endLocation:   fresh.endLocation    ?? w.endLocation,
+              notes:         fresh.notes          ?? w.notes,
+              routePoints:   fresh.routePoints    ?? w.routePoints,
+              createdAt:     fresh.createdAt      ?? w.createdAt,
+            };
+          }),
+        }));
+      })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'payments' }, () => {
         supabase.from('payments').select('*').order('created_at', { ascending: false })
           .then(({ data: rows }) => {
@@ -300,6 +377,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'notifications' }, (p) =>
         setData(prev => ({ ...prev, notifications: prev.notifications.map(n => n.id === p.new.id ? toNotification(p.new) : n) }))
+      )
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'dogs' }, (p) =>
+        setData(prev => ({
+          ...prev,
+          dogs: prev.dogs.some(d => d.id === p.new.id) ? prev.dogs : [...prev.dogs, toDog(p.new)],
+        }))
+      )
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'dogs' }, (p) =>
+        setData(prev => ({ ...prev, dogs: prev.dogs.map(d => d.id === p.new.id ? { ...toDog(p.new), imageUrl: toDog(p.new).imageUrl || d.imageUrl } : d) }))
+      )
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'dogs' }, (p) =>
+        setData(prev => ({ ...prev, dogs: prev.dogs.filter(d => d.id !== (p.old as any).id) }))
+      )
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'users' }, (p) =>
+        setData(prev => ({
+          ...prev,
+          users: prev.users.some(u => u.id === p.new.id)
+            ? prev.users
+            : [...prev.users, toUser(p.new)],
+        }))
       )
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'users' }, (p) =>
         setData(prev => ({
@@ -413,6 +510,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       createdAt: '2024-01-01T00:00:00Z',
     },
   };
+  // Demo users are local-only: no Supabase session and no database rows, so bookings and chat fail for them.
+  const DEMO_ENABLED = import.meta.env.DEV || import.meta.env.VITE_ENABLE_DEMO === 'true';
   const DEMO_CREDS: Record<string, string> = {
     'admin@pawfleet.zm': 'admin123', '0977000001': 'admin123',
     'walker1@pawfleet.zm': 'walker123', '0977000002': 'walker123',
@@ -426,43 +525,95 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     '0977000007': 'vet@pawfleet.zm',
   };
 
-  const login = async (identifier: string, pw: string): Promise<User | null> => {
+  const login = async (identifier: string, pw: string): Promise<{ user: User | null; error?: string }> => {
     // 1. Demo account bypass — fully hardcoded, no network calls needed
     const email = PHONE_TO_EMAIL[identifier] ?? identifier;
-    if (DEMO_CREDS[identifier] === pw || DEMO_CREDS[email] === pw) {
+    const isDemoLogin = DEMO_CREDS[identifier] === pw || DEMO_CREDS[email] === pw;
+    if (isDemoLogin && !DEMO_ENABLED) {
+      return { user: null, error: 'Demo accounts are switched off on the live app because they cannot save bookings or messages. Please register a free account.' };
+    }
+    if (isDemoLogin) {
       const user = DEMO_USERS[email] ?? null;
       if (user) {
         setCurrentUser(user);
-        sessionStorage.setItem('pawfleet_user', JSON.stringify(user));
+        localStorage.setItem('pawfleet_user', JSON.stringify(user));
         identifyUser(user.id, user.name, user.role);
         trackEvent('login', { method: 'demo', role: user.role });
-        return user;
+        loadData();
+        return { user };
       }
     }
 
     // 2. Try Supabase Auth (real registered accounts)
     try {
-      const { data: authData } = await supabase.auth.signInWithPassword({ email, password: pw });
+      const authResult = await Promise.race([
+        supabase.auth.signInWithPassword({ email, password: pw }),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('auth timeout')), 10000)),
+      ]);
+      const { data: authData, error: authErr } = authResult as Awaited<ReturnType<typeof supabase.auth.signInWithPassword>>;
+
+      if (authErr) {
+        const msg = authErr.message ?? '';
+        const lower = msg.toLowerCase();
+        if (lower.includes('invalid') || lower.includes('credentials')) {
+          return { user: null, error: 'Incorrect email or password. Please try again.' };
+        }
+        if (lower.includes('email not confirmed') || lower.includes('not confirmed')) {
+          return { user: null, error: 'Please confirm your email address before signing in. Check your inbox (and spam folder).' };
+        }
+        // Surface the real error for anything else
+        return { user: null, error: msg || 'Sign-in failed. Please try again.' };
+      }
+
       if (authData?.user) {
-        let user = data.users.find(u => u.id === authData.user.id);
+        let user = data.users.find(u => u.id === authData.user!.id);
+
         if (!user) {
-          const { data: row } = await supabase.from('users').select('*').eq('id', authData.user.id).maybeSingle();
+          // Try fetching from DB
+          const { data: row } = await supabase.from('users').select('*').eq('id', authData.user!.id).maybeSingle();
           if (row) {
             user = toUser(row);
             setData(prev => ({ ...prev, users: [...prev.users.filter(u => u.id !== row.id), user!] }));
+          } else {
+            // Profile row missing (registration DB insert failed) — auto-create it now
+            const meta = authData.user!.user_metadata || {};
+            const healed: User = {
+              id: authData.user!.id,
+              name: meta.name || authData.user!.email?.split('@')[0] || 'User',
+              phone: meta.phone || '',
+              email: authData.user!.email || '',
+              password: '',
+              role: (meta.role as Role) || 'owner',
+              createdAt: authData.user!.created_at,
+              walkerStatus: meta.role === 'walker' ? 'pending_approval' : undefined,
+            };
+            await supabase.from('users').upsert({
+              id: healed.id, name: healed.name, phone: healed.phone,
+              email: healed.email, password: '', role: healed.role,
+              walker_status: healed.walkerStatus ?? null,
+            }, { onConflict: 'id' });
+            user = healed;
+            setData(prev => ({ ...prev, users: [...prev.users.filter(u => u.id !== healed.id), healed] }));
           }
         }
+
         if (user) {
           setCurrentUser(user);
-          sessionStorage.setItem('pawfleet_user', JSON.stringify(user));
+          localStorage.setItem('pawfleet_user', JSON.stringify(user));
           identifyUser(user.id, user.name, user.role);
           trackEvent('login', { method: 'supabase', role: user.role });
-          return user;
+          return { user };
         }
       }
-    } catch { /* Supabase Auth unavailable */ }
+    } catch (e: any) {
+      if (e?.message === 'auth timeout') {
+        return { user: null, error: 'Connection timed out. Please check your internet and try again.' };
+      }
+      console.error('Login error:', e);
+      return { user: null, error: 'Something went wrong. Please try again.' };
+    }
 
-    return null;
+    return { user: null, error: 'Incorrect email or password. Please try again.' };
   };
 
   // Upload a base64 data-URL photo to Supabase Storage and return its public URL.
@@ -473,20 +624,48 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const blob = await res.blob();
       const ext  = blob.type.split('/')[1] || 'jpg';
       const path = `${userId}.${ext}`;
-      const { error: upErr } = await supabase.storage
-        .from('avatars')
-        .upload(path, blob, { upsert: true, contentType: blob.type });
+      // Race upload against a 30-second timeout so slow mobile connections don't hang forever
+      const uploadResult = await Promise.race([
+        supabase.storage.from('avatars').upload(path, blob, { upsert: true, contentType: blob.type }),
+        new Promise<{ error: Error }>(resolve =>
+          setTimeout(() => resolve({ error: new Error('upload timeout') }), 15000)
+        ),
+      ]);
+      const { error: upErr } = uploadResult as { error: any };
       if (!upErr) {
         const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path);
         return urlData.publicUrl;
       }
-    } catch { /* fall through to localStorage */ }
+      console.warn('Avatar upload failed:', upErr);
+    } catch (e) { console.warn('Avatar upload error:', e); }
     // Fallback: store base64 locally so at least this device sees the photo
     try {
       const imgs = JSON.parse(localStorage.getItem('pawfleet_user_images') || '{}');
       imgs[userId] = dataUrl;
       localStorage.setItem('pawfleet_user_images', JSON.stringify(imgs));
     } catch { /* ignore */ }
+    return dataUrl;
+  };
+
+  const uploadNrcImage = async (userId: string, dataUrl: string): Promise<string> => {
+    try {
+      const res  = await fetch(dataUrl);
+      const blob = await res.blob();
+      const ext  = blob.type.split('/')[1] || 'jpg';
+      const path = `nrc/${userId}.${ext}`;
+      const uploadResult = await Promise.race([
+        supabase.storage.from('avatars').upload(path, blob, { upsert: true, contentType: blob.type }),
+        new Promise<{ error: Error }>(resolve =>
+          setTimeout(() => resolve({ error: new Error('upload timeout') }), 15000)
+        ),
+      ]);
+      const { error: upErr } = uploadResult as { error: any };
+      if (!upErr) {
+        const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path);
+        return urlData.publicUrl;
+      }
+      console.warn('NRC upload failed:', upErr);
+    } catch (e) { console.warn('NRC upload error:', e); }
     return dataUrl;
   };
 
@@ -506,25 +685,64 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const now = new Date().toISOString();
     const walkerStatus: 'pending_approval' | undefined = role === 'walker' ? 'pending_approval' : undefined;
 
-    // Upload photo to Supabase Storage (so it's visible to everyone, not just this device)
+    // Upload photo — only attempt if we have a session (authenticated uploads only)
+    // If email confirmation is on, session is null here and we skip; user can add photo from profile later
     let publicImageUrl: string | undefined;
     if (extras?.photoUrl) {
-      publicImageUrl = await uploadProfilePhoto(userId, extras.photoUrl);
+      if (authData.session) {
+        // Authenticated — upload to Storage and save the public URL
+        const uploaded = await uploadProfilePhoto(userId, extras.photoUrl);
+        if (uploaded && !uploaded.startsWith('data:')) publicImageUrl = uploaded;
+      }
+      if (!publicImageUrl && extras.photoUrl) {
+        // No session (email confirmation required) — save data URL to DB so
+        // admin can view the profile photo when reviewing the walker application.
+        publicImageUrl = extras.photoUrl;
+      }
+      // Always cache locally so this device shows the photo immediately
+      try {
+        const imgs = JSON.parse(localStorage.getItem('pawfleet_user_images') || '{}');
+        imgs[userId] = extras.photoUrl;
+        localStorage.setItem('pawfleet_user_images', JSON.stringify(imgs));
+      } catch { /* ignore */ }
+    }
+
+    // Upload NRC image (walkers only)
+    let nrcImagePublicUrl: string | undefined;
+    if (extras?.nrcImageUrl) {
+      if (authData.session) {
+        // Authenticated upload — store as public URL
+        const uploaded = await uploadNrcImage(userId, extras.nrcImageUrl);
+        if (uploaded && !uploaded.startsWith('data:')) nrcImagePublicUrl = uploaded;
+      }
+      // If no session (email confirmation required), store data URL directly in DB
+      // so admin can still view the NRC photo. Data URLs are large but acceptable
+      // for NRC images until the walker confirms their email and re-uploads.
+      if (!nrcImagePublicUrl && extras.nrcImageUrl.startsWith('data:')) {
+        nrcImagePublicUrl = extras.nrcImageUrl;
+      }
     }
 
     const newUser: User = {
       id: userId, name, phone, email, password: '', role, createdAt: now,
       imageUrl: publicImageUrl,
       nrc: extras?.nrc,
+      nrcImageUrl: nrcImagePublicUrl,
       walkerStatus,
     };
 
-    await supabase.from('users').upsert({
+    // Insert profile row — critical for login to work
+    const { error: insertError } = await supabase.from('users').upsert({
       id: userId, name, phone, email: email || null, password: '', role,
       image_url: publicImageUrl ?? null,
       nrc: extras?.nrc ?? null,
+      nrc_image_url: nrcImagePublicUrl ?? null,
       walker_status: walkerStatus ?? null,
-    }, { onConflict: 'id' }).then(({ error }) => { if (error) console.error('register insert:', error); });
+    }, { onConflict: 'id' });
+    if (insertError) {
+      console.error('register insert:', insertError);
+      // Auth user was created — don't block them. login() will auto-heal the missing profile.
+    }
 
     if (role === 'walker') {
       await supabase.from('walker_stats').upsert({ walker_id: userId }, { onConflict: 'walker_id' })
@@ -548,72 +766,112 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     if (authData.session) {
       setCurrentUser(newUser);
-      sessionStorage.setItem('pawfleet_user', JSON.stringify(newUser));
+      localStorage.setItem('pawfleet_user', JSON.stringify(newUser));
       return { success: true, user: newUser };
     }
     return { success: true };
   };
 
   const logout = () => {
+    goOffline();
     supabase.auth.signOut().catch(() => {});
     clearUser();
     setCurrentUser(null);
-    sessionStorage.removeItem('pawfleet_user');
+    localStorage.removeItem('pawfleet_user');
   };
 
   // ── Walks ────────────────────────────────────────────────
-  const createWalk = (walk: Omit<Walk, 'id' | 'createdAt'>): Walk => {
-    const newWalk: Walk = { ...walk, id: crypto.randomUUID(), createdAt: new Date().toISOString() };
-    setData(prev => ({ ...prev, walks: [newWalk, ...prev.walks] }));
-    supabase.from('walks').insert({
-      id: newWalk.id, dog_id: walk.dogId, owner_id: walk.ownerId,
-      walker_id: walk.walkerId || null, status: walk.status,
-      scheduled_date: walk.scheduledDate, price: walk.price,
-      walker_earning: walk.walkerEarning, notes: walk.notes || null,
-      start_lat: walk.startLocation?.lat ?? null,
-      start_lng: walk.startLocation?.lng ?? null,
-      start_address: walk.startLocation?.address ?? null,
-    }).then(({ error }) => { if (error) console.error('createWalk:', error); });
+  const GROOMING_RE = /^(HOME_|VET_)?GROOMING:/;
 
-    // Notify walkers and admins of new walk booking
+  const walkInsertRow = (w: Walk) => ({
+    id: w.id, dog_id: w.dogId, owner_id: w.ownerId,
+    walker_id: w.walkerId || null, status: w.status,
+    scheduled_date: w.scheduledDate, price: w.price,
+    walker_earning: w.walkerEarning, notes: w.notes || null,
+    duration: w.duration ?? null,
+    start_lat: w.startLocation?.lat ?? null,
+    start_lng: w.startLocation?.lng ?? null,
+    start_address: w.startLocation?.address ?? null,
+  });
+
+  const friendlyDbError = (error: { code?: string; message?: string }): string => {
+    if (error.code === '23503') return "Your account or your dog's profile is not fully saved yet. Please log out, log back in and try again.";
+    if (error.code === '42501') return 'You do not have permission to do that. Please log in again.';
+    return error.message || 'Something went wrong. Please try again.';
+  };
+
+  // Tell the right people about a new booking. A booking aimed at one walker only reaches that walker.
+  const notifyWalkCreated = (walk: Walk) => {
     const dog = data.dogs.find(d => d.id === walk.dogId);
     const owner = data.users.find(u => u.id === walk.ownerId);
-
-    const isGroomingJob = walk.notes?.startsWith('GROOMING:');
-    const isGroomingAddon = walk.notes?.includes('Add-on: Grooming');
+    const isGroomingJob = GROOMING_RE.test(walk.notes ?? '');
+    const isGroomingAddon = !!walk.notes?.includes('Add-on: Grooming');
+    const ownerName = owner?.name || 'An owner';
+    const dogName = dog?.name || 'their dog';
 
     let notifyTitle: string;
     let notifyMsg: string;
-    if (isGroomingJob && !walk.walkerId) {
+    if (isGroomingJob) {
       notifyTitle = 'New Grooming Job 🛁';
-      notifyMsg = `${owner?.name || 'An owner'} needs a groomer for ${dog?.name || 'their dog'}. Full grooming session. K${walk.walkerEarning} earning.`;
+      notifyMsg = `${ownerName} needs a groomer for ${dogName}. K${walk.walkerEarning} earning.`;
     } else if (isGroomingAddon) {
       notifyTitle = 'New Walk + Grooming 🐾✂️';
-      notifyMsg = `${owner?.name || 'An owner'} has booked a Walk + Grooming add-on for ${dog?.name || 'their dog'}. K${walk.walkerEarning} earning.`;
+      notifyMsg = `${ownerName} has booked a Walk + Grooming add-on for ${dogName}. K${walk.walkerEarning} earning.`;
     } else {
       notifyTitle = 'New Walk Available 🐾';
-      notifyMsg = `${owner?.name || 'An owner'} needs a walker for ${dog?.name || 'their dog'}. K${walk.walkerEarning} earning.`;
+      notifyMsg = `${ownerName} needs a walker for ${dogName}. K${walk.walkerEarning} earning.`;
     }
 
-    data.users.filter(u => u.role === 'walker' && u.walkerStatus === 'active').forEach(w => {
-      sendNotification(w.id, 'walk_booked', notifyTitle, notifyMsg, { walkId: newWalk.id });
-    });
-    data.users.filter(u => u.role === 'admin').forEach(admin => {
-      sendNotification(admin.id, 'walk_booked', 'New Walk Booked', notifyMsg, { walkId: newWalk.id });
-    });
     if (walk.walkerId) {
-      const assignedTitle = isGroomingJob || isGroomingAddon
-        ? 'Grooming Session Assigned to You 🛁'
-        : 'Walk Assigned to You';
-      const assignedMsg = isGroomingJob
-        ? `You have been assigned a grooming session for ${dog?.name || 'a dog'}. K${walk.walkerEarning} earning.`
-        : isGroomingAddon
-        ? `You have been assigned a Walk + Grooming add-on for ${dog?.name || 'a dog'}. K${walk.walkerEarning} earning.`
-        : `You have been assigned to walk ${dog?.name || 'a dog'}. K${walk.walkerEarning} earning.`;
-      sendNotification(walk.walkerId, 'walk_accepted', assignedTitle, assignedMsg, { walkId: newWalk.id });
+      sendNotification(
+        walk.walkerId, 'walk_booked',
+        isGroomingJob ? 'Grooming Request for You 🛁' : 'New Booking Request for You 🐾',
+        `${ownerName} chose you for ${dogName}. K${walk.walkerEarning} earning. Accept to confirm.`,
+        { walkId: walk.id },
+      );
+    } else {
+      const approved = data.users.filter(u => u.role === 'walker' && (!u.walkerStatus || u.walkerStatus === 'active'));
+      const groomers = approved.filter(u => u.pricing?.grooming != null);
+      const pool = isGroomingJob && groomers.length > 0 ? groomers : approved;
+      pool.forEach(w => sendNotification(w.id, 'walk_booked', notifyTitle, notifyMsg, { walkId: walk.id }));
     }
+    data.users.filter(u => u.role === 'admin').forEach(admin => {
+      sendNotification(admin.id, 'walk_booked', 'New Walk Booked', notifyMsg, { walkId: walk.id });
+    });
     trackEvent('walk_booked', { dogId: walk.dogId, duration: walk.duration, price: walk.price });
+  };
+
+  const buildWalk = (walk: Omit<Walk, 'id' | 'createdAt'>): Walk =>
+    ({ ...walk, id: crypto.randomUUID(), createdAt: new Date().toISOString() });
+
+  // Fire-and-forget version (older screens). Rolls back and stays quiet about notifications if the save fails.
+  const createWalk = (walk: Omit<Walk, 'id' | 'createdAt'>): Walk => {
+    const newWalk = buildWalk(walk);
+    setData(prev => ({ ...prev, walks: [newWalk, ...prev.walks] }));
+    supabase.from('walks').insert(walkInsertRow(newWalk)).then(({ error }) => {
+      if (error) {
+        console.error('createWalk:', error);
+        setData(prev => ({ ...prev, walks: prev.walks.filter(w => w.id !== newWalk.id) }));
+        return;
+      }
+      notifyWalkCreated(newWalk);
+    });
     return newWalk;
+  };
+
+  // Awaitable version: the caller only shows "booked" once the database confirms it.
+  const createWalkAsync = async (walk: Omit<Walk, 'id' | 'createdAt'>): Promise<{ walk?: Walk; error?: string }> => {
+    const { data: sess } = await supabase.auth.getSession();
+    if (!sess.session) return { error: 'Your session has expired. Please log out and log back in.' };
+    const newWalk = buildWalk(walk);
+    const { error } = await supabase.from('walks').insert(walkInsertRow(newWalk));
+    if (error) {
+      console.error('createWalkAsync:', error);
+      return { error: friendlyDbError(error) };
+    }
+    setData(prev => prev.walks.some(w => w.id === newWalk.id) ? prev : ({ ...prev, walks: [newWalk, ...prev.walks] }));
+    notifyWalkCreated(newWalk);
+    return { walk: newWalk };
   };
 
   const updateWalk = (id: string, updates: Partial<Walk>) => {
@@ -641,8 +899,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const startWalk = (walkId: string, loc: { lat: number; lng: number }) => {
-    updateWalk(walkId, { status: 'active', startTime: new Date().toISOString(), startLocation: loc });
     const walk = data.walks.find(w => w.id === walkId);
+    // Keep the pickup point the owner booked (and its address); only fall back to the walker's GPS if there is none.
+    const hasPickup = walk?.startLocation?.lat != null && walk?.startLocation?.lng != null;
+    updateWalk(walkId, { status: 'active', startTime: new Date().toISOString(), ...(hasPickup ? {} : { startLocation: loc }) });
     const dog = walk ? data.dogs.find(d => d.id === walk.dogId) : null;
     if (walk?.ownerId) {
       sendNotification(walk.ownerId, 'walk_started',
@@ -727,8 +987,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const assignWalker = (walkId: string, walkerId: string) => {
-    updateWalk(walkId, { walkerId, status: 'assigned' });
     const walk = data.walks.find(w => w.id === walkId);
+    // Someone else already took this job.
+    if (walk?.walkerId && walk.walkerId !== walkerId) return;
+    setData(prev => ({ ...prev, walks: prev.walks.map(w => w.id === walkId ? { ...w, walkerId, status: 'assigned' as const } : w) }));
+    supabase.from('walks').update({ walker_id: walkerId, status: 'assigned' })
+      .eq('id', walkId).or(`walker_id.is.null,walker_id.eq.${walkerId}`).select('id')
+      .then(({ data: rows, error }) => {
+        if (error) console.error('assignWalker:', error);
+        else if (!rows?.length) loadData(); // lost the race: reload the truth
+      });
     const dog = walk ? data.dogs.find(d => d.id === walk.dogId) : null;
     // Notify walker
     sendNotification(walkerId, 'walk_accepted',
@@ -882,16 +1150,52 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return dogs.map(d => imgs[d.id] ? { ...d, imageUrl: imgs[d.id] } : d);
   };
 
+  const base64ToBlob = (b64: string): Blob => {
+    const [, data] = b64.split(',');
+    const bytes = Uint8Array.from(atob(data), c => c.charCodeAt(0));
+    return new Blob([bytes], { type: 'image/jpeg' });
+  };
+
+  const uploadPetPhoto = async (b64: string, dogId: string): Promise<string | null> => {
+    try {
+      const blob = base64ToBlob(b64);
+      const { data, error } = await supabase.storage.from('pet-images').upload(`${dogId}.jpg`, blob, {
+        contentType: 'image/jpeg', cacheControl: '31536000', upsert: true,
+      });
+      if (error) return null;
+      return supabase.storage.from('pet-images').getPublicUrl(data.path).data.publicUrl;
+    } catch { return null; }
+  };
+
   const createDog = (dog: Omit<Dog, 'id'>): Dog => {
     const newDog: Dog = { ...dog, id: crypto.randomUUID(), healthLogs: [] };
-    // Save image to localStorage so it persists across refreshes without Supabase size limits
+    // Always save to localStorage as fast cache
     if (dog.imageUrl) saveDogImage(newDog.id, dog.imageUrl);
     setData(prev => ({ ...prev, dogs: [...prev.dogs, newDog] }));
-    // Store metadata only (no image_url) in Supabase
-    supabase.from('dogs').insert({
-      id: newDog.id, name: dog.name, breed: dog.breed ?? null, age: dog.age ?? null,
-      owner_id: dog.ownerId, notes: dog.notes ?? null,
-    }).then(({ error }) => { if (error) console.error('createDog:', error); });
+
+    const doInsert = async () => {
+      let imageUrl: string | null = null;
+      if (dog.imageUrl?.startsWith('data:')) {
+        // Try to upload to Storage so image syncs to other devices
+        imageUrl = await uploadPetPhoto(dog.imageUrl, newDog.id);
+        if (imageUrl) {
+          // Update local state so this device also shows the URL (not just base64)
+          setData(prev => ({
+            ...prev,
+            dogs: prev.dogs.map(d => d.id === newDog.id ? { ...d, imageUrl: imageUrl! } : d),
+          }));
+          saveDogImage(newDog.id, imageUrl);
+        }
+      }
+      const { error } = await supabase.from('dogs').insert({
+        id: newDog.id, name: dog.name, breed: dog.breed ?? null, age: dog.age ?? null,
+        owner_id: dog.ownerId, notes: dog.notes ?? null,
+        animal_type: dog.animalType ?? 'dog',
+        image_url: imageUrl,
+      });
+      if (error) console.error('createDog:', error);
+    };
+    doInsert();
     return newDog;
   };
 
@@ -967,13 +1271,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (currentUser?.id === userId) {
       const updated = { ...currentUser, ...resolvedUpdates };
       setCurrentUser(updated);
-      sessionStorage.setItem('pawfleet_user', JSON.stringify(updated));
+      localStorage.setItem('pawfleet_user', JSON.stringify(updated));
     }
     const dbFields: Record<string, any> = {};
     if (resolvedUpdates.name !== undefined)     dbFields.name     = resolvedUpdates.name;
     if (resolvedUpdates.phone !== undefined)    dbFields.phone    = resolvedUpdates.phone;
     if (resolvedUpdates.email !== undefined)    dbFields.email    = resolvedUpdates.email;
-    if (resolvedUpdates.imageUrl !== undefined) dbFields.image_url = resolvedUpdates.imageUrl;
+    // Only write to DB if it's a real URL (not a base64 fallback — too large for a DB column)
+    if (resolvedUpdates.imageUrl !== undefined && !resolvedUpdates.imageUrl.startsWith('data:'))
+      dbFields.image_url = resolvedUpdates.imageUrl;
+    if (resolvedUpdates.nrcImageUrl !== undefined && !resolvedUpdates.nrcImageUrl.startsWith('data:'))
+      dbFields.nrc_image_url = resolvedUpdates.nrcImageUrl;
     if (resolvedUpdates.businessName !== undefined)          dbFields.business_name          = resolvedUpdates.businessName;
     if (resolvedUpdates.businessAddress !== undefined)       dbFields.business_address       = resolvedUpdates.businessAddress;
     if (resolvedUpdates.businessType !== undefined)          dbFields.business_type          = resolvedUpdates.businessType;
@@ -1033,7 +1341,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   return (
     <AppContext.Provider value={{
       loading, currentUser, data, login, register, logout,
-      createWalk, updateWalk, startWalk, endWalk,
+      createWalk, createWalkAsync, updateWalk, startWalk, endWalk,
       assignWalker, cancelWalk, markPaymentPaid, confirmPaymentReceived,
       createDog, updateDog, logHealth,
       addUser, updateUser, getWalkerStats, refreshData,

@@ -23,49 +23,77 @@ function PhotoModal({ url, name, onClose }: { url: string; name: string; onClose
 }
 
 function ApplicationModal({ walker, onClose }: { walker: User; onClose: () => void }) {
+  const [nrcZoom, setNrcZoom] = useState(false);
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm px-4 pb-4"
-      onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden">
-        <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-surface-border">
-          <h2 className="font-bold text-ink">Application Details</h2>
-          <button type="button" onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-surface-hover text-ink-muted">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-        <div className="p-5 space-y-4">
-          {/* Profile photo */}
-          {walker.imageUrl && (
-            <div className="flex justify-center">
-              <img src={walker.imageUrl} alt={walker.name}
-                className="w-24 h-24 rounded-3xl object-cover border-2 border-surface-border shadow-md" />
-            </div>
-          )}
-          <div className="space-y-3">
-            {[
-              { label: 'Full Name',     value: walker.name },
-              { label: 'Phone',         value: walker.phone },
-              { label: 'Email',         value: walker.email || '—' },
-              { label: 'NRC Number',    value: walker.nrc || '—' },
-              { label: 'Referral Code', value: walker.referralCode ? `Used: ${walker.referralCode}` : '—' },
-              { label: 'Applied On',    value: new Date(walker.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) },
-              { label: 'Status',        value: walker.walkerStatus?.replace('_', ' ') ?? 'active' },
-            ].map(({ label, value }) => (
-              <div key={label} className="flex items-start gap-3">
-                <p className="text-xs text-ink-muted w-28 shrink-0 pt-0.5">{label}</p>
-                <p className="text-sm font-semibold text-ink flex-1 break-all">{value}</p>
+    <>
+      <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm px-4 pb-4"
+        onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+        <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+          <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-surface-border shrink-0">
+            <h2 className="font-bold text-ink">Application Details</h2>
+            <button type="button" onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-surface-hover text-ink-muted">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="p-5 space-y-4 overflow-y-auto">
+            {/* Profile photo */}
+            {walker.imageUrl && (
+              <div className="flex justify-center">
+                <img src={walker.imageUrl} alt={walker.name}
+                  className="w-24 h-24 rounded-3xl object-cover border-2 border-surface-border shadow-md" />
               </div>
-            ))}
+            )}
+            {/* NRC image */}
+            {walker.nrcImageUrl && (
+              <div className="space-y-1.5">
+                <p className="text-xs font-semibold text-ink-muted uppercase tracking-wider">NRC Card Photo</p>
+                <div
+                  className="relative rounded-2xl overflow-hidden cursor-pointer group"
+                  style={{ height: 140 }}
+                  onClick={() => setNrcZoom(true)}>
+                  <img src={walker.nrcImageUrl} alt="NRC" className="w-full h-full object-cover" />
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                    <ZoomIn className="w-5 h-5 text-white" />
+                    <span className="text-white text-sm font-semibold">Zoom</span>
+                  </div>
+                </div>
+              </div>
+            )}
+            {!walker.nrcImageUrl && walker.role === 'walker' && (
+              <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs text-amber-700"
+                style={{ background: '#FFFBEB', border: '1px solid #FDE68A' }}>
+                <span>⚠️</span> No NRC photo submitted
+              </div>
+            )}
+            <div className="space-y-3">
+              {[
+                { label: 'Full Name',     value: walker.name },
+                { label: 'Phone',         value: walker.phone },
+                { label: 'Email',         value: walker.email || '—' },
+                { label: 'NRC Number',    value: walker.nrc || '—' },
+                { label: 'Referral Code', value: walker.referralCode ? `Used: ${walker.referralCode}` : '—' },
+                { label: 'Applied On',    value: new Date(walker.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) },
+                { label: 'Status',        value: walker.walkerStatus?.replace('_', ' ') ?? 'active' },
+              ].map(({ label, value }) => (
+                <div key={label} className="flex items-start gap-3">
+                  <p className="text-xs text-ink-muted w-28 shrink-0 pt-0.5">{label}</p>
+                  <p className="text-sm font-semibold text-ink flex-1 break-all">{value}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="px-5 pb-5 shrink-0">
+            <button type="button" onClick={onClose}
+              className="w-full py-3 rounded-2xl border border-surface-border text-sm font-semibold text-ink-secondary hover:bg-surface-hover">
+              Close
+            </button>
           </div>
         </div>
-        <div className="px-5 pb-5">
-          <button type="button" onClick={onClose}
-            className="w-full py-3 rounded-2xl border border-surface-border text-sm font-semibold text-ink-secondary hover:bg-surface-hover">
-            Close
-          </button>
-        </div>
       </div>
-    </div>
+      {nrcZoom && walker.nrcImageUrl && (
+        <PhotoModal url={walker.nrcImageUrl} name={`${walker.name} — NRC Card`} onClose={() => setNrcZoom(false)} />
+      )}
+    </>
   );
 }
 
@@ -78,7 +106,7 @@ interface NewWalkerForm {
 }
 const BLANK: NewWalkerForm = { name: '', phone: '', email: '', password: '', photoUrl: '' };
 
-type Tab = 'active' | 'pending' | 'suspended';
+type Tab = 'active' | 'pending' | 'suspended' | 'trainer';
 
 export default function AdminWalkers() {
   const { data, getWalkerStats, addUser, approveWalker, rejectWalker, updateUser, activateSubscription, currentUser, getAdminReferralCode, refreshData } = useApp();
@@ -101,8 +129,11 @@ export default function AdminWalkers() {
   const activeWalkers  = walkers.filter(w => !w.walkerStatus || w.walkerStatus === 'active');
   const pendingWalkers = walkers.filter(w => w.walkerStatus === 'pending_approval');
   const suspendedWalkers = walkers.filter(w => w.walkerStatus === 'suspended');
+  const trainerApplicants = walkers.filter(w => (w.pricing as any)?.trainerStatus === 'applied');
+  const approvedTrainers  = walkers.filter(w => (w.pricing as any)?.trainerStatus === 'approved');
+  const trainerTabCount   = trainerApplicants.length + approvedTrainers.length;
 
-  const displayWalkers = tab === 'active' ? activeWalkers : tab === 'pending' ? pendingWalkers : suspendedWalkers;
+  const displayWalkers = tab === 'active' ? activeWalkers : tab === 'pending' ? pendingWalkers : tab === 'trainer' ? trainerApplicants : suspendedWalkers;
 
   const myCode = currentUser ? getAdminReferralCode(currentUser.id) : '';
 
@@ -223,11 +254,26 @@ export default function AdminWalkers() {
           </button>
         )}
 
+        {/* Trainer applications alert */}
+        {trainerApplicants.length > 0 && tab !== 'trainer' && (
+          <button onClick={() => setTab('trainer')}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl border-2 text-left"
+            style={{ borderColor: '#86efac', background: '#f0fdf4' }}>
+            <span className="w-2.5 h-2.5 rounded-full animate-pulse shrink-0" style={{ background: '#2B8A50' }} />
+            <div className="flex-1">
+              <p className="text-sm font-bold" style={{ color: '#1B4332' }}>{trainerApplicants.length} trainer application{trainerApplicants.length !== 1 ? 's' : ''} waiting for review</p>
+              <p className="text-xs" style={{ color: '#2B8A50' }}>Walkers who applied to become dog trainers</p>
+            </div>
+            <span className="text-xs font-bold" style={{ color: '#1B4332' }}>Review →</span>
+          </button>
+        )}
+
         {/* Tabs */}
         <div className="flex gap-1 p-1 bg-surface-secondary border border-surface-border rounded-xl">
           {([
             { value: 'active', label: 'Active', count: activeWalkers.length },
-            { value: 'pending', label: 'Pending Review', count: pendingWalkers.length },
+            { value: 'pending', label: 'Pending', count: pendingWalkers.length },
+            { value: 'trainer', label: 'Trainers', count: trainerTabCount },
             { value: 'suspended', label: 'Suspended', count: suspendedWalkers.length },
           ] as const).map(t => (
             <button key={t.value} onClick={() => setTab(t.value)}
@@ -244,7 +290,121 @@ export default function AdminWalkers() {
           ))}
         </div>
 
-        {displayWalkers.length === 0 ? (
+        {/* ── Trainer tab ── */}
+        {tab === 'trainer' && (
+          <div className="space-y-5">
+            {/* Approved Trainers */}
+            {approvedTrainers.length > 0 && (
+              <div>
+                <p className="text-xs font-bold text-ink-muted uppercase tracking-wider mb-2">Active Dog Trainers ({approvedTrainers.length})</p>
+                <div className="space-y-2">
+                  {approvedTrainers.map(walker => (
+                    <div key={walker.id} className="bg-white border rounded-2xl px-4 py-3 flex items-center gap-3"
+                      style={{ borderColor: '#86efac' }}>
+                      <div className="w-10 h-10 rounded-xl overflow-hidden shrink-0 flex items-center justify-center font-bold text-white"
+                        style={{ background: '#1B4332' }}>
+                        {walker.imageUrl
+                          ? <img src={walker.imageUrl} alt={walker.name} className="w-full h-full object-cover" />
+                          : walker.name[0]}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-bold text-ink text-sm">{walker.name}</p>
+                        <p className="text-xs text-ink-muted">{walker.phone}</p>
+                      </div>
+                      <span className="flex items-center gap-1 text-[10px] font-bold text-white px-2.5 py-1 rounded-full shrink-0"
+                        style={{ background: '#1B4332' }}>
+                        🎓 Trainer
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Pending Applications */}
+            {trainerApplicants.length > 0 && (
+              <div>
+                <p className="text-xs font-bold text-ink-muted uppercase tracking-wider mb-2">Pending Applications ({trainerApplicants.length})</p>
+                <div className="space-y-3">
+                  {trainerApplicants.map(walker => {
+                const pricing = (walker.pricing as any) || {};
+                return (
+                  <div key={walker.id} className="bg-white border rounded-2xl overflow-hidden"
+                    style={{ borderColor: '#86efac' }}>
+                    <div className="px-4 py-2 flex items-center gap-2" style={{ background: '#f0fdf4', borderBottom: '1px solid #bbf7d0' }}>
+                      <span className="text-xs font-bold" style={{ color: '#1B4332' }}>🎓 Trainer Application</span>
+                      {pricing.trainerAppliedAt && (
+                        <span className="ml-auto text-[10px] text-ink-muted">
+                          {format(parseISO(pricing.trainerAppliedAt), 'd MMM yyyy')}
+                        </span>
+                      )}
+                    </div>
+                    <div className="p-4">
+                      <div className="flex items-center gap-3 mb-3">
+                        {walker.imageUrl ? (
+                          <img src={walker.imageUrl} alt={walker.name}
+                            className="w-12 h-12 rounded-2xl object-cover border border-surface-border" />
+                        ) : (
+                          <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-white text-lg font-bold"
+                            style={{ background: 'linear-gradient(135deg,#1B4332,#2B8A50)' }}>
+                            {walker.name.charAt(0)}
+                          </div>
+                        )}
+                        <div>
+                          <p className="font-bold text-ink">{walker.name}</p>
+                          <p className="text-xs text-ink-muted">{walker.phone || walker.email}</p>
+                        </div>
+                      </div>
+                      {pricing.experience && (
+                        <div className="mb-2">
+                          <p className="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-1">Experience</p>
+                          <p className="text-sm text-ink bg-surface-secondary rounded-xl px-3 py-2">{pricing.experience}</p>
+                        </div>
+                      )}
+                      {pricing.motivation && (
+                        <div className="mb-3">
+                          <p className="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-1">Motivation</p>
+                          <p className="text-sm text-ink bg-surface-secondary rounded-xl px-3 py-2">{pricing.motivation}</p>
+                        </div>
+                      )}
+                      <div className="flex gap-2">
+                        <button
+                          onClick={async () => {
+                            const existing = (walker.pricing as any) || {};
+                            await updateUser(walker.id, { pricing: { ...existing, trainerStatus: 'approved' } });
+                          }}
+                          className="flex-1 py-2.5 rounded-xl text-white text-sm font-bold flex items-center justify-center gap-1.5"
+                          style={{ background: 'linear-gradient(135deg,#1B4332,#2B8A50)' }}>
+                          <CheckCircle className="w-4 h-4" /> Approve
+                        </button>
+                        <button
+                          onClick={async () => {
+                            const existing = (walker.pricing as any) || {};
+                            await updateUser(walker.id, { pricing: { ...existing, trainerStatus: 'rejected' } });
+                          }}
+                          className="flex-1 py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-1.5 border border-surface-border text-ink-secondary">
+                          <XCircle className="w-4 h-4" /> Reject
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+              </div>
+            </div>
+            )}
+
+            {trainerTabCount === 0 && (
+              <div className="bg-white border border-surface-border rounded-2xl p-12 text-center">
+                <p className="text-4xl mb-3">🎓</p>
+                <p className="font-semibold text-ink">No trainers yet</p>
+                <p className="text-sm text-ink-muted mt-1">Walker applications to become trainers will appear here</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {tab !== 'trainer' && displayWalkers.length === 0 ? (
           <div className="bg-white border border-surface-border rounded-2xl p-12 text-center">
             {tab === 'pending' ? (
               <>
@@ -259,7 +419,7 @@ export default function AdminWalkers() {
               </>
             )}
           </div>
-        ) : (
+        ) : tab !== 'trainer' && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {displayWalkers.map(walker => {
               const stats = getStats(walker.id);

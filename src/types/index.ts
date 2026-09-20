@@ -24,6 +24,7 @@ export interface User {
   businessAddress?: string;
   businessType?: string;
   nrc?: string;                        // National Registration Card (walkers)
+  nrcImageUrl?: string;                // Photo of the NRC card (walkers)
   walkerStatus?: WalkerStatus;         // Walker application status
   referredByAdminId?: string;          // Which admin's referral code was used
   referralCode?: string;               // Admin's own referral code (admins only)
@@ -42,7 +43,7 @@ export interface User {
 export interface AppNotification {
   id: string;
   userId: string;          // recipient
-  type: 'walk_booked' | 'walk_accepted' | 'walk_started' | 'walk_completed' | 'walk_cancelled' | 'payment_marked' | 'walker_signup' | 'shop_promo' | 'walker_approved' | 'walker_rejected' | 'shop_order' | 'shop_message' | 'achievement' | 'sos';
+  type: 'walk_booked' | 'walk_accepted' | 'walk_started' | 'walk_completed' | 'walk_cancelled' | 'payment_marked' | 'walker_signup' | 'shop_promo' | 'walker_approved' | 'walker_rejected' | 'shop_order' | 'shop_message' | 'achievement' | 'sos' | 'trainer_application' | 'chat_message';
   title: string;
   body: string;
   data?: Record<string, string>;

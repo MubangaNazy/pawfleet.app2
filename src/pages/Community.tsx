@@ -1,19 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
-import { Trophy, Star, Dog, TrendingUp, Award, MessageCircle, Facebook, Send, Heart, Camera, X, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
+import { MessageCircle, Send, Heart, Camera, X, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { supabase } from '../lib/supabase';
-
-type Tab = 'feed' | 'walkers' | 'owners';
-
-const MEDAL = ['🥇', '🥈', '🥉'];
-const MEDAL_COLORS = ['#F59E0B', '#9CA3AF', '#CD7F32'];
-
-const ROLE_CHANNELS: Record<string, { label: string; whatsapp: string; facebook: string }> = {
-  walker:    { label: 'PawFleet Walkers',        whatsapp: '', facebook: '' },
-  owner:     { label: "PawFleet Dog Owners",     whatsapp: '', facebook: '' },
-  shopowner: { label: 'PawFleet Shop Owners',    whatsapp: '', facebook: '' },
-};
-const GENERAL_CHANNEL = { label: 'PawFleet General Community', whatsapp: '', facebook: '' };
 
 interface PostComment {
   id: string;
@@ -48,85 +36,44 @@ function timeAgo(iso: string) {
 }
 
 function roleLabel(role: string) {
-  if (role === 'walker') return '🦮 Walker';
-  if (role === 'owner') return '🐾 Owner';
-  if (role === 'admin') return '⚡ Admin';
+  if (role === 'walker')    return '🦮 Walker';
+  if (role === 'owner')     return '🐾 Owner';
+  if (role === 'admin')     return '⚡ Admin';
   if (role === 'shopowner') return '🛍 Shop';
+  if (role === 'vet')       return '🩺 Vet';
   return role;
 }
 
-function ChannelCard({ name, whatsapp, facebook }: { name: string; whatsapp: string; facebook: string }) {
-  return (
-    <div className="bg-white border border-surface-border rounded-2xl overflow-hidden">
-      <div className="px-4 py-3 border-b border-surface-border">
-        <p className="font-bold text-sm text-ink">{name}</p>
-      </div>
-      <div className="flex divide-x divide-surface-border">
-        <a
-          href={whatsapp || undefined}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={e => { if (!whatsapp) e.preventDefault(); }}
-          className={`flex-1 flex flex-col items-center gap-1.5 py-4 transition-colors ${whatsapp ? 'hover:bg-green-50 cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}
-        >
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: '#25D366' }}>
-            <MessageCircle className="w-5 h-5 text-white" />
-          </div>
-          <p className="text-xs font-semibold text-ink">WhatsApp</p>
-          <p className="text-[10px]" style={{ color: whatsapp ? '#25D366' : '#9CA3AF' }}>
-            {whatsapp ? 'Join group' : 'Coming soon'}
-          </p>
-        </a>
-        <a
-          href={facebook || undefined}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={e => { if (!facebook) e.preventDefault(); }}
-          className={`flex-1 flex flex-col items-center gap-1.5 py-4 transition-colors ${facebook ? 'hover:bg-blue-50 cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}
-        >
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: '#1877F2' }}>
-            <Facebook className="w-5 h-5 text-white" />
-          </div>
-          <p className="text-xs font-semibold text-ink">Facebook</p>
-          <p className="text-[10px]" style={{ color: facebook ? '#1877F2' : '#9CA3AF' }}>
-            {facebook ? 'Join group' : 'Coming soon'}
-          </p>
-        </a>
-      </div>
-    </div>
-  );
-}
+const initials = (name: string) => name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
 
 export default function Community() {
-  const { data, currentUser } = useApp();
-  const [tab, setTab] = useState<Tab>('feed');
+  const { currentUser } = useApp();
   const [posts, setPosts] = useState<CommunityPost[]>([]);
   const [draft, setDraft] = useState('');
   const [posting, setPosting] = useState(false);
+  const [postError, setPostError] = useState('');
   const [previewImg, setPreviewImg] = useState<string | null>(null);
+  const [dbReady, setDbReady] = useState<boolean | null>(null);
   const [expandedComments, setExpandedComments] = useState<Set<string>>(new Set());
   const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
   const [submittingComment, setSubmittingComment] = useState<string | null>(null);
   const photoRef = useRef<HTMLInputElement>(null);
 
-  const role = currentUser?.role || 'owner';
-  const roleChannel = ROLE_CHANNELS[role];
-
-  // Scroll to top on mount — Layout uses overflow-y-auto on <main>, not window
   useEffect(() => {
     window.scrollTo(0, 0);
     const main = document.querySelector('main');
     if (main) main.scrollTop = 0;
   }, []);
 
-  // Fetch posts + subscribe to realtime
   useEffect(() => {
     supabase
       .from('community_posts')
       .select('*')
       .order('created_at', { ascending: false })
       .limit(50)
-      .then(({ data: rows }) => {
+      .then(({ data: rows, error }) => {
+        if (error) { setDbReady(false); return; }
+        setDbReady(true);
         if (rows) setPosts(rows as CommunityPost[]);
       });
 
@@ -136,7 +83,10 @@ export default function Community() {
         setPosts(prev => [payload.new as CommunityPost, ...prev]);
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'community_posts' }, payload => {
-        setPosts(prev => prev.map(p => p.id === (payload.new as CommunityPost).id ? payload.new as CommunityPost : p));
+        const updated = payload.new as CommunityPost;
+        setPosts(prev => prev.map(p => p.id === updated.id
+          ? { ...p, ...updated, image_url: updated.image_url ?? p.image_url }
+          : p));
       })
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'community_posts' }, payload => {
         setPosts(prev => prev.filter(p => p.id !== (payload.old as { id: string }).id));
@@ -145,6 +95,24 @@ export default function Community() {
 
     return () => { channel.unsubscribe(); };
   }, []);
+
+  const base64ToBlob = (b64: string): Blob => {
+    const [, data] = b64.split(',');
+    const bytes = Uint8Array.from(atob(data), c => c.charCodeAt(0));
+    return new Blob([bytes], { type: 'image/jpeg' });
+  };
+
+  const uploadPostImage = async (b64: string): Promise<string | null> => {
+    try {
+      const blob = base64ToBlob(b64);
+      const path = `posts/${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
+      const { data, error } = await supabase.storage.from('community-images').upload(path, blob, {
+        contentType: 'image/jpeg', cacheControl: '3600', upsert: false,
+      });
+      if (error) return null;
+      return supabase.storage.from('community-images').getPublicUrl(data.path).data.publicUrl;
+    } catch { return null; }
+  };
 
   const compressImage = (file: File): Promise<string> =>
     new Promise((resolve, reject) => {
@@ -158,7 +126,7 @@ export default function Community() {
         canvas.width = Math.round(img.width * scale);
         canvas.height = Math.round(img.height * scale);
         canvas.getContext('2d')?.drawImage(img, 0, 0, canvas.width, canvas.height);
-        resolve(canvas.toDataURL('image/jpeg', 0.75));
+        resolve(canvas.toDataURL('image/jpeg', 0.72));
       };
       img.onerror = reject;
       img.src = url;
@@ -167,28 +135,55 @@ export default function Community() {
   const handlePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const compressed = await compressImage(file);
-    setPreviewImg(compressed);
+    try {
+      const compressed = await compressImage(file);
+      setPreviewImg(compressed);
+    } catch { setPostError('Could not load image. Please try a different photo.'); }
   };
 
   const submitPost = async () => {
     if (!draft.trim() && !previewImg) return;
     if (!currentUser) return;
     setPosting(true);
-    const row = {
+    setPostError('');
+
+    // Upload image to Supabase Storage to avoid large payloads in the DB row
+    let finalImageUrl: string | undefined;
+    if (previewImg) {
+      const uploaded = await uploadPostImage(previewImg);
+      finalImageUrl = uploaded ?? previewImg; // fall back to base64 if bucket not set up yet
+    }
+
+    const optimisticId = crypto.randomUUID();
+    const row: CommunityPost = {
+      id: optimisticId,
       author_id: currentUser.id,
       author_name: currentUser.name,
       author_role: currentUser.role,
-      author_image: currentUser.imageUrl || null,
+      author_image: currentUser.imageUrl || undefined,
       content: draft.trim(),
-      image_url: previewImg || null,
+      image_url: finalImageUrl,
       likes: 0,
       liked_by: [],
+      comments: [],
+      created_at: new Date().toISOString(),
     };
-    await supabase.from('community_posts').insert(row);
+    setPosts(prev => [row, ...prev]);
+    const savedDraft = draft;
     setDraft('');
     setPreviewImg(null);
     setPosting(false);
+
+    const { error } = await supabase.from('community_posts').insert({ ...row, id: undefined });
+    if (error) {
+      setPosts(prev => prev.filter(p => p.id !== optimisticId));
+      setDraft(savedDraft);
+      if (error.code === '42501' || error.message?.includes('policy')) {
+        setPostError('Permission denied. Ask admin to run: ALTER TABLE community_posts ENABLE ROW LEVEL SECURITY; CREATE POLICY "cp_all" ON community_posts FOR ALL TO authenticated USING (true) WITH CHECK (true);');
+      } else {
+        setPostError(`Post failed: ${error.message}`);
+      }
+    }
   };
 
   const deletePost = async (postId: string) => {
@@ -232,396 +227,182 @@ export default function Community() {
     await supabase.from('community_posts').update({ likes: newLikes, liked_by: newLikedBy }).eq('id', post.id);
   };
 
-  const initials = (name: string) => name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
-
-  const walkerRanks = data.users
-    .filter(u => u.role === 'walker')
-    .map(walker => {
-      const completed = data.walks.filter(w => w.walkerId === walker.id && w.status === 'completed');
-      const rated = completed.filter(w => w.rating != null);
-      const avgRating = rated.length ? rated.reduce((s, w) => s + (w.rating ?? 0), 0) / rated.length : null;
-      const earned = completed.reduce((s, w) => s + (w.walkerEarning || 0), 0);
-      return { user: walker, completedCount: completed.length, avgRating, earned };
-    })
-    .sort((a, b) => b.completedCount - a.completedCount || (b.avgRating ?? 0) - (a.avgRating ?? 0));
-
-  const ownerRanks = data.users
-    .filter(u => u.role === 'owner')
-    .map(owner => {
-      const walks = data.walks.filter(w => w.ownerId === owner.id);
-      const dogs = data.dogs.filter(d => d.ownerId === owner.id);
-      const spent = walks.filter(w => w.status === 'completed').reduce((s, w) => s + (w.ownerCost ?? w.price), 0);
-      return { user: owner, totalWalks: walks.length, spent, dogs };
-    })
-    .sort((a, b) => b.totalWalks - a.totalWalks);
-
-  const maxWalks = walkerRanks[0]?.completedCount || 1;
-
   return (
     <div className="max-w-lg mx-auto pb-24">
-      {/* Hero header */}
-      <div className="px-5 pt-8 pb-5" style={{ background: 'linear-gradient(135deg, #1B4332 0%, #2B8A50 60%, #52B788 100%)' }}>
-        <div className="flex items-center gap-3 mb-5">
-          <div className="w-11 h-11 rounded-2xl bg-white/20 flex items-center justify-center">
-            <Trophy className="w-6 h-6 text-yellow-300" />
+
+      {/* Header */}
+      <div className="px-5 pt-6 pb-4" style={{ background: 'linear-gradient(135deg, #071a0e 0%, #1B4332 60%, #2B8A50 100%)' }}>
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.18)' }}>
+            <MessageCircle className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h1 className="text-xl font-extrabold text-white">Community</h1>
-            <p className="text-white/70 text-xs">Lusaka's PawFleet family</p>
+            <h1 className="text-lg font-extrabold text-white">Community</h1>
+            <p className="text-white/55 text-[11px]">Share updates, tips &amp; photos</p>
           </div>
-        </div>
-
-        {/* Stats row */}
-        <div className="grid grid-cols-3 gap-2 mb-5">
-          {[
-            { label: 'Walkers', value: data.users.filter(u => u.role === 'walker').length },
-            { label: 'Walks Done', value: data.walks.filter(w => w.status === 'completed').length },
-            { label: 'Dogs', value: data.dogs.length },
-          ].map(s => (
-            <div key={s.label} className="bg-white/15 rounded-2xl p-3 text-center">
-              <p className="text-xl font-extrabold text-white">{s.value}</p>
-              <p className="text-white/70 text-[10px]">{s.label}</p>
-            </div>
-          ))}
-        </div>
-
-        {/* Tabs */}
-        <div className="flex gap-1.5 p-1 rounded-2xl bg-white/15">
-          {([['feed', '💬 Feed'], ['walkers', '🦮 Walkers'], ['owners', '🐾 Owners']] as [Tab, string][]).map(([t, label]) => (
-            <button key={t} onClick={() => setTab(t)}
-              className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${
-                tab === t ? 'bg-white text-ink shadow-sm' : 'text-white/80 hover:text-white'
-              }`}>
-              {label}
-            </button>
-          ))}
         </div>
       </div>
 
       <div className="p-4 space-y-3">
 
-        {/* ── FEED TAB ── */}
-        {tab === 'feed' && (
-          <>
-            {/* Compose box */}
-            {currentUser && (
-              <div className="bg-white rounded-2xl border border-surface-border p-4">
-                <div className="flex gap-3 items-start">
+        {/* DB not ready banner */}
+        {dbReady === false && (
+          <div className="px-4 py-3 rounded-2xl bg-amber-50 border border-amber-200">
+            <p className="text-xs font-bold text-amber-800 mb-1">Community table not set up</p>
+            <p className="text-xs text-amber-700">Ask admin to run this in Supabase SQL editor:</p>
+            <code className="block mt-1 text-[10px] bg-amber-100 rounded p-2 break-all text-amber-900">
+              CREATE TABLE IF NOT EXISTS community_posts (id uuid DEFAULT gen_random_uuid() PRIMARY KEY, author_id text, author_name text, author_role text, author_image text, content text, image_url text, likes int DEFAULT 0, liked_by text[] DEFAULT ARRAY[]::text[], comments jsonb DEFAULT '[]', created_at timestamptz DEFAULT now()); ALTER TABLE community_posts ENABLE ROW LEVEL SECURITY; CREATE POLICY "cp_all" ON community_posts FOR ALL TO authenticated USING (true) WITH CHECK (true);
+            </code>
+          </div>
+        )}
+
+        {/* Compose */}
+        {currentUser && (
+          <div className="bg-white rounded-2xl border border-surface-border p-4">
+            <div className="flex gap-3 items-start">
+              <div className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center text-white text-xs font-bold shrink-0"
+                style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)' }}>
+                {currentUser.imageUrl
+                  ? <img src={currentUser.imageUrl} alt="" className="w-full h-full object-cover" />
+                  : initials(currentUser.name)}
+              </div>
+              <div className="flex-1">
+                <textarea
+                  value={draft}
+                  onChange={e => setDraft(e.target.value)}
+                  placeholder="Share a tip, photo, or update…"
+                  rows={2}
+                  className="w-full text-sm text-ink resize-none bg-[#F4F9F6] rounded-xl px-3 py-2.5 placeholder:text-ink-muted/60 focus:outline-none"
+                />
+                {previewImg && (
+                  <div className="relative mt-2 rounded-xl overflow-hidden">
+                    <img src={previewImg} alt="preview" className="w-full object-cover max-h-48" />
+                    <button onClick={() => setPreviewImg(null)}
+                      className="absolute top-2 right-2 w-6 h-6 rounded-full bg-black/50 flex items-center justify-center">
+                      <X className="w-3 h-3 text-white" />
+                    </button>
+                  </div>
+                )}
+                <div className="flex items-center justify-between mt-2">
+                  <button onClick={() => { setPostError(''); photoRef.current?.click(); }}
+                    className="flex items-center gap-1.5 text-xs text-ink-muted hover:text-primary transition-colors px-2 py-1 rounded-lg hover:bg-[#EBF5EF]">
+                    <Camera className="w-3.5 h-3.5" /> Photo
+                  </button>
+                  <input ref={photoRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoSelect} />
+                  <button onClick={submitPost} disabled={posting || (!draft.trim() && !previewImg)}
+                    className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-xs font-bold text-white disabled:opacity-40"
+                    style={{ background: '#2B8A50' }}>
+                    <Send className="w-3 h-3" />
+                    {posting ? 'Posting…' : 'Post'}
+                  </button>
+                </div>
+                {postError && (
+                  <p className="text-xs text-red-600 mt-1.5 px-1 leading-relaxed">{postError}</p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Feed */}
+        {posts.length === 0 && dbReady !== false ? (
+          <div className="py-16 text-center">
+            <MessageCircle className="w-10 h-10 text-ink-muted mx-auto mb-3 opacity-30" />
+            <p className="text-sm font-bold text-ink mb-1">Be the first to post</p>
+            <p className="text-xs text-ink-muted">Share a walk photo, tip, or hello</p>
+          </div>
+        ) : (
+          posts.map(post => {
+            const liked = currentUser && (post.liked_by || []).includes(currentUser.id);
+            return (
+              <div key={post.id} className="bg-white rounded-2xl border border-surface-border overflow-hidden">
+                {/* Author row */}
+                <div className="flex items-start gap-3 p-3.5 pb-2">
                   <div className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center text-white text-xs font-bold shrink-0"
                     style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)' }}>
-                    {currentUser.imageUrl
-                      ? <img src={currentUser.imageUrl} alt="" className="w-full h-full object-cover" />
-                      : initials(currentUser.name)}
+                    {post.author_image
+                      ? <img src={post.author_image} alt="" className="w-full h-full object-cover" />
+                      : initials(post.author_name)}
                   </div>
-                  <div className="flex-1">
-                    <textarea
-                      value={draft}
-                      onChange={e => setDraft(e.target.value)}
-                      placeholder="Share a tip, photo, or update with the community…"
-                      rows={2}
-                      className="w-full text-sm text-ink resize-none bg-[#F4F9F6] rounded-xl px-3 py-2.5 placeholder:text-ink-muted/60 focus:outline-none focus:ring-2"
-                      style={{ '--tw-ring-color': '#2B8A50' } as React.CSSProperties}
-                    />
-                    {previewImg && (
-                      <div className="relative mt-2 rounded-xl overflow-hidden">
-                        <img src={previewImg} alt="preview" className="w-full object-cover max-h-40" />
-                        <button onClick={() => setPreviewImg(null)}
-                          className="absolute top-2 right-2 w-6 h-6 rounded-full bg-black/50 flex items-center justify-center">
-                          <X className="w-3 h-3 text-white" />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-sm font-bold text-ink truncate">{post.author_name}</span>
+                      <span className="text-[10px] text-ink-muted shrink-0">{roleLabel(post.author_role)}</span>
+                    </div>
+                    <p className="text-[10px] text-ink-muted">{timeAgo(post.created_at)}</p>
+                  </div>
+                  {currentUser?.id === post.author_id && (
+                    <button onClick={() => deletePost(post.id)}
+                      className="w-7 h-7 flex items-center justify-center rounded-xl text-red-400 hover:bg-red-50 transition-colors">
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                {post.content && (
+                  <p className="px-3.5 pb-2.5 text-sm text-ink leading-relaxed">{post.content}</p>
+                )}
+                {post.image_url && (
+                  <div className="overflow-hidden">
+                    <img src={post.image_url} alt="post" className="w-full object-cover max-h-72"
+                      style={{ imageRendering: 'auto' }} />
+                  </div>
+                )}
+
+                {/* Actions */}
+                <div className="flex items-center gap-1 px-3.5 py-2 border-t border-surface-border">
+                  <button onClick={() => toggleLike(post)}
+                    className={`flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg transition-colors ${liked ? 'text-red-500 bg-red-50' : 'text-ink-muted hover:bg-surface-secondary'}`}>
+                    <Heart className={`w-3.5 h-3.5 ${liked ? 'fill-red-500 text-red-500' : ''}`} />
+                    {post.likes > 0 ? post.likes : 'Like'}
+                  </button>
+                  <button onClick={() => toggleComments(post.id)}
+                    className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg text-ink-muted hover:bg-surface-secondary transition-colors">
+                    <MessageCircle className="w-3.5 h-3.5" />
+                    {(post.comments?.length || 0) > 0 ? post.comments!.length : 'Comment'}
+                    {expandedComments.has(post.id) ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                  </button>
+                </div>
+
+                {/* Comments */}
+                {expandedComments.has(post.id) && (
+                  <div className="px-3.5 pb-3 space-y-2 border-t border-surface-border pt-2">
+                    {(post.comments || []).map(c => (
+                      <div key={c.id} className="flex gap-2 items-start">
+                        <div className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[9px] font-bold shrink-0"
+                          style={{ background: 'linear-gradient(135deg,#1B4332,#2B8A50)' }}>
+                          {c.author_name[0]}
+                        </div>
+                        <div className="flex-1 bg-[#F4F9F6] rounded-xl px-3 py-2">
+                          <p className="text-[10px] font-bold text-ink">{c.author_name}</p>
+                          <p className="text-xs text-ink-secondary leading-relaxed">{c.text}</p>
+                        </div>
+                      </div>
+                    ))}
+                    {currentUser && (
+                      <div className="flex gap-2 items-center pt-1">
+                        <input
+                          value={commentDrafts[post.id] || ''}
+                          onChange={e => setCommentDrafts(prev => ({ ...prev, [post.id]: e.target.value }))}
+                          onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitComment(post); } }}
+                          placeholder="Write a comment…"
+                          className="flex-1 text-xs bg-[#F4F9F6] rounded-xl px-3 py-2 focus:outline-none"
+                        />
+                        <button onClick={() => submitComment(post)}
+                          disabled={submittingComment === post.id || !commentDrafts[post.id]?.trim()}
+                          className="w-7 h-7 rounded-full flex items-center justify-center text-white disabled:opacity-40 shrink-0"
+                          style={{ background: '#2B8A50' }}>
+                          <Send className="w-3 h-3" />
                         </button>
                       </div>
                     )}
-                    <div className="flex items-center justify-between mt-2">
-                      <button onClick={() => photoRef.current?.click()}
-                        className="flex items-center gap-1.5 text-xs text-ink-muted hover:text-primary transition-colors px-2 py-1 rounded-lg hover:bg-[#EBF5EF]">
-                        <Camera className="w-3.5 h-3.5" />
-                        Photo
-                      </button>
-                      <input ref={photoRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoSelect} />
-                      <button
-                        onClick={submitPost}
-                        disabled={posting || (!draft.trim() && !previewImg)}
-                        className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-xs font-bold text-white transition-opacity disabled:opacity-40"
-                        style={{ background: '#2B8A50' }}>
-                        <Send className="w-3 h-3" />
-                        {posting ? 'Posting…' : 'Post'}
-                      </button>
-                    </div>
                   </div>
-                </div>
+                )}
               </div>
-            )}
-
-            {/* Posts feed */}
-            {posts.length === 0 ? (
-              <div className="py-16 text-center">
-                <MessageCircle className="w-10 h-10 text-ink-muted mx-auto mb-3 opacity-30" />
-                <p className="text-sm font-bold text-ink mb-1">Be the first to post</p>
-                <p className="text-xs text-ink-muted">Share a walk photo, tip, or hello with the community</p>
-              </div>
-            ) : (
-              posts.map(post => {
-                const liked = currentUser && (post.liked_by || []).includes(currentUser.id);
-                return (
-                  <div key={post.id} className="bg-white rounded-2xl border border-surface-border overflow-hidden">
-                    <div className="flex items-start gap-3 p-3.5 pb-2">
-                      <div className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center text-white text-xs font-bold shrink-0"
-                        style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)' }}>
-                        {post.author_image
-                          ? <img src={post.author_image} alt="" className="w-full h-full object-cover" />
-                          : initials(post.author_name)}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-baseline gap-2">
-                          <span className="text-sm font-bold text-ink truncate">{post.author_name}</span>
-                          <span className="text-[10px] text-ink-muted shrink-0">{roleLabel(post.author_role)}</span>
-                        </div>
-                        <p className="text-[10px] text-ink-muted">{timeAgo(post.created_at)}</p>
-                      </div>
-                    </div>
-                    {post.content && (
-                      <p className="px-3.5 pb-2.5 text-sm text-ink leading-relaxed">{post.content}</p>
-                    )}
-                    {post.image_url && (
-                      <div className="overflow-hidden">
-                        <img src={post.image_url} alt="post" className="w-full object-cover max-h-64" />
-                      </div>
-                    )}
-                    <div className="flex items-center gap-1 px-3.5 py-2 border-t border-surface-border">
-                      <button onClick={() => toggleLike(post)}
-                        className={`flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg transition-colors ${liked ? 'text-red-500 bg-red-50' : 'text-ink-muted hover:bg-surface-secondary'}`}>
-                        <Heart className={`w-3.5 h-3.5 ${liked ? 'fill-red-500 text-red-500' : ''}`} />
-                        {post.likes > 0 ? post.likes : 'Like'}
-                      </button>
-                      <button onClick={() => toggleComments(post.id)}
-                        className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg text-ink-muted hover:bg-surface-secondary transition-colors">
-                        <MessageCircle className="w-3.5 h-3.5" />
-                        {(post.comments?.length || 0) > 0 ? post.comments!.length : 'Comment'}
-                        {expandedComments.has(post.id) ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                      </button>
-                      {currentUser?.id === post.author_id && (
-                        <button onClick={() => deletePost(post.id)}
-                          className="ml-auto flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg text-red-400 hover:bg-red-50 transition-colors">
-                          <Trash2 className="w-3.5 h-3.5" /> Delete
-                        </button>
-                      )}
-                    </div>
-                    {/* Comments section */}
-                    {expandedComments.has(post.id) && (
-                      <div className="px-3.5 pb-3 space-y-2 border-t border-surface-border pt-2">
-                        {(post.comments || []).map(c => (
-                          <div key={c.id} className="flex gap-2 items-start">
-                            <div className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[9px] font-bold shrink-0"
-                              style={{ background: 'linear-gradient(135deg,#1B4332,#2B8A50)' }}>
-                              {c.author_name[0]}
-                            </div>
-                            <div className="flex-1 bg-[#F4F9F6] rounded-xl px-3 py-2">
-                              <p className="text-[10px] font-bold text-ink">{c.author_name}</p>
-                              <p className="text-xs text-ink-secondary leading-relaxed">{c.text}</p>
-                            </div>
-                          </div>
-                        ))}
-                        {currentUser && (
-                          <div className="flex gap-2 items-center pt-1">
-                            <input
-                              value={commentDrafts[post.id] || ''}
-                              onChange={e => setCommentDrafts(prev => ({ ...prev, [post.id]: e.target.value }))}
-                              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitComment(post); } }}
-                              placeholder="Write a comment…"
-                              className="flex-1 text-xs bg-[#F4F9F6] rounded-xl px-3 py-2 focus:outline-none focus:ring-2"
-                              style={{ '--tw-ring-color': '#2B8A50' } as React.CSSProperties}
-                            />
-                            <button onClick={() => submitComment(post)}
-                              disabled={submittingComment === post.id || !commentDrafts[post.id]?.trim()}
-                              className="w-7 h-7 rounded-full flex items-center justify-center text-white disabled:opacity-40 shrink-0"
-                              style={{ background: '#2B8A50' }}>
-                              <Send className="w-3 h-3" />
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })
-            )}
-          </>
+            );
+          })
         )}
-
-        {/* ── WALKERS LEADERBOARD ── */}
-        {tab === 'walkers' && (
-          <>
-            {walkerRanks.length >= 3 && (
-              <div className="grid grid-cols-3 gap-2 mb-2">
-                {[walkerRanks[1], walkerRanks[0], walkerRanks[2]].map((entry, podiumIdx) => {
-                  const rank = podiumIdx === 1 ? 1 : podiumIdx === 0 ? 2 : 3;
-                  const height = podiumIdx === 1 ? 'h-20' : 'h-14';
-                  return (
-                    <div key={entry.user.id} className="flex flex-col items-center gap-1">
-                      <div className="w-12 h-12 rounded-full overflow-hidden flex items-center justify-center text-white font-bold text-sm shadow-md"
-                        style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)' }}>
-                        {entry.user.imageUrl
-                          ? <img src={entry.user.imageUrl} alt={entry.user.name} className="w-full h-full object-cover" />
-                          : initials(entry.user.name)}
-                      </div>
-                      <p className="text-[10px] font-bold text-ink text-center leading-tight truncate w-full px-1">
-                        {entry.user.name.split(' ')[0]}
-                      </p>
-                      <div className={`w-full ${height} rounded-t-xl flex items-center justify-center text-xl`}
-                        style={{ background: `${MEDAL_COLORS[rank - 1]}22`, borderTop: `3px solid ${MEDAL_COLORS[rank - 1]}` }}>
-                        {MEDAL[rank - 1]}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-            {walkerRanks.length === 0
-              ? <EmptyState text="No walkers have completed any walks yet." />
-              : walkerRanks.map((entry, idx) => {
-                  const rank = idx + 1;
-                  const pct = (entry.completedCount / maxWalks) * 100;
-                  return (
-                    <div key={entry.user.id}
-                      className="bg-white rounded-2xl border overflow-hidden"
-                      style={{ borderColor: rank <= 3 ? MEDAL_COLORS[rank - 1] + '55' : '#E5E7EB', borderLeftWidth: rank <= 3 ? 4 : 1, borderLeftColor: rank <= 3 ? MEDAL_COLORS[rank - 1] : '#E5E7EB' }}>
-                      <div className="flex items-center gap-3 p-3.5">
-                        <div className="w-8 text-center shrink-0">
-                          {rank <= 3
-                            ? <span className="text-xl">{MEDAL[rank - 1]}</span>
-                            : <span className="text-sm font-bold text-ink-muted">#{rank}</span>}
-                        </div>
-                        <div className="w-11 h-11 rounded-xl overflow-hidden flex items-center justify-center text-white font-bold shrink-0"
-                          style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)' }}>
-                          {entry.user.imageUrl
-                            ? <img src={entry.user.imageUrl} alt={entry.user.name} className="w-full h-full object-cover" />
-                            : initials(entry.user.name)}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-bold text-ink truncate">{entry.user.name}</p>
-                          <div className="flex items-center gap-2 mt-0.5">
-                            <span className="text-[11px] text-ink-muted">{entry.completedCount} walks</span>
-                            {entry.avgRating != null && (
-                              <span className="text-[11px] font-semibold text-amber-500 flex items-center gap-0.5">
-                                <Star className="w-2.5 h-2.5 fill-amber-400 text-amber-400" />
-                                {entry.avgRating.toFixed(1)}
-                              </span>
-                            )}
-                          </div>
-                          <div className="mt-1.5 w-full h-1.5 bg-surface-secondary rounded-full overflow-hidden">
-                            <div className="h-full rounded-full" style={{ width: `${pct}%`, background: rank === 1 ? '#F59E0B' : '#2B8A50' }} />
-                          </div>
-                        </div>
-                        <div className="shrink-0 text-right">
-                          <p className="text-sm font-extrabold" style={{ color: '#1B4332' }}>K{entry.earned}</p>
-                          <p className="text-[9px] text-ink-muted">earned</p>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-          </>
-        )}
-
-        {/* ── OWNERS LEADERBOARD ── */}
-        {tab === 'owners' && (
-          ownerRanks.length === 0
-            ? <EmptyState text="No owners have booked walks yet." />
-            : ownerRanks.map((entry, idx) => {
-                const rank = idx + 1;
-                return (
-                  <div key={entry.user.id}
-                    className="bg-white rounded-2xl border overflow-hidden"
-                    style={{ borderColor: rank <= 3 ? MEDAL_COLORS[rank - 1] + '55' : '#E5E7EB', borderLeftWidth: rank <= 3 ? 4 : 1, borderLeftColor: rank <= 3 ? MEDAL_COLORS[rank - 1] : '#E5E7EB' }}>
-                    <div className="flex items-center gap-3 p-3.5">
-                      <div className="w-8 text-center shrink-0">
-                        {rank <= 3
-                          ? <span className="text-xl">{MEDAL[rank - 1]}</span>
-                          : <span className="text-sm font-bold text-ink-muted">#{rank}</span>}
-                      </div>
-                      <div className="w-11 h-11 rounded-xl overflow-hidden flex items-center justify-center text-white font-bold shrink-0"
-                        style={{ background: 'linear-gradient(135deg, #2B8A50, #52B788)' }}>
-                        {entry.user.imageUrl
-                          ? <img src={entry.user.imageUrl} alt={entry.user.name} className="w-full h-full object-cover" />
-                          : initials(entry.user.name)}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold text-ink truncate">{entry.user.name}</p>
-                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                          <span className="text-[11px] text-ink-muted">{entry.totalWalks} walks booked</span>
-                          {entry.dogs.length > 0 && (
-                            <span className="text-[11px] text-ink-muted flex items-center gap-0.5">
-                              <Dog className="w-2.5 h-2.5" />
-                              {entry.dogs.map(d => d.name).join(', ')}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <div className="shrink-0 text-right">
-                        <p className="text-sm font-extrabold" style={{ color: '#1B4332' }}>K{entry.spent}</p>
-                        <p className="text-[9px] text-ink-muted">spent</p>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })
-        )}
-
-        {/* Community Channels — shown below all tabs */}
-        <div className="pt-2">
-          <div className="flex items-center gap-2 mb-3">
-            <MessageCircle className="w-4 h-4 text-primary" />
-            <h2 className="font-bold text-ink">Join Our Community</h2>
-          </div>
-          {(roleChannel?.whatsapp || roleChannel?.facebook || GENERAL_CHANNEL.whatsapp || GENERAL_CHANNEL.facebook) ? (
-            <div className="space-y-3">
-              {roleChannel && (
-                <ChannelCard name={roleChannel.label} whatsapp={roleChannel.whatsapp} facebook={roleChannel.facebook} />
-              )}
-              <ChannelCard name={GENERAL_CHANNEL.label} whatsapp={GENERAL_CHANNEL.whatsapp} facebook={GENERAL_CHANNEL.facebook} />
-            </div>
-          ) : (
-            <div className="rounded-2xl overflow-hidden border border-surface-border">
-              <div className="px-5 py-6 text-center" style={{ background: 'linear-gradient(135deg, #EBF5EF 0%, #F4F9F6 100%)' }}>
-                <div className="w-12 h-12 rounded-2xl bg-white shadow-sm flex items-center justify-center mx-auto mb-3"
-                  style={{ border: '1px solid rgba(43,138,80,0.15)' }}>
-                  <MessageCircle className="w-6 h-6 text-primary" />
-                </div>
-                <p className="font-bold text-ink text-sm mb-1">Community groups launching soon</p>
-                <p className="text-xs text-ink-muted leading-relaxed mb-4">
-                  PawFleet WhatsApp & Facebook groups for{' '}
-                  {role === 'walker' ? 'walkers' : role === 'owner' ? 'dog owners' : 'shop owners'} in Lusaka.
-                  Message us to be added when they go live.
-                </p>
-                <a
-                  href="https://wa.me/260574800304?text=Hi%20PawFleet%2C%20please%20add%20me%20to%20the%20community%20group!"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white"
-                  style={{ background: '#25D366' }}>
-                  <MessageCircle className="w-4 h-4" />
-                  Request to join
-                </a>
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="mt-2 rounded-2xl p-4 border border-dashed border-primary/30 bg-[#EBF5EF] text-center space-y-1">
-          <Award className="w-6 h-6 text-primary mx-auto" />
-          <p className="text-sm font-bold text-ink">More features coming soon</p>
-          <p className="text-xs text-ink-muted">Challenges, badges & community rewards</p>
-        </div>
       </div>
-    </div>
-  );
-}
-
-function EmptyState({ text }: { text: string }) {
-  return (
-    <div className="py-16 text-center">
-      <TrendingUp className="w-10 h-10 text-ink-muted mx-auto mb-3 opacity-30" />
-      <p className="text-sm text-ink-muted">{text}</p>
     </div>
   );
 }

@@ -58,6 +58,10 @@ const OwnerSchedule    = lazy(() => import('./pages/owner/Schedule'));
 const FavouriteWalkers = lazy(() => import('./pages/owner/FavouriteWalkers'));
 const PrivacySafety    = lazy(() => import('./pages/owner/PrivacySafety'));
 const PaymentMethods   = lazy(() => import('./pages/owner/PaymentMethods'));
+const SelfWalk         = lazy(() => import('./pages/owner/SelfWalk'));
+const DogTraining      = lazy(() => import('./pages/owner/DogTraining'));
+const Marketplace      = lazy(() => import('./pages/owner/Marketplace'));
+const PetHealth        = lazy(() => import('./pages/owner/PetHealth'));
 
 const ShopOwnerDashboard     = lazy(() => import('./pages/shopowner/Dashboard'));
 const ShopOwnerMyProducts    = lazy(() => import('./pages/shopowner/MyProducts'));
@@ -76,92 +80,115 @@ const VetProfile            = lazy(() => import('./pages/vet/Profile'));
 const NotificationsPage = lazy(() => import('./pages/Notifications'));
 const ChatInbox         = lazy(() => import('./pages/ChatInbox'));
 const Chat              = lazy(() => import('./pages/Chat'));
+const DirectMessage     = lazy(() => import('./pages/DirectMessage'));
 const Community         = lazy(() => import('./pages/Community'));
 const PrivacyPolicy     = lazy(() => import('./pages/PrivacyPolicy'));
 
 // ── Splash screen shown while Supabase connects ──────────────────────────────
 function WalkingFigureSVG() {
   return (
-    <svg width="260" height="112" viewBox="0 0 260 115" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <svg width="264" height="116" viewBox="0 0 264 116" fill="none" xmlns="http://www.w3.org/2000/svg">
       {/* Ground shadow */}
-      <ellipse cx="130" cy="112" rx="118" ry="4" fill="rgba(0,0,0,0.15)" />
+      <ellipse cx="132" cy="113" rx="120" ry="4" fill="rgba(0,0,0,0.15)" />
 
       {/* ── PERSON (centered at x=65) ── */}
-      <circle cx="65" cy="13" r="11" fill="rgba(255,255,255,0.92)" />
-      <path d="M57 24 Q65 27 73 24 L76 54 Q65 57 54 54 Z" fill="rgba(255,255,255,0.92)" />
+
+      {/* Afro — full round natural hair above the head */}
+      <ellipse cx="65" cy="6" rx="16" ry="14" fill="rgba(255,255,255,0.88)" />
+
+      {/* Head */}
+      <circle cx="65" cy="16" r="12" fill="rgba(255,255,255,0.96)" />
+
+      {/* Torso — shirt-shaped body, not a stick */}
+      <path d="M53 28 Q57 25 65 26 Q73 25 77 28 L80 54 Q65 59 50 54 Z" fill="rgba(255,255,255,0.93)" />
 
       {/* Left arm — swings backward when left leg is forward */}
-      <line x1="57" y1="32" x2="46" y2="52" stroke="rgba(255,255,255,0.92)" strokeWidth="6" strokeLinecap="round">
+      <line x1="56" y1="33" x2="44" y2="53" stroke="rgba(255,255,255,0.93)" strokeWidth="8" strokeLinecap="round">
         <animateTransform attributeName="transform" type="rotate"
-          values="20 57 32;-20 57 32;20 57 32"
+          values="20 56 33;-20 56 33;20 56 33"
           keyTimes="0;0.5;1" dur="0.75s" repeatCount="indefinite" />
       </line>
 
-      {/* Right arm — swings forward when left leg is forward (natural gait) */}
-      <line x1="73" y1="32" x2="84" y2="52" stroke="rgba(255,255,255,0.92)" strokeWidth="6" strokeLinecap="round">
+      {/* Right arm — swings forward, holds leash */}
+      <line x1="74" y1="33" x2="87" y2="53" stroke="rgba(255,255,255,0.93)" strokeWidth="8" strokeLinecap="round">
         <animateTransform attributeName="transform" type="rotate"
-          values="-20 73 32;20 73 32;-20 73 32"
+          values="-20 74 33;20 74 33;-20 74 33"
           keyTimes="0;0.5;1" dur="0.75s" repeatCount="indefinite" />
       </line>
 
       {/* Left leg — starts forward */}
-      <line x1="60" y1="54" x2="52" y2="86" stroke="rgba(255,255,255,0.92)" strokeWidth="8" strokeLinecap="round">
+      <line x1="60" y1="54" x2="51" y2="88" stroke="rgba(255,255,255,0.93)" strokeWidth="10" strokeLinecap="round">
         <animateTransform attributeName="transform" type="rotate"
           values="-22 60 54;22 60 54;-22 60 54"
           keyTimes="0;0.5;1" dur="0.75s" repeatCount="indefinite" />
       </line>
 
-      {/* Right leg — starts backward (opposite phase to left) */}
-      <line x1="70" y1="54" x2="78" y2="86" stroke="rgba(255,255,255,0.92)" strokeWidth="8" strokeLinecap="round">
+      {/* Right leg — starts backward */}
+      <line x1="70" y1="54" x2="79" y2="88" stroke="rgba(255,255,255,0.93)" strokeWidth="10" strokeLinecap="round">
         <animateTransform attributeName="transform" type="rotate"
           values="22 70 54;-22 70 54;22 70 54"
           keyTimes="0;0.5;1" dur="0.75s" repeatCount="indefinite" />
       </line>
 
-      {/* Leash — gentle static curve from hand to dog collar */}
-      <path d="M84 52 Q150 28 183 58" stroke="rgba(255,255,255,0.55)" strokeWidth="2.5" strokeLinecap="round" fill="none" />
+      {/* Leash — curve from right hand to dog collar */}
+      <path d="M87 53 Q148 26 180 61" stroke="rgba(255,255,255,0.50)" strokeWidth="2.5" strokeLinecap="round" fill="none" />
 
-      {/* ── DOG (centered at x=200) ── */}
-      <ellipse cx="200" cy="74" rx="30" ry="15" fill="rgba(255,255,255,0.92)" />
-      <path d="M218 63 Q224 68 224 74" stroke="rgba(255,255,255,0.92)" strokeWidth="12" strokeLinecap="round" />
-      <ellipse cx="220" cy="57" rx="17" ry="14" fill="rgba(255,255,255,0.92)" />
-      <path d="M228 47 C237 38 241 50 236 60 Q231 67 224 60 Z" fill="rgba(255,255,255,0.78)" />
-      <ellipse cx="232" cy="62" rx="10" ry="6" fill="rgba(255,255,255,0.92)" />
-      <ellipse cx="239" cy="58" rx="4" ry="3" fill="#0d3322" />
-      <circle cx="222" cy="52" r="2" fill="#0d3322" />
+      {/* ── DOG (golden retriever silhouette, x≈200) ── */}
 
-      {/* Dog tail — wags rapidly and joyfully */}
-      <path d="M170 68 Q158 52 164 38" stroke="rgba(255,255,255,0.92)" strokeWidth="5.5" strokeLinecap="round" fill="none">
+      {/* Body */}
+      <ellipse cx="200" cy="76" rx="32" ry="17" fill="rgba(255,255,255,0.93)" />
+
+      {/* Neck */}
+      <path d="M218 65 Q225 69 225 77" stroke="rgba(255,255,255,0.93)" strokeWidth="14" strokeLinecap="round" fill="none" />
+
+      {/* Head — round */}
+      <ellipse cx="223" cy="59" rx="18" ry="16" fill="rgba(255,255,255,0.93)" />
+
+      {/* Floppy ear */}
+      <path d="M229 48 Q240 43 241 55 Q240 66 230 65 Q222 62 222 57 Z" fill="rgba(255,255,255,0.74)" />
+
+      {/* Muzzle */}
+      <ellipse cx="236" cy="65" rx="11" ry="7" fill="rgba(255,255,255,0.93)" />
+
+      {/* Nose */}
+      <ellipse cx="243" cy="62" rx="5" ry="3.2" fill="rgba(8,38,22,0.78)" />
+
+      {/* Eye */}
+      <circle cx="226" cy="54" r="3.2" fill="rgba(8,38,22,0.78)" />
+      <circle cx="225" cy="53" r="1.1" fill="rgba(255,255,255,0.60)" />
+
+      {/* Tail — wags joyfully */}
+      <path d="M168 71 Q155 54 162 39" stroke="rgba(255,255,255,0.93)" strokeWidth="6.5" strokeLinecap="round" fill="none">
         <animateTransform attributeName="transform" type="rotate"
-          values="-18 170 68;24 170 68;-18 170 68"
-          keyTimes="0;0.5;1" dur="0.45s" repeatCount="indefinite" />
+          values="-20 168 71;27 168 71;-20 168 71"
+          keyTimes="0;0.5;1" dur="0.44s" repeatCount="indefinite" />
       </path>
 
-      {/* Dog front-left leg — forward (diagonal with back-right) */}
-      <line x1="208" y1="88" x2="204" y2="108" stroke="rgba(255,255,255,0.92)" strokeWidth="7" strokeLinecap="round">
+      {/* Dog front-left leg */}
+      <line x1="209" y1="92" x2="205" y2="111" stroke="rgba(255,255,255,0.93)" strokeWidth="8" strokeLinecap="round">
         <animateTransform attributeName="transform" type="rotate"
-          values="-18 208 88;18 208 88;-18 208 88"
+          values="-18 209 92;18 209 92;-18 209 92"
           keyTimes="0;0.5;1" dur="0.75s" repeatCount="indefinite" />
       </line>
 
-      {/* Dog front-right leg — backward (opposite phase) */}
-      <line x1="218" y1="88" x2="224" y2="108" stroke="rgba(255,255,255,0.92)" strokeWidth="7" strokeLinecap="round">
+      {/* Dog front-right leg */}
+      <line x1="220" y1="92" x2="226" y2="111" stroke="rgba(255,255,255,0.93)" strokeWidth="8" strokeLinecap="round">
         <animateTransform attributeName="transform" type="rotate"
-          values="18 218 88;-18 218 88;18 218 88"
+          values="18 220 92;-18 220 92;18 220 92"
           keyTimes="0;0.5;1" dur="0.75s" repeatCount="indefinite" />
       </line>
 
-      {/* Dog back-left leg — backward (diagonal with front-right) */}
-      <line x1="180" y1="86" x2="174" y2="108" stroke="rgba(255,255,255,0.92)" strokeWidth="7" strokeLinecap="round">
+      {/* Dog back-left leg */}
+      <line x1="180" y1="91" x2="174" y2="111" stroke="rgba(255,255,255,0.93)" strokeWidth="8" strokeLinecap="round">
         <animateTransform attributeName="transform" type="rotate"
-          values="18 180 86;-18 180 86;18 180 86"
+          values="18 180 91;-18 180 91;18 180 91"
           keyTimes="0;0.5;1" dur="0.75s" repeatCount="indefinite" />
       </line>
 
-      {/* Dog back-right leg — forward (diagonal with front-left) */}
-      <line x1="192" y1="87" x2="196" y2="108" stroke="rgba(255,255,255,0.92)" strokeWidth="7" strokeLinecap="round">
+      {/* Dog back-right leg */}
+      <line x1="193" y1="92" x2="197" y2="111" stroke="rgba(255,255,255,0.93)" strokeWidth="8" strokeLinecap="round">
         <animateTransform attributeName="transform" type="rotate"
-          values="-18 192 87;18 192 87;-18 192 87"
+          values="-18 193 92;18 193 92;-18 193 92"
           keyTimes="0;0.5;1" dur="0.75s" repeatCount="indefinite" />
       </line>
     </svg>
@@ -337,8 +364,11 @@ function AppRoutes() {
         <Route path="dogs"        element={<AdminDogs />} />
         <Route path="notifications" element={<NotificationsPage />} />
         <Route path="profile"       element={<AdminProfile />} />
+        <Route path="chats"         element={<ChatInbox />} />
+        <Route path="community"     element={<Community />} />
         <Route path="dashboard"   element={<Navigate to="/admin" replace />} />
       </Route>
+      <Route path="/admin/dm/:userId" element={<ProtectedRoute role="admin"><DirectMessage /></ProtectedRoute>} />
 
       {/* ── Walker ── */}
       <Route path="/walker" element={<ProtectedRoute role="walker"><Layout /></ProtectedRoute>}>
@@ -364,6 +394,7 @@ function AppRoutes() {
       {/* Walker full-screen (outside Layout) */}
       <Route path="/walker/live/:walkId"  element={<ProtectedRoute role="walker"><WalkerLiveWalk /></ProtectedRoute>} />
       <Route path="/walker/chat/:walkId"  element={<ProtectedRoute role="walker"><Chat /></ProtectedRoute>} />
+      <Route path="/walker/dm/:userId"   element={<ProtectedRoute role="walker"><DirectMessage /></ProtectedRoute>} />
       <Route path="/walker/walk/:walkId"  element={<ProtectedRoute role="walker"><WalkerWalkDetail /></ProtectedRoute>} />
       <Route path="/walker/nav/:walkId"   element={<ProtectedRoute role="walker"><WalkerNav /></ProtectedRoute>} />
 
@@ -377,7 +408,9 @@ function AppRoutes() {
         <Route path="map"           element={<WalkerMap />} />
         <Route path="profile"       element={<ShopOwnerProfile />} />
         <Route path="community"     element={<Community />} />
+        <Route path="chats"         element={<ChatInbox />} />
       </Route>
+      <Route path="/shopowner/dm/:userId" element={<ProtectedRoute role="shopowner"><DirectMessage /></ProtectedRoute>} />
 
       {/* ── Owner ── */}
       <Route path="/owner" element={<ProtectedRoute role="owner"><Layout /></ProtectedRoute>}>
@@ -404,10 +437,15 @@ function AppRoutes() {
         <Route path="favourites"  element={<FavouriteWalkers />} />
         <Route path="privacy"     element={<PrivacySafety />} />
         <Route path="profile/payment" element={<PaymentMethods />} />
+        <Route path="my-walk"      element={<SelfWalk />} />
+        <Route path="dog-training" element={<DogTraining />} />
+        <Route path="marketplace"  element={<Marketplace />} />
+        <Route path="pet-health"   element={<PetHealth />} />
       </Route>
 
       {/* Owner full-screen (outside Layout) */}
       <Route path="/owner/chat/:walkId" element={<ProtectedRoute role="owner"><Chat /></ProtectedRoute>} />
+      <Route path="/owner/dm/:userId"   element={<ProtectedRoute role="owner"><DirectMessage /></ProtectedRoute>} />
 
       {/* ── Vet ── */}
       <Route path="/vet" element={<ProtectedRoute role="vet"><Layout /></ProtectedRoute>}>
@@ -419,7 +457,10 @@ function AppRoutes() {
         <Route path="map"                    element={<WalkerMap />} />
         <Route path="profile"                 element={<VetProfile />} />
         <Route path="notifications"           element={<NotificationsPage />} />
+        <Route path="chats"                   element={<ChatInbox />} />
+        <Route path="community"               element={<Community />} />
       </Route>
+      <Route path="/vet/dm/:userId" element={<ProtectedRoute role="vet"><DirectMessage /></ProtectedRoute>} />
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

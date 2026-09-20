@@ -1,7 +1,14 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Bell, Moon, Globe, Info, ChevronRight, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, Bell, Info, ChevronRight, CheckCircle2, MapPin } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+
+const ZAMBIA_AREAS = [
+  'Libala', 'Chelstone', 'Kabulonga', 'Woodlands', 'Ibex Hill',
+  'Rhodespark', 'Northmead', 'Handsworth Park', 'Roma', 'Olympia',
+  'Avondale', 'Matero', 'Chilenje', 'Chaisa', 'Kabwata',
+  'Emmasdale', 'Mtendere', 'Foxdale', 'Garden', 'Longacres',
+];
 
 function Toggle({ on, onToggle }: { on: boolean; onToggle: () => void }) {
   return (
@@ -14,7 +21,7 @@ function Toggle({ on, onToggle }: { on: boolean; onToggle: () => void }) {
 
 export default function WalkerSettings() {
   const navigate = useNavigate();
-  const { currentUser } = useApp();
+  const { currentUser, updateUser } = useApp();
 
   const [walkNotifs,    setWalkNotifs]    = useState(() => localStorage.getItem('pf_notif_walk')    !== 'false');
   const [earningNotifs, setEarningNotifs] = useState(() => localStorage.getItem('pf_notif_earn')    !== 'false');
@@ -22,6 +29,24 @@ export default function WalkerSettings() {
   const [soundEnabled,  setSoundEnabled]  = useState(() => localStorage.getItem('pf_sound')         !== 'false');
 
   const save = (key: string, val: boolean) => localStorage.setItem(key, String(val));
+
+  const existingAreas: string[] = (currentUser?.pricing as any)?.serviceAreas ?? [];
+  const [serviceAreas, setServiceAreas] = useState<string[]>(existingAreas);
+  const [areasSaved, setAreasSaved] = useState(false);
+
+  const toggleArea = (area: string) => {
+    setServiceAreas(prev =>
+      prev.includes(area) ? prev.filter(a => a !== area) : [...prev, area]
+    );
+  };
+
+  const saveAreas = async () => {
+    if (!currentUser) return;
+    const existing = (currentUser.pricing as any) || {};
+    await updateUser(currentUser.id, { pricing: { ...existing, serviceAreas } });
+    setAreasSaved(true);
+    setTimeout(() => setAreasSaved(false), 2000);
+  };
 
   const [saved, setSaved] = useState(false);
   const handleSave = () => {
@@ -73,6 +98,38 @@ export default function WalkerSettings() {
               </div>
             ))}
           </div>
+        </div>
+
+        {/* Service Areas */}
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <MapPin className="w-4 h-4 text-primary" />
+              <p className="text-sm font-bold text-ink">Service Areas</p>
+            </div>
+            <span className="text-xs text-ink-muted">{serviceAreas.length} selected</span>
+          </div>
+          <p className="text-xs text-ink-muted mb-3">Select the areas in Lusaka where you offer walks. Owners booking in these areas will find you.</p>
+          <div className="flex flex-wrap gap-2 mb-3">
+            {ZAMBIA_AREAS.map(area => {
+              const selected = serviceAreas.includes(area);
+              return (
+                <button key={area} type="button" onClick={() => toggleArea(area)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
+                    selected
+                      ? 'text-white border-primary'
+                      : 'text-ink-secondary border-surface-border bg-white hover:border-primary/50'
+                  }`}
+                  style={selected ? { background: 'linear-gradient(135deg,#1B4332,#2B8A50)' } : {}}>
+                  {area}
+                </button>
+              );
+            })}
+          </div>
+          <button type="button" onClick={saveAreas}
+            className="w-full py-3 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 transition-all active:scale-95 border border-primary text-primary hover:bg-primary/5">
+            {areasSaved ? <><CheckCircle2 className="w-4 h-4 text-primary" /> Areas Saved!</> : 'Save Service Areas'}
+          </button>
         </div>
 
         {/* About */}

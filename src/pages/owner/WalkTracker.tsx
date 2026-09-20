@@ -5,7 +5,9 @@ import { useApp } from '../../context/AppContext';
 import RatingModal from '../../components/ui/RatingModal';
 import { supabase } from '../../lib/supabase';
 import { format } from 'date-fns';
-import MapLibreMap from '../../components/ui/MapLibreMap';
+import LiveRouteMap from '../../components/map/LiveRouteMap';
+import { useWalkRoom, type RouteMsg } from '../../lib/liveTracking';
+import { isValidCoord } from '../../lib/geo';
 
 type LatLng = [number, number];
 const LUSAKA: LatLng = [-15.4167, 28.2833];
@@ -24,6 +26,9 @@ export default function WalkTracker() {
   const navigate   = useNavigate();
   const [elapsed, setElapsed]       = useState(0);
   const [livePos, setLivePos]       = useState<LatLng | null>(null);
+  const [plan, setPlan]             = useState<RouteMsg | null>(null);
+  const [trail, setTrail]           = useState<LatLng[]>([]);
+  const [myPos, setMyPos]           = useState<LatLng | null>(null);
   const [liveDistKm, setLiveDistKm] = useState(0);
   const [sheetOpen, setSheetOpen]   = useState(false);
   const [chatPopup, setChatPopup]   = useState<{ senderName: string; text: string } | null>(null);
@@ -70,20 +75,39 @@ export default function WalkTracker() {
     };
   }, [walkId, currentUser?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Live room: walker position + planned route in, owner pickup position out.
+  const { send } = useWalkRoom(walkId, {
+    onWalkerPos: m => {
+      const p: LatLng = [m.lat, m.lng];
+      setLivePos(p);
+      setTrail(t => {
+        const last = t[t.length - 1];
+        return last && Math.abs(last[0] - p[0]) < 1e-6 && Math.abs(last[1] - p[1]) < 1e-6 ? t : [...t, p].slice(-1500);
+      });
+      if (m.distKm != null) setLiveDistKm(m.distKm);
+      if (m.elapsedSec != null) setElapsed(m.elapsedSec);
+    },
+    onRoute: r => setPlan(r),
+    onReady: () => send('hello'),
+  });
+
+  // If the owner chose "Live Location" when booking, share where to meet them until the walk starts.
+  const shareLive = walk?.status === 'assigned' && !!walk?.notes?.includes('PICKUP:live');
   useEffect(() => {
-    if (!walkId) return;
-    const channel = supabase
-      .channel(`walk-location-${walkId}`, { config: { broadcast: { self: false } } })
-      .on('broadcast', { event: 'location' }, ({ payload }) => {
-        if (payload?.lat != null && payload?.lng != null) {
-          setLivePos([payload.lat, payload.lng]);
-          if (payload.distKm != null) setLiveDistKm(payload.distKm);
-          if (payload.elapsedSec != null) setElapsed(payload.elapsedSec);
-        }
-      })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [walkId]);
+    if (!shareLive || !('geolocation' in navigator)) return;
+    let last = 0;
+    const id = navigator.geolocation.watchPosition(
+      p => {
+        const pt: LatLng = [p.coords.latitude, p.coords.longitude];
+        setMyPos(pt);
+        const now = Date.now();
+        if (now - last > 3000) { last = now; send('owner-pos', { lat: pt[0], lng: pt[1] }); }
+      },
+      () => {},
+      { enableHighAccuracy: true, maximumAge: 4000, timeout: 15000 },
+    );
+    return () => { navigator.geolocation.clearWatch(id); setMyPos(null); };
+  }, [shareLive, send]);
 
   // Auto-show rating modal shortly after walk completes (if not already rated)
   useEffect(() => {
@@ -105,8 +129,8 @@ export default function WalkTracker() {
     );
   }
 
-  const startLat    = walk.startLocation ? [walk.startLocation.lat, walk.startLocation.lng] as LatLng : null;
-  const endLat      = walk.endLocation   ? [walk.endLocation.lat,   walk.endLocation.lng]   as LatLng : null;
+  const startLat    = walk.startLocation && isValidCoord(walk.startLocation.lat, walk.startLocation.lng) ? [walk.startLocation.lat!, walk.startLocation.lng!] as LatLng : null;
+  const endLat      = walk.endLocation   && isValidCoord(walk.endLocation.lat,   walk.endLocation.lng)   ? [walk.endLocation.lat!,   walk.endLocation.lng!]   as LatLng : null;
   const isActive    = walk.status === 'active';
   const isCompleted = walk.status === 'completed';
 
@@ -192,19 +216,32 @@ export default function WalkTracker() {
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-surface-secondary gap-3 p-6 text-center">
             <span className="text-4xl">🗺️</span>
             <p className="text-sm text-ink-secondary">
-              {walk.status === 'pending' || walk.status === 'assigned'
-                ? 'Map tracking starts when the walker begins the walk'
+              {walk.status === 'pending'
+                ? 'Waiting for a walker to accept. You will see them here as soon as they do.'
+                : walk.status === 'assigned'
+                ? 'Your walker is getting ready. Their live location appears here when they set off.'
                 : 'No location data available'}
             </p>
           </div>
         ) : (
           <div style={{ position: 'absolute', inset: 0 }}>
-            <MapLibreMap
-              lat={displayPos.lat}
-              lng={displayPos.lng}
-              endLat={endLat ? endLat[0] : undefined}
-              endLng={endLat ? endLat[1] : undefined}
-              trail={walk.status === 'completed' && walk.routePoints ? walk.routePoints : undefined}
+            <LiveRouteMap
+              markers={[
+                ...(startLat ? [{ id: 'pickup', lat: startLat[0], lng: startLat[1], kind: 'pickup' as const, title: 'Pickup' }] : []),
+                ...(endLat && isCompleted ? [{ id: 'end', lat: endLat[0], lng: endLat[1], kind: 'dog' as const, title: 'Walk ended' }] : []),
+                ...(livePos && !isCompleted ? [{ id: 'walker', lat: livePos[0], lng: livePos[1], kind: 'walker' as const, live: true, title: walker?.name || 'Walker' }] : []),
+                ...(myPos ? [{ id: 'me', lat: myPos[0], lng: myPos[1], kind: 'me' as const, title: 'You' }] : []),
+              ]}
+              lines={[
+                ...(plan && !isCompleted ? [{ id: 'plan', points: plan.points, color: '#52B788', width: 6, dashed: true }] : []),
+                ...(isCompleted && walk.routePoints && walk.routePoints.length > 1
+                  ? [{ id: 'trail', points: walk.routePoints, color: '#2B8A50', width: 4 }]
+                  : trail.length > 1 ? [{ id: 'trail', points: trail, color: '#1B4332', width: 4 }] : []),
+              ]}
+              center={[displayPos.lat, displayPos.lng]}
+              zoom={15}
+              fitKey={`${walk.status}|${livePos ? 'live' : ''}|${plan ? plan.points.length : 0}`}
+              bottomPadding={SHEET_PEEK}
             />
           </div>
         )}

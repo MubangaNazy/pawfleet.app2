@@ -195,26 +195,32 @@ function Slideshow() {
 function ServiceCard({ svc, onBook }: { svc: typeof GROOM_SERVICES[0]; onBook: () => void }) {
   return (
     <div className="rounded-2xl overflow-hidden border border-surface-border bg-white shadow-sm">
-      {/* Image */}
-      <div className="relative h-36 w-full">
-        <img src={svc.img} alt={svc.title} className="w-full h-full object-cover" />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+      {/* Image — taller so photos are the hero of the card */}
+      <div className="relative w-full" style={{ height: 176 }}>
+        <img src={svc.img} alt={svc.title} className="w-full h-full object-cover"
+          style={{ display: 'block' }} />
+        {/* Lighter overlay so photo shows clearly */}
+        <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.42) 0%, rgba(0,0,0,0.05) 55%, transparent 100%)' }} />
         {svc.tag && (
-          <span className="absolute top-3 left-3 text-[10px] font-bold text-white px-2.5 py-1 rounded-full"
+          <span className="absolute top-3 left-3 text-[10px] font-bold text-white px-2.5 py-1 rounded-full shadow"
             style={{ background: svc.tagColor }}>
             {svc.tag}
           </span>
         )}
-        <span className="absolute top-3 right-3 text-2xl">{svc.icon}</span>
-      </div>
-      {/* Content */}
-      <div className="p-4 flex items-end justify-between gap-3">
-        <div className="flex-1 min-w-0">
-          <p className="font-bold text-ink text-sm leading-snug">{svc.title}</p>
-          <p className="text-xs text-ink-muted mt-0.5">{svc.subtitle}</p>
+        {/* Price shown on photo */}
+        <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between">
+          <div>
+            <p className="font-extrabold text-white text-sm leading-tight drop-shadow">{svc.title}</p>
+            <p className="text-white/75 text-[11px] mt-0.5 drop-shadow">{svc.subtitle}</p>
+          </div>
+          <span className="text-white font-bold text-[11px] bg-black/30 backdrop-blur-sm px-2 py-1 rounded-lg">{svc.price}</span>
         </div>
+      </div>
+      {/* CTA row */}
+      <div className="px-4 py-3 flex items-center justify-between gap-3 border-t border-surface-border">
+        <span className="text-xl">{svc.icon}</span>
         <button onClick={onBook}
-          className="shrink-0 px-4 py-2 rounded-xl text-xs font-bold text-white"
+          className="flex-1 py-2.5 rounded-xl text-xs font-bold text-white"
           style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)' }}>
           {svc.cta}
         </button>
@@ -225,7 +231,7 @@ function ServiceCard({ svc, onBook }: { svc: typeof GROOM_SERVICES[0]; onBook: (
 
 function HowItWorks({ steps }: { steps: { icon: React.ReactNode; title: string; desc: string }[] }) {
   return (
-    <div className="rounded-2xl overflow-hidden border border-emerald-100" style={{ background: '#F0FAF4' }}>
+    <div className="rounded-2xl overflow-hidden border border-surface-border bg-white">
       <div className="px-5 pt-5 pb-2">
         <p className="text-base font-bold text-ink mb-5">How It Works</p>
         <div className="space-y-0">
@@ -507,11 +513,24 @@ export default function Services() {
             <p className="text-sm text-ink-secondary mt-1">At-home grooming — no stress, no travel. Your dog stays clean, healthy, and happy.</p>
           </div>
 
+          {/* Find groomers on the live map */}
+          <div className="px-4 pt-4">
+            <button type="button" onClick={() => navigate('/owner/walker-map?service=grooming')}
+              className="w-full flex items-center gap-3 p-4 rounded-2xl border border-surface-border bg-white text-left active:scale-[0.99] transition-transform">
+              <span className="text-2xl">📍</span>
+              <div className="flex-1 min-w-0">
+                <p className="font-bold text-sm text-ink">Find groomers near you</p>
+                <p className="text-xs text-ink-muted">See who is online right now on the live map</p>
+              </div>
+              <span className="text-sm font-bold" style={{ color: '#2B8A50' }}>Open →</span>
+            </button>
+          </div>
+
           {/* Service cards */}
           <div className="px-4 pt-4 space-y-3">
             <p className="text-sm font-bold text-ink-muted uppercase tracking-wider">Choose a Service</p>
             {GROOM_SERVICES.map(svc => (
-              <ServiceCard key={svc.title} svc={svc} onBook={() => setBookingService(svc)} />
+              <ServiceCard key={svc.title} svc={svc} onBook={() => navigate('/owner/grooming')} />
             ))}
           </div>
 
@@ -574,7 +593,7 @@ export default function Services() {
               <div className="relative flex flex-col items-center justify-end text-center px-5 pb-5 pt-16">
                 <p className="text-lg font-extrabold text-white mb-1">Ready for a fresh, clean pup?</p>
                 <p className="text-white/65 text-sm mb-4">At-home grooming — stress-free, every time</p>
-                <button onClick={() => setBookingService(GROOM_SERVICES[2])}
+                <button onClick={() => navigate('/owner/grooming')}
                   className="flex items-center gap-2 px-8 py-3 rounded-2xl text-sm font-bold text-white shadow-lg"
                   style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)' }}>
                   <Scissors className="w-4 h-4" />

@@ -110,13 +110,7 @@ export default function OwnerDashboard() {
     n => n.userId === currentUser?.id && !n.read && n.type.startsWith('walk')
   );
 
-  const quickActions = [
-    { label: 'Walk',  icon: '🦮', to: '/owner/request', badge: null as null | number | 'pulse-green' },
-    { label: 'Groom', icon: '🛁', to: '/owner/services', badge: (pendingGroomingWalks.length > 0 ? 'pulse-green' : null) as null | number | 'pulse-green' },
-    { label: 'Vet',   icon: '🩺', to: '/owner/vet-booking', badge: null as null | number | 'pulse-green' },
-    { label: 'Track', icon: '📍', to: nearestWalk ? `/owner/track/${nearestWalk.id}` : '/owner/history', badge: (activeWalk ? 'pulse-green' : null) as null | number | 'pulse-green' },
-    { label: 'Chat',  icon: '💬', to: '/owner/chats', badge: (unreadChatNotifications.length > 0 ? unreadChatNotifications.length : null) as null | number | 'pulse-green' },
-  ];
+  const unreadChat = unreadChatNotifications.length;
 
   // Auto-rotating slideshow
   const [slide, setSlide] = useState(0);
@@ -214,35 +208,112 @@ export default function OwnerDashboard() {
           </div>
         </Link>
 
-        {/* ── Quick Actions ── */}
+        {/* ── Quick Actions Bento ── */}
         <Reveal delay={50}>
-          <div className="grid grid-cols-5 gap-1">
-            {quickActions.map((a) => (
-              <Link key={a.label} to={a.to} className="flex flex-col items-center gap-1.5 active:scale-95 transition-transform">
-                <div className="relative">
-                  <div
-                    className="w-14 h-14 rounded-full flex items-center justify-center text-2xl transition-transform hover:scale-105"
-                    style={{
-                      background: 'linear-gradient(145deg, #1B4332, #2B8A50)',
-                      boxShadow: '0 4px 12px rgba(27,67,50,0.28)',
-                    }}
-                  >
-                    <span>{a.icon}</span>
-                  </div>
-                  {/* Badge: red number for Chat */}
-                  {typeof a.badge === 'number' && (
-                    <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center border-2 border-white">
-                      {a.badge > 9 ? '9+' : a.badge}
-                    </span>
-                  )}
-                  {/* Badge: green pulse dot for Groom / Track */}
-                  {a.badge === 'pulse-green' && (
-                    <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-green-400 border-2 border-white animate-pulse" />
-                  )}
-                </div>
-                <span className="text-[11px] font-bold text-ink">{a.label}</span>
-              </Link>
-            ))}
+          <div className="grid grid-cols-3 gap-2.5" style={{ gridAutoRows: 'auto', transform: 'translateZ(0)' }}>
+
+            {/* WALK — hero card 2×2 */}
+            <Link to="/owner/request"
+              className="col-span-2 row-span-2 relative rounded-3xl overflow-hidden active:scale-[0.97] transition-transform"
+              style={{ minHeight: 156, background: 'linear-gradient(145deg, #071a0e 0%, #1B4332 65%, #2B8A50 100%)', boxShadow: '0 10px 32px rgba(27,67,50,0.50)' }}>
+              {/* Subtle radial glow */}
+              <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse at 70% 80%, rgba(82,183,136,0.22) 0%, transparent 65%)', pointerEvents: 'none' }} />
+              <div className="p-4 relative z-10">
+                <p className="text-white font-extrabold text-[17px] leading-tight">Walk</p>
+                <p className="text-white/50 text-[11px] mt-0.5">Book a walker</p>
+              </div>
+              <span style={{ position: 'absolute', bottom: -10, right: -8, fontSize: 96, lineHeight: 1, opacity: 0.97, transform: 'rotate(-8deg)', filter: 'drop-shadow(0 10px 20px rgba(0,0,0,0.55))' }}>🦮</span>
+              {activeWalk && (
+                <span className="absolute top-3 right-3 z-10 flex items-center gap-1 text-[9px] font-bold text-white px-2 py-0.5 rounded-full" style={{ background: '#10B981' }}>
+                  <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />LIVE
+                </span>
+              )}
+            </Link>
+
+            {/* VET */}
+            <Link to="/owner/vet-booking"
+              className="relative rounded-3xl overflow-hidden active:scale-95 transition-transform"
+              style={{ minHeight: 74, background: 'linear-gradient(145deg, #0A1628 0%, #0D2647 100%)', boxShadow: '0 6px 18px rgba(10,22,40,0.45)' }}>
+              <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at 75% 85%, rgba(56,189,248,0.15) 0%, transparent 65%)', pointerEvents: 'none' }} />
+              <div className="p-3 relative z-10">
+                <p className="font-extrabold text-sm leading-tight" style={{ color: '#7DD3FC' }}>Vet</p>
+              </div>
+              <span style={{ position: 'absolute', bottom: -6, right: -6, fontSize: 54, lineHeight: 1, filter: 'drop-shadow(0 6px 14px rgba(0,0,0,0.50))' }}>🩺</span>
+            </Link>
+
+            {/* TRAIN */}
+            <Link to="/owner/dog-training"
+              className="relative rounded-3xl overflow-hidden active:scale-95 transition-transform"
+              style={{ minHeight: 74, background: 'linear-gradient(145deg, #1C1000 0%, #3D2A00 100%)', boxShadow: '0 6px 18px rgba(28,16,0,0.45)' }}>
+              <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at 75% 85%, rgba(253,186,116,0.18) 0%, transparent 65%)', pointerEvents: 'none' }} />
+              <div className="p-3 relative z-10">
+                <p className="font-extrabold text-sm leading-tight" style={{ color: '#FDE68A' }}>Train</p>
+              </div>
+              <span style={{ position: 'absolute', bottom: -6, right: -6, fontSize: 54, lineHeight: 1, filter: 'drop-shadow(0 6px 14px rgba(0,0,0,0.50))' }}>🎯</span>
+            </Link>
+
+            {/* TRACK */}
+            <Link to={nearestWalk ? `/owner/track/${nearestWalk.id}` : '/owner/history'}
+              className="relative rounded-3xl overflow-hidden active:scale-95 transition-transform"
+              style={{ minHeight: 82, background: activeWalk ? 'linear-gradient(145deg, #071a0e, #0D2B1A)' : 'linear-gradient(145deg, #0F1A12 0%, #1A2D1E 100%)', boxShadow: '0 6px 18px rgba(7,26,14,0.45)' }}>
+              <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at 75% 85%, rgba(74,222,128,0.14) 0%, transparent 65%)', pointerEvents: 'none' }} />
+              <div className="p-3 relative z-10">
+                <p className="font-extrabold text-sm leading-tight" style={{ color: activeWalk ? '#4ADE80' : '#86EFAC' }}>Track</p>
+                {activeWalk && <span className="flex items-center gap-1 text-[9px] font-bold mt-0.5" style={{ color: '#4ADE80' }}><span className="w-1 h-1 rounded-full bg-green-400 animate-pulse" />LIVE</span>}
+              </div>
+              <span style={{ position: 'absolute', bottom: -6, right: -6, fontSize: 54, lineHeight: 1, filter: 'drop-shadow(0 6px 14px rgba(0,0,0,0.50))' }}>📍</span>
+            </Link>
+
+            {/* CHAT */}
+            <Link to="/owner/chats"
+              className="relative rounded-3xl overflow-hidden active:scale-95 transition-transform"
+              style={{ minHeight: 82, background: 'linear-gradient(145deg, #12082A 0%, #2A1150 100%)', boxShadow: '0 6px 18px rgba(18,8,42,0.45)' }}>
+              <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at 75% 85%, rgba(167,139,250,0.18) 0%, transparent 65%)', pointerEvents: 'none' }} />
+              <div className="p-3 relative z-10">
+                <p className="font-extrabold text-sm leading-tight" style={{ color: '#C4B5FD' }}>Chat</p>
+              </div>
+              <span style={{ position: 'absolute', bottom: -6, right: -6, fontSize: 54, lineHeight: 1, filter: 'drop-shadow(0 6px 14px rgba(0,0,0,0.50))' }}>💬</span>
+              {unreadChat > 0 && (
+                <span className="absolute top-2 right-2 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center z-20">
+                  {unreadChat > 9 ? '9+' : unreadChat}
+                </span>
+              )}
+            </Link>
+
+            {/* MY WALK */}
+            <Link to="/owner/my-walk"
+              className="relative rounded-3xl overflow-hidden active:scale-95 transition-transform"
+              style={{ minHeight: 82, background: 'linear-gradient(145deg, #061610 0%, #0F3320 100%)', boxShadow: '0 6px 18px rgba(6,22,16,0.45)' }}>
+              <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at 75% 85%, rgba(110,231,183,0.18) 0%, transparent 65%)', pointerEvents: 'none' }} />
+              <div className="p-3 relative z-10">
+                <p className="font-extrabold text-sm leading-tight" style={{ color: '#6EE7B7' }}>My Walk</p>
+              </div>
+              <span style={{ position: 'absolute', bottom: -6, right: -8, fontSize: 54, lineHeight: 1, filter: 'drop-shadow(0 6px 14px rgba(0,0,0,0.50))' }}>🐕‍🦺</span>
+            </Link>
+
+            {/* AI HEALTH — col-span-2 */}
+            <Link to="/owner/pet-health"
+              className="col-span-2 relative rounded-3xl overflow-hidden active:scale-95 transition-transform"
+              style={{ minHeight: 82, background: 'linear-gradient(145deg, #1E0A4A 0%, #4C1D95 70%, #6D28D9 100%)', boxShadow: '0 8px 24px rgba(76,29,149,0.45)' }}>
+              <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at 75% 85%, rgba(167,139,250,0.24) 0%, transparent 65%)', pointerEvents: 'none' }} />
+              <div className="p-3 relative z-10">
+                <p className="font-extrabold text-sm leading-tight" style={{ color: '#C4B5FD' }}>AI Health</p>
+                <p className="text-white/40 text-[10px] mt-0.5">Journal & insights</p>
+              </div>
+              <span style={{ position: 'absolute', bottom: -8, right: -6, fontSize: 62, lineHeight: 1, opacity: 0.97, filter: 'drop-shadow(0 8px 16px rgba(0,0,0,0.55))' }}>🐾</span>
+            </Link>
+
+            {/* GROOMING — col-span-1 matching small card style */}
+            <Link to="/owner/services"
+              className="relative rounded-3xl overflow-hidden active:scale-95 transition-transform"
+              style={{ minHeight: 82, background: 'linear-gradient(145deg, #0D1A10 0%, #1A3A20 100%)', boxShadow: '0 6px 18px rgba(13,26,16,0.45)' }}>
+              <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at 75% 85%, rgba(110,231,183,0.18) 0%, transparent 65%)', pointerEvents: 'none' }} />
+              <div className="p-3 relative z-10">
+                <p className="font-extrabold text-sm leading-tight" style={{ color: '#6EE7B7' }}>Groom</p>
+              </div>
+              <span style={{ position: 'absolute', bottom: -6, right: -6, fontSize: 54, lineHeight: 1, filter: 'drop-shadow(0 6px 14px rgba(0,0,0,0.50))' }}>✂️</span>
+            </Link>
+
           </div>
         </Reveal>
 
@@ -265,7 +336,7 @@ export default function OwnerDashboard() {
                       : (
                         <div className="w-full h-full flex items-center justify-center"
                           style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)' }}>
-                          <span className="text-xl font-bold text-white">{nearestWalker.name[0]}</span>
+                          <span className="text-xl font-bold text-white">{nearestWalker.name?.[0] ?? '?'}</span>
                         </div>
                       )}
                   </div>
@@ -282,7 +353,9 @@ export default function OwnerDashboard() {
                       <span>
                         {activeWalk
                           ? `Active now · started ${nearestWalk.startTime ? format(new Date(nearestWalk.startTime), 'h:mm a') : ''}`
-                          : `${format(new Date(nearestWalk.scheduledDate), 'EEE, MMM d')} · ${format(new Date(nearestWalk.scheduledDate), 'h:mm a')}`}
+                          : nearestWalk.scheduledDate
+                            ? `${format(new Date(nearestWalk.scheduledDate), 'EEE, MMM d')} · ${format(new Date(nearestWalk.scheduledDate), 'h:mm a')}`
+                            : 'Scheduled'}
                       </span>
                       {nearestDog && <><span>·</span><span className="font-semibold text-ink">{nearestDog.name}</span></>}
                     </div>
@@ -410,7 +483,7 @@ export default function OwnerDashboard() {
                           : (
                             <div className="w-full h-full flex items-center justify-center"
                               style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)' }}>
-                              <span className="text-3xl font-bold text-white">{walker.name[0]}</span>
+                              <span className="text-3xl font-bold text-white">{walker.name?.[0] ?? '?'}</span>
                             </div>
                           )}
                         {/* Distance pill — top right corner */}

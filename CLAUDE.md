@@ -10,7 +10,7 @@
 | Live URL | https://pawfleetapp2.vercel.app |
 | GitHub | https://github.com/MubangaNazy/pawfleet.app2 |
 | Vercel project | mubangachanda004-cryptos-projects / pawfleet.app2 |
-| Supabase project ID | ftgoofjexthuzvlyhcsw |
+| Supabase project ID | tqoordnjsigllzjzkqxb (the one in `.env` and used by the live app; `ftgoofjexthuzvlyhcsw` is an old project) |
 | Currency | Zambian Kwacha (K / ZMW) |
 | Location | Lusaka, Zambia (default map center -15.4167, 28.2833) |
 
@@ -77,6 +77,16 @@ Real users register via /register (Supabase Auth email/password).
 - PWA installable from Chrome on Android
 
 ---
+
+## Live finding, booking and tracking (2026-09-19)
+See `docs/REALIGNMENT.md` for the diagnosis, system map and two-phone test.
+- Walker "Go Online" broadcasts GPS on realtime channel `walkers-live`; owners read it in `useWalkersLive` (`src/lib/liveTracking.ts`).
+- Walkers are hidden from owners until an admin approves them (`walker_status = 'active'`).
+- A groomer is an approved walker with `pricing.grooming` set.
+- Booking uses `createWalkAsync` (waits for the DB). The chosen length is stored as `DURATION:<min>` in `walks.notes`.
+- Planned route: `planLoopRoute` in `src/lib/routing.ts`. Walker's app-wide walk session broadcasts it on `walk-live-<walkId>`.
+- Demo logins are off unless `VITE_ENABLE_DEMO=true` (they have no real session or DB rows).
+- Chat SQL and realtime publication: `supabase/migrations/20260919_realign_chat_and_live.sql`.
 
 ## Pending / Known Issues
 - [x] **RLS CRITICAL — passwords exposed**: migrated all users to Supabase Auth (2026-06-08) — password column cleared to '', plain-text fallback removed from login code

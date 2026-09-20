@@ -81,6 +81,16 @@ function VetMap({ userLat, userLng }: { userLat: number | null; userLng: number 
   return <div ref={containerRef} style={{ width: '100%', height: '100%' }} />;
 }
 
+/* ── Build clinic list from DB vets + hardcoded fallback ── */
+function buildClinics(dbVets: { id: string; name: string; serviceLat?: number; serviceLng?: number; phone?: string }[]) {
+  if (dbVets.length > 0) {
+    return dbVets
+      .filter(v => v.serviceLat && v.serviceLng)
+      .map((v, i) => ({ id: i + 1, name: v.name, address: 'PawFleet Verified Vet', lat: v.serviceLat!, lng: v.serviceLng!, hours: 'Contact for hours', rating: '✓ Verified' }));
+  }
+  return VET_CLINICS; // fallback
+}
+
 /* ── Main Page ───────────────────────────────────────────── */
 export default function VetBooking() {
   const navigate = useNavigate();
@@ -88,10 +98,14 @@ export default function VetBooking() {
   const ownerPets = data.dogs.filter(d => d.ownerId === currentUser?.id);
   const today     = new Date().toISOString().split('T')[0];
 
+  // DB-registered vets — show them instead of hardcoded clinics when available
+  const dbVets = data.users.filter(u => u.role === 'vet');
+  const activeClinics = buildClinics(dbVets);
+
   const [heroSlide,       setHeroSlide]      = useState(0);
   const [selectedPet,     setSelectedPet]    = useState(ownerPets[0]?.id ?? '');
   const [serviceId,       setServiceId]      = useState('checkup');
-  const [selectedClinic,  setSelectedClinic] = useState(VET_CLINICS[0].id);
+  const [selectedClinic,  setSelectedClinic] = useState(activeClinics[0]?.id ?? 1);
 
   useEffect(() => {
     const id = setInterval(() => setHeroSlide(s => (s + 1) % VET_HERO_SLIDES.length), 4500);
@@ -124,7 +138,7 @@ export default function VetBooking() {
   const handleBook = async () => {
     if (!selectedPet || !bookingDate || !currentUser) return;
     setSubmitting(true);
-    const clinic = VET_CLINICS.find(c => c.id === selectedClinic) ?? VET_CLINICS[0];
+    const clinic = activeClinics.find(c => c.id === selectedClinic) ?? activeClinics[0];
     const note = [
       `VET BOOKING: ${service.label}`,
       `📍 Clinic: ${clinic.name}`,
@@ -146,7 +160,7 @@ export default function VetBooking() {
 
   /* ── Success screen ── */
   if (done) {
-    const bookedClinic = VET_CLINICS.find(c => c.id === selectedClinic) ?? VET_CLINICS[0];
+    const bookedClinic = activeClinics.find(c => c.id === selectedClinic) ?? activeClinics[0];
     return (
       <div className="min-h-screen flex flex-col items-center justify-center px-6 text-center bg-white gap-5">
         <div className="w-24 h-24 rounded-3xl flex items-center justify-center text-5xl shadow-lg"
@@ -205,8 +219,8 @@ export default function VetBooking() {
         <div className="absolute bottom-5 left-5 right-5">
           <div className="flex items-center gap-2 mb-2">
             <span className="px-2.5 py-1 rounded-full text-[11px] font-bold text-white"
-              style={{ background: 'rgba(8,145,178,0.8)', backdropFilter: 'blur(4px)' }}>
-              🏥 4 Partner Clinics in Lusaka
+              style={{ background: 'rgba(8,145,178,0.85)' }}>
+              🏥 {activeClinics.length} {dbVets.length > 0 ? 'Verified Vets' : 'Partner Clinics'} in Lusaka
             </span>
           </div>
           <h1 className="text-2xl font-extrabold text-white leading-tight">Veterinary Care</h1>
@@ -362,7 +376,7 @@ export default function VetBooking() {
             />
           </div>
           <div className="space-y-2">
-            {VET_CLINICS.filter(c => {
+            {activeClinics.filter(c => {
               const q = clinicSearch.toLowerCase().trim();
               return !q || c.name.toLowerCase().includes(q) || c.address.toLowerCase().includes(q);
             }).map(c => (

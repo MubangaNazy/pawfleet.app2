@@ -7,6 +7,7 @@ import {
 import PawFleetLogo from '../components/ui/PawFleetLogo';
 import { useApp } from '../context/AppContext';
 import { Role } from '../types';
+import { supabase } from '../lib/supabase';
 
 const ROLE_ROUTES: Record<Role, string> = { admin: '/admin', walker: '/walker', owner: '/owner', shopowner: '/shopowner', vet: '/vet' };
 
@@ -177,14 +178,34 @@ export default function Login() {
   const [showPw, setShowPw]         = useState(false);
   const [error, setError]           = useState('');
   const [loading, setLoading]       = useState(false);
+  const [resendEmail, setResendEmail] = useState('');
+  const [resendSent, setResendSent]   = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setResendEmail('');
+    setResendSent(false);
     setLoading(true);
-    const user = await login(identifier, password);
-    if (user) navigate(ROLE_ROUTES[user.role]);
-    else { setError('Invalid credentials. Please check your details and try again.'); setLoading(false); }
+    try {
+      const { user, error: loginError } = await login(identifier, password);
+      if (user) navigate(ROLE_ROUTES[user.role]);
+      else {
+        setError(loginError ?? 'Sign-in failed. Please try again.');
+        // If email-not-confirmed, surface a resend button
+        if (loginError?.toLowerCase().includes('confirm')) {
+          setResendEmail(identifier.includes('@') ? identifier : '');
+        }
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResend = async () => {
+    if (!resendEmail) return;
+    await supabase.auth.resend({ type: 'signup', email: resendEmail });
+    setResendSent(true);
   };
 
   return (
@@ -365,9 +386,20 @@ export default function Login() {
 
             {/* Error */}
             {error && (
-              <div className="flex items-center gap-2.5 px-4 py-3 bg-red-50 border border-red-100 rounded-xl text-sm text-red-700">
-                <span className="shrink-0">⚠️</span>
-                {error}
+              <div className="flex flex-col gap-2 px-4 py-3 bg-red-50 border border-red-100 rounded-xl text-sm text-red-700">
+                <div className="flex items-start gap-2.5">
+                  <span className="shrink-0">⚠️</span>
+                  {error}
+                </div>
+                {resendEmail && !resendSent && (
+                  <button type="button" onClick={handleResend}
+                    className="self-start text-xs font-semibold text-red-600 underline underline-offset-2">
+                    Resend confirmation email →
+                  </button>
+                )}
+                {resendSent && (
+                  <p className="text-xs text-green-700 font-medium">Confirmation email sent! Check your inbox.</p>
+                )}
               </div>
             )}
 

@@ -7,25 +7,27 @@ import {
 import PawFleetLogo from '../components/ui/PawFleetLogo';
 import { useApp } from '../context/AppContext';
 
-const ROLE_ROUTES = { owner: '/owner', walker: '/walker' };
+const ROLE_ROUTES = { owner: '/owner', walker: '/walker', vet: '/vet', shopowner: '/shopowner' };
 
 export default function Register() {
   const { register } = useApp();
   const navigate = useNavigate();
-  const fileRef = useRef<HTMLInputElement>(null);
+  const fileRef    = useRef<HTMLInputElement>(null);
+  const nrcFileRef = useRef<HTMLInputElement>(null);
 
-  const [role, setRole]           = useState<'owner' | 'walker'>('owner');
-  const [name, setName]           = useState('');
-  const [phone, setPhone]         = useState('');
-  const [email, setEmail]         = useState('');
-  const [password, setPassword]   = useState('');
-  const [confirmPw, setConfirmPw] = useState('');
-  const [nrc, setNrc]             = useState('');
-  const [photoUrl, setPhotoUrl]   = useState('');
-  const [showPw, setShowPw]       = useState(false);
-  const [error, setError]         = useState('');
-  const [loading, setLoading]     = useState(false);
-  const [emailSent, setEmailSent] = useState(false);
+  const [role, setRole]               = useState<'owner' | 'walker' | 'vet' | 'shopowner'>('owner');
+  const [name, setName]               = useState('');
+  const [phone, setPhone]             = useState('');
+  const [email, setEmail]             = useState('');
+  const [password, setPassword]       = useState('');
+  const [confirmPw, setConfirmPw]     = useState('');
+  const [nrc, setNrc]                 = useState('');
+  const [nrcImageUrl, setNrcImageUrl] = useState('');
+  const [photoUrl, setPhotoUrl]       = useState('');
+  const [showPw, setShowPw]           = useState(false);
+  const [error, setError]             = useState('');
+  const [loading, setLoading]         = useState(false);
+  const [emailSent, setEmailSent]     = useState(false);
   const [pendingApproval, setPending] = useState(false);
 
   const handlePhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -36,24 +38,34 @@ export default function Register() {
     reader.readAsDataURL(file);
   };
 
+  const handleNrcImage = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => setNrcImageUrl(ev.target?.result as string);
+    reader.readAsDataURL(file);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     if (password !== confirmPw) { setError('Passwords do not match.'); return; }
     if (password.length < 6)    { setError('Password must be at least 6 characters.'); return; }
     if (role === 'walker') {
-      if (!photoUrl)   { setError('A profile photo is required for walkers.'); return; }
-      if (!nrc.trim()) { setError('NRC number is required for walkers.'); return; }
+      if (!photoUrl)       { setError('A profile photo is required for walkers.'); return; }
+      if (!nrc.trim())     { setError('NRC number is required for walkers.'); return; }
+      if (!nrcImageUrl)    { setError('A photo of your NRC card is required.'); return; }
     }
     setLoading(true);
     const result = await register(name, phone, email, password, role, {
       photoUrl: photoUrl || undefined,
       nrc: role === 'walker' ? nrc.trim() : undefined,
+      nrcImageUrl: role === 'walker' ? nrcImageUrl || undefined : undefined,
     });
     setLoading(false);
     if (result.success) {
       if (result.pendingApproval) { setPending(true); return; }
-      if (result.user) navigate(ROLE_ROUTES[role]);
+      if (result.user) navigate(ROLE_ROUTES[role as keyof typeof ROLE_ROUTES]);
       else setEmailSent(true);
     } else {
       setError(result.error || 'Registration failed. Please try again.');
@@ -165,15 +177,20 @@ export default function Register() {
           <div className="w-10 h-1 rounded-full bg-gray-200 mx-auto mb-5" />
 
           {/* Role toggle */}
-          <div className="flex p-1 rounded-2xl mb-6"
-            style={{ background: '#EBF5EF' }}>
-            {(['owner', 'walker'] as const).map(r => (
-              <button key={r} type="button" onClick={() => { setRole(r); setError(''); }}
-                className="flex-1 py-3 rounded-xl text-sm font-bold transition-all duration-200"
-                style={role === r
-                  ? { background: '#1B4332', color: 'white', boxShadow: '0 2px 10px rgba(27,67,50,0.35)' }
-                  : { color: '#6B7280' }}>
-                {r === 'owner' ? '🐾 Dog Owner' : '🦮 Dog Walker'}
+          <div className="grid grid-cols-2 gap-2 mb-6">
+            {([
+              { value: 'owner',     label: '🐾 Dog Owner',   desc: 'Book walks & services' },
+              { value: 'walker',    label: '🦮 Dog Walker',   desc: 'Walk dogs & earn' },
+              { value: 'vet',       label: '🩺 Veterinarian', desc: 'Manage appointments' },
+              { value: 'shopowner', label: '🛍 Shop Owner',   desc: 'Sell pet products' },
+            ] as const).map(r => (
+              <button key={r.value} type="button" onClick={() => { setRole(r.value); setError(''); }}
+                className="p-3 rounded-2xl border-2 text-left transition-all"
+                style={role === r.value
+                  ? { borderColor: '#1B4332', background: '#EBF5EF' }
+                  : { borderColor: '#E5E7EB', background: 'white' }}>
+                <p className="text-sm font-bold text-ink">{r.label}</p>
+                <p className="text-[11px] text-ink-muted mt-0.5">{r.desc}</p>
               </button>
             ))}
           </div>
@@ -260,6 +277,41 @@ export default function Register() {
                   <input type="text" value={nrc} onChange={e => setNrc(e.target.value)}
                     placeholder="NRC Number (e.g. 123456/78/9)" required={role === 'walker'}
                     className="flex-1 h-full bg-transparent text-sm placeholder:text-gray-400 focus:outline-none" />
+                </div>
+                {/* NRC photo upload */}
+                <div className="px-4 pt-3 pb-3 border-t border-gray-100">
+                  <p className="text-xs font-semibold text-gray-600 mb-2.5">
+                    NRC Card Photo <span className="text-red-500">*</span>
+                  </p>
+                  <div className="flex items-center gap-3">
+                    <div
+                      onClick={() => nrcFileRef.current?.click()}
+                      className="w-24 h-16 rounded-xl overflow-hidden cursor-pointer flex items-center justify-center shrink-0"
+                      style={{
+                        border: `2px dashed ${nrcImageUrl ? '#2B8A50' : '#D1D5DB'}`,
+                        background: nrcImageUrl ? 'transparent' : '#F9FAFB',
+                      }}>
+                      {nrcImageUrl
+                        ? <img src={nrcImageUrl} alt="NRC" className="w-full h-full object-cover" />
+                        : <div className="flex flex-col items-center gap-1">
+                            <Camera className="w-5 h-5 text-gray-400" />
+                            <span className="text-[9px] font-medium text-gray-400">NRC photo</span>
+                          </div>
+                      }
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500 mb-2 leading-relaxed">
+                        Take a clear photo of both sides of your NRC card
+                      </p>
+                      <button type="button" onClick={() => nrcFileRef.current?.click()}
+                        className="text-xs font-bold px-3 py-1.5 rounded-lg border"
+                        style={{ borderColor: '#2B8A50', color: '#2B8A50' }}>
+                        {nrcImageUrl ? 'Change Photo' : 'Upload NRC Photo'}
+                      </button>
+                    </div>
+                  </div>
+                  <input ref={nrcFileRef} type="file" accept="image/*" capture="environment"
+                    className="hidden" onChange={handleNrcImage} />
                 </div>
                 <p className="px-4 pb-3 text-[11px] text-gray-400">Used for background verification only</p>
               </div>

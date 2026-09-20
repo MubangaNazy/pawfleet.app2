@@ -4,6 +4,7 @@ import {
   LayoutDashboard, Map, ListChecks, PlusCircle,
   Users, UserCog, CreditCard, Activity, DollarSign, Clock,
   LogOut, X, Dog, ChevronRight, Scissors, ShoppingBag, User, Calendar, Bell, Package, TrendingUp, History, Trophy, Stethoscope, ClipboardList,
+  GraduationCap, Store,
 } from 'lucide-react';
 import PawFleetLogo from '../ui/PawFleetLogo';
 import { useApp } from '../../context/AppContext';
@@ -42,7 +43,9 @@ const ownerNav = [
   { to: '/owner/dogs',         icon: Dog,             label: 'My Dogs' },
   { to: '/owner/history',      icon: Clock,           label: 'Walk History' },
   { to: '/owner/walker-map',   icon: Map,             label: 'Live Map' },
-  { to: '/owner/services',     icon: Scissors,        label: 'Grooming & Walking' },
+  { to: '/owner/services',      icon: Scissors,        label: 'Grooming & Walking' },
+  { to: '/owner/dog-training',  icon: GraduationCap,   label: 'Dog Training' },
+  { to: '/owner/marketplace',   icon: Store,           label: 'Pet Marketplace' },
   { to: '/owner/vet-booking',  icon: Stethoscope,     label: 'Vet Care' },
   { to: '/owner/shop',         icon: ShoppingBag,     label: 'Shop' },
   { to: '/owner/profile',      icon: User,            label: 'Profile' },

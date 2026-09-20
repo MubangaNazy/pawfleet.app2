@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import {
   Activity, TrendingUp, Users, Dog, MapPin, ShoppingBag,
   PlusCircle, ArrowRight, AlertCircle, BarChart2, CreditCard,
-  UserCog, ListChecks, Bell, Clock, Store, MessageSquare,
+  UserCog, ListChecks, Bell, Clock, Store, MessageSquare, RefreshCw,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { StatusBadge } from '../../components/ui/Badge';
@@ -49,8 +49,9 @@ const QUICK_ACTIONS = [
 ];
 
 export default function AdminDashboard() {
-  const { currentUser, data } = useApp();
+  const { currentUser, data, refreshData } = useApp();
   const [chartRange] = useState<'7d' | '30d'>('7d');
+  const [refreshing, setRefreshing] = useState(false);
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
@@ -106,6 +107,12 @@ export default function AdminDashboard() {
               <p className="text-white/75 text-sm mt-1">Here's your app at a glance</p>
             </div>
             <div className="flex gap-2 shrink-0">
+              <button
+                onClick={async () => { setRefreshing(true); await refreshData(); setRefreshing(false); }}
+                disabled={refreshing}
+                className="w-9 h-9 flex items-center justify-center rounded-xl bg-white/20 backdrop-blur text-white hover:bg-white/30 transition-colors disabled:opacity-60">
+                <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+              </button>
               <Link to="/admin/notifications" className="relative w-9 h-9 flex items-center justify-center rounded-xl bg-white/20 backdrop-blur text-white hover:bg-white/30 transition-colors">
                 <Bell className="w-4 h-4" />
                 {unreadNotifs > 0 && (

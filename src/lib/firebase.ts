@@ -1,5 +1,5 @@
 import { initializeApp, getApps } from 'firebase/app';
-import { getMessaging, getToken, onMessage, type Messaging } from 'firebase/messaging';
+import { getMessaging, getToken, isSupported, onMessage, type Messaging } from 'firebase/messaging';
 
 const firebaseConfig = {
   apiKey: 'AIzaSyBm9p1VveDaDf0Lsyr0qVtyxgsznDCC0fk',
@@ -15,14 +15,17 @@ const VAPID_KEY = 'BE3l3cJwUaDkln9WVjnd1WkuFIT5jSw6jPZlpJB_Tcp9YnCqX6ng1SFGS4ewI
 const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
 
 let messaging: Messaging | null = null;
-try {
-  messaging = getMessaging(app);
-} catch {
-  // Service workers not supported (e.g. during SSR or unsupported browser)
-}
+// Push needs service workers, Push API and Notifications. Many in-app browsers and older phones lack them,
+// and calling Firebase there throws "messaging/unsupported-browser". Check first and stay quiet if unsupported.
+const messagingReady: Promise<boolean> = isSupported()
+  .then(ok => {
+    if (ok) messaging = getMessaging(app);
+    return ok;
+  })
+  .catch(() => false);
 
 export async function requestNotificationPermission(): Promise<string | null> {
-  if (!messaging || !('Notification' in window)) return null;
+  if (!(await messagingReady) || !messaging || !('Notification' in window) || !('serviceWorker' in navigator)) return null;
   try {
     const permission = await Notification.requestPermission();
     if (permission !== 'granted') return null;
@@ -37,6 +40,11 @@ export async function requestNotificationPermission(): Promise<string | null> {
 }
 
 export function onForegroundMessage(handler: (payload: { notification?: { title?: string; body?: string } }) => void) {
-  if (!messaging) return () => {};
-  return onMessage(messaging, handler);
+  let unsub: () => void = () => {};
+  let cancelled = false;
+  messagingReady.then(ok => {
+    if (!ok || !messaging || cancelled) return;
+    try { unsub = onMessage(messaging, handler); } catch { /* unsupported */ }
+  });
+  return () => { cancelled = true; unsub(); };
 }

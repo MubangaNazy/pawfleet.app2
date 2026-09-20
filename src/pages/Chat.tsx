@@ -43,6 +43,7 @@ export default function Chat() {
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(true);
   const [listening, setListening] = useState(false);
+  const [sendError, setSendError] = useState('');
   const [selectedMsgId, setSelectedMsgId] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
@@ -155,7 +156,13 @@ export default function Chat() {
     const { error } = await supabase.from('messages').insert({
       id: tempId, walk_id: walkId, sender_id: currentUser.id, text: msg,
     });
-    if (error) console.warn('Message send failed (run SQL fix):', error.message);
+    if (error) {
+      // Roll back optimistic message
+      setMessages(prev => prev.filter(m => m.id !== tempId));
+      setText(msg);
+      setSendError('Message not saved — ask admin to run the messages RLS SQL fix.');
+      setTimeout(() => setSendError(''), 5000);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -308,6 +315,11 @@ export default function Chat() {
           <div className="flex items-center gap-2 mb-2 px-4 py-2 bg-danger/5 border border-danger/20 rounded-2xl">
             <span className="w-2 h-2 bg-danger rounded-full animate-pulse" />
             <span className="text-xs font-semibold text-danger">Listening… speak now</span>
+          </div>
+        )}
+        {sendError && (
+          <div className="mb-2 px-3 py-2 rounded-xl bg-amber-50 border border-amber-200">
+            <p className="text-xs font-semibold text-amber-800">{sendError}</p>
           </div>
         )}
         <div className="flex items-end gap-2">

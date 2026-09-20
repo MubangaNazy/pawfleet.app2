@@ -219,8 +219,8 @@ export default function WalkerMyWalks() {
                 <div className="grid grid-cols-2 gap-3 mb-4 text-sm">
                   <div className="p-2.5 rounded-xl bg-surface-secondary border border-surface-border">
                     <p className="text-xs text-ink-muted mb-1">Scheduled</p>
-                    <p className="text-ink font-medium">{format(new Date(walk.scheduledDate), 'MMM d, yyyy')}</p>
-                    <p className="text-xs text-ink-muted">{format(new Date(walk.scheduledDate), 'h:mm a')}</p>
+                    <p className="text-ink font-medium">{walk.scheduledDate ? format(new Date(walk.scheduledDate), 'MMM d, yyyy') : '—'}</p>
+                    <p className="text-xs text-ink-muted">{walk.scheduledDate ? format(new Date(walk.scheduledDate), 'h:mm a') : ''}</p>
                   </div>
                   {walk.status === 'active' && walk.startTime && (
                     <div className="p-2.5 rounded-xl bg-success-light border border-success/20">

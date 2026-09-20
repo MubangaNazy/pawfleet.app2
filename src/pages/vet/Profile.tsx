@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LogOut, Stethoscope, Camera, Upload, Check, X, Pencil, MapPin, Clock } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import DeleteAccountRow from '../../components/account/DeleteAccount';
 
 async function resizePhoto(file: File, maxDim = 512, q = 0.78): Promise<string> {
   return new Promise(resolve => {
@@ -204,6 +205,8 @@ export default function VetProfile() {
             <p className="text-xs text-ink-muted">Stand at your clinic and tap. Owners searching for a vet nearby will see you first.</p>
           </div>
         </button>
+
+        <DeleteAccountRow />
 
         {/* Logout */}
         <button type="button" onClick={() => setShowLogout(true)}

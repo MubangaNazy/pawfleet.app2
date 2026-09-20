@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { CreditCard, Bell, Heart, Shield, ChevronRight, LogOut, Dog, Camera, Upload, X, Check, Pencil } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { isThisMonth } from 'date-fns';
+import DeleteAccountRow from '../../components/account/DeleteAccount';
 
 async function resizePhoto(file: File, maxDim = 512, q = 0.78): Promise<string> {
   return new Promise(resolve => {
@@ -352,6 +353,8 @@ export default function Profile() {
             </div>
           );
         })()}
+
+        <DeleteAccountRow />
 
         {/* Sign out */}
         {showLogoutConfirm ? (

@@ -8,6 +8,7 @@ import { BottomNav } from './BottomNav';
 import RatingModal from '../ui/RatingModal';
 import { useApp } from '../../context/AppContext';
 import { useActiveWalkSession, useWalkerOnlineResume } from '../../hooks/useWalkerOnlineResume';
+import OnlineSwitch from '../walker/OnlineSwitch';
 
 export function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -77,6 +78,7 @@ export function Layout() {
           </button>
           <PawFleetLogo size={28} showText />
           <div className="flex items-center gap-2">
+            {isWalker && <OnlineSwitch />}
             <Link to={notifPath} className="relative w-9 h-9 flex items-center justify-center rounded-xl hover:bg-surface-hover text-ink-secondary">
               <Bell className="w-5 h-5" />
               {unreadCount > 0 && (

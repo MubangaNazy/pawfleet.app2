@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Bell, Shield, ChevronRight, Settings, LogOut, Star, DollarSign, Activity, Camera, Upload, X, Check, Pencil, MapPin } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import type { WalkerPricing } from '../../types';
+import DeleteAccountRow from '../../components/account/DeleteAccount';
 
 async function resizePhoto(file: File, maxDim = 512, q = 0.78): Promise<string> {
   return new Promise(resolve => {
@@ -373,6 +374,8 @@ export default function WalkerProfile() {
             </button>
           ))}
         </div>
+
+        <DeleteAccountRow />
 
         {/* Logout */}
         <button type="button" onClick={() => setShowLogoutConfirm(true)}

@@ -13,6 +13,7 @@ import type { User } from '../../types';
 import GoOnlineCard from '../../components/walker/GoOnlineCard';
 import { useDirectInbox } from '../../lib/directMessages';
 import { canWalkerTakeOpenJob } from '../../lib/jobs';
+import { useWalkerOnline } from '../../lib/liveTracking';
 
 const WALK_SLIDES = [
   'https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=1200&q=85',
@@ -23,6 +24,7 @@ const WALK_SLIDES = [
 export default function WalkerDashboard() {
   const { data, currentUser, getWalkerStats, loading, sendNotification } = useApp();
   const { unreadTotal: unreadMessages } = useDirectInbox(currentUser?.id);
+  const { online } = useWalkerOnline();
 
   const [popupWalkId, setPopupWalkId] = useState<string | null>(null);
   const [showTrainerModal, setShowTrainerModal] = useState(false);
@@ -39,13 +41,13 @@ export default function WalkerDashboard() {
       n.type === 'walk_booked' &&
       n.data?.walkId &&
       !shownPopupsRef.current.has(n.id)
-    );
+    ).filter(n => online || data.walks.find(w => w.id === n.data?.walkId)?.walkerId === currentUser.id);
     if (myUnread.length > 0) {
       const latest = myUnread[0];
       shownPopupsRef.current.add(latest.id);
       setPopupWalkId(latest.data!.walkId);
     }
-  }, [data.notifications, currentUser]);
+  }, [data.notifications, currentUser, online]);
 
   const myWalks    = data.walks.filter(w => w.walkerId === currentUser?.id);
   const myPayments = data.payments.filter(p => p.walkerId === currentUser?.id);

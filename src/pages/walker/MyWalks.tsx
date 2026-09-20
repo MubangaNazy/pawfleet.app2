@@ -10,6 +10,7 @@ import { supabase } from '../../lib/supabase';
 import { StaggerList, StaggerItem } from '../../components/ui/Anim';
 import { NoWalksIllustration } from '../../components/ui/Illustrations';
 import { canWalkerTakeOpenJob } from '../../lib/jobs';
+import OnlineSwitch from '../../components/walker/OnlineSwitch';
 
 const CANCEL_REASONS = [
   { id: 'not_home',  label: 'Owner not home',        icon: '🏠' },
@@ -40,6 +41,8 @@ export default function WalkerMyWalks() {
   const [filter, setFilter] = useState<Filter>('available');
   const [gpsLoading, setGpsLoading] = useState<string | null>(null);
   const [accepting, setAccepting] = useState<string | null>(null);
+  const meNow = currentUser ? (data.users.find(u => u.id === currentUser.id) ?? currentUser) : null;
+  const approved = !meNow?.walkerStatus || meNow.walkerStatus === 'active';
   const [cancelTarget, setCancelTarget] = useState<string | null>(null);
   const [cancelReason, setCancelReason] = useState('');
   const [confirmedIds, setConfirmedIds] = useState<Set<string>>(new Set());
@@ -119,7 +122,7 @@ export default function WalkerMyWalks() {
   ];
 
   const handleAccept = async (walkId: string) => {
-    if (!currentUser) return;
+    if (!currentUser || !approved) return;
     setAccepting(walkId);
     assignWalker(walkId, currentUser.id);
     await new Promise(r => setTimeout(r, 600));
@@ -149,6 +152,15 @@ export default function WalkerMyWalks() {
           Walks
         </h1>
         <p className="text-sm font-medium mt-1" style={{ color: '#5A8A70' }}>{availableWalks.length} available · {myWalks.length} assigned to you</p>
+        <div className="mt-3"><OnlineSwitch /></div>
+        <p className="text-[11px] text-ink-muted mt-2 leading-relaxed">
+          Go online to appear on the map and get new requests on your phone. Offline, you can still look through the jobs below and accept them.
+        </p>
+        {!approved && (
+          <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800 leading-relaxed">
+            Your account is waiting for admin approval. You can look at jobs, but you cannot accept them until you are approved.
+          </div>
+        )}
       </div>
 
       {/* Filter tabs */}
@@ -265,7 +277,7 @@ export default function WalkerMyWalks() {
                     <button
                       type="button"
                       onClick={() => handleAccept(walk.id)}
-                      disabled={accepting === walk.id}
+                      disabled={accepting === walk.id || !approved}
                       className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-white text-sm font-semibold transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                       style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)' }}
                     >
@@ -280,7 +292,7 @@ export default function WalkerMyWalks() {
                       ) : (
                         <>
                           <CheckCircle2 className="w-4 h-4" />
-                          Accept Walk
+                          {approved ? 'Accept Walk' : 'Awaiting approval'}
                         </>
                       )}
                     </button>

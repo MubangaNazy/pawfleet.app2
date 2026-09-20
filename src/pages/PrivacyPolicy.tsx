@@ -44,7 +44,7 @@ const PRIVACY: Section[] = [
       'All data is transmitted over HTTPS.',
       'Passwords are stored using industry-standard hashing via Supabase Auth — we never store plain-text passwords.',
       'Location data is only retained for the duration of an active walk session.',
-      'You can request deletion of your account and associated data by contacting us at pawfleetapp@gmail.com.',
+      'You can delete your account and personal data yourself in the app (Profile, then Delete my account), or follow the steps at www.pawfleetapp.com/delete-account, or contact us at pawfleetapp@gmail.com.',
     ],
   },
   {
@@ -52,8 +52,9 @@ const PRIVACY: Section[] = [
     title: '5. Data Retention',
     body: [
       'Account data is retained for as long as your account is active.',
-      'Walk history is retained to provide earnings and booking records.',
-      'You may request deletion of your data at any time.',
+      'Completed walks and payments are kept as anonymous records (names, addresses, notes and routes removed) so that earnings and financial records stay correct.',
+      'When you delete your account we remove your login, profile details, photos, messages, notifications and pets without booking history straight away. Requests made by email are completed within 30 days.',
+      'You may delete your data at any time.',
     ],
   },
   {
@@ -148,7 +149,7 @@ const TERMS: Section[] = [
     title: '7. Termination',
     body: [
       'We may suspend or terminate accounts that violate these terms, engage in fraudulent activity, or misuse the platform.',
-      'You may delete your account at any time by contacting us.',
+      'You may delete your account at any time in the app (Profile, then Delete my account) or at www.pawfleetapp.com/delete-account.',
     ],
   },
   {

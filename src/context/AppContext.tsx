@@ -134,6 +134,8 @@ interface AppContextType {
   addRating: (walkId: string, rating: number, comment?: string) => void;
   declineWalk: (walkId: string) => void;
   updateOrderStatus: (notifId: string, status: 'pending' | 'confirmed' | 'delivered') => void;
+  /** Permanently deletes the signed-in person's account and personal data. */
+  deleteAccount: () => Promise<{ ok: boolean; error?: string }>;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -787,6 +789,32 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return { success: true };
   };
 
+  const deleteAccount = async (): Promise<{ ok: boolean; error?: string }> => {
+    const { data: s } = await supabase.auth.getSession();
+    const token = s.session?.access_token;
+    if (!token) return { ok: false, error: 'Please log out, log back in, then delete your account.' };
+    // The Android app runs from its own address, so it calls the website's server directly.
+    const base = /(pawfleetapp\.com|vercel\.app)$/i.test(window.location.hostname) ? window.location.origin : 'https://www.pawfleetapp.com';
+    try {
+      const res = await fetch(`${base}/api/delete-account`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ confirm: 'DELETE' }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) return { ok: false, error: j.error || 'We could not delete your account. Please try again.' };
+    } catch {
+      return { ok: false, error: OFFLINE_MESSAGE };
+    }
+    // Gone on the server: wipe everything kept on this phone too.
+    goOffline();
+    try { Object.keys(localStorage).filter(k => k.startsWith('pawfleet') || k.startsWith('sb-')).forEach(k => localStorage.removeItem(k)); } catch { /* private mode */ }
+    supabase.auth.signOut().catch(() => {});
+    clearUser();
+    setCurrentUser(null);
+    return { ok: true };
+  };
+
   const logout = () => {
     goOffline();
     // The cache holds other people's data too. Do not leave it behind for the next person on this phone.
@@ -1035,6 +1063,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const walk = data.walks.find(w => w.id === walkId);
     // Someone else already took this job.
     if (walk?.walkerId && walk.walkerId !== walkerId) return;
+    // Walkers must be approved (ID checked) before they can take a job.
+    const target = data.users.find(u => u.id === walkerId);
+    if (target?.role === 'walker' && target.walkerStatus && target.walkerStatus !== 'active') return;
     setData(prev => ({ ...prev, walks: prev.walks.map(w => w.id === walkId ? { ...w, walkerId, status: 'assigned' as const } : w) }));
     supabase.from('walks').update({ walker_id: walkerId, status: 'assigned' })
       .eq('id', walkId).or(`walker_id.is.null,walker_id.eq.${walkerId}`).select('id')
@@ -1469,7 +1500,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       activateSubscription,
       approveWalker, rejectWalker,
       markNotificationRead, markAllNotificationsRead, sendNotification,
-      getAdminReferralCode, addRating, declineWalk, updateOrderStatus,
+      getAdminReferralCode, addRating, declineWalk, updateOrderStatus, deleteAccount,
     }}>
       {children}
     </AppContext.Provider>

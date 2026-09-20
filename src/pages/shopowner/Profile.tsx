@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { Camera, Upload, Check, LogOut, Store, MapPin, Tag, ChevronRight, Pencil, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
+import DeleteAccountRow from '../../components/account/DeleteAccount';
 
 const SHOP_TYPES = ['Pet Supplies', 'Dog Food & Treats', 'Dog Accessories', 'Grooming Products', 'Veterinary Supplies', 'Mixed / General'];
 
@@ -198,6 +199,8 @@ export default function ShopOwnerProfile() {
             </div>
           </div>
         )}
+
+        <DeleteAccountRow />
 
         {/* Sign out */}
         {showLogout ? (

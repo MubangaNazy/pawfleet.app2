@@ -73,7 +73,7 @@ export default async function handler(req, res) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: 'PawFleet <receipts@pawfleetapp2.vercel.app>',
+        from: 'PawFleet <receipts@pawfleetapp.com>',
         to: [to],
         subject: `Payment Confirmed — K${Number(amount).toLocaleString()} received`,
         html,

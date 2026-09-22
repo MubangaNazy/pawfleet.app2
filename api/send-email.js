@@ -2,7 +2,7 @@
 // POST /api/send-email  { to, template, data }
 // Never blocks anything else: the app fires this and moves on regardless of the result.
 
-const FROM = 'PawFleet <notifications@pawfleetapp2.vercel.app>';
+const FROM = 'PawFleet <notifications@pawfleetapp.com>';
 const SUPPORT_EMAIL = 'pawfleetapp@gmail.com';
 
 function shell(bodyHtml, { badge = '🐾', title, subtitle = 'PawFleet · Lusaka, Zambia' } = {}) {

@@ -14,6 +14,10 @@ import GoOnlineCard from '../../components/walker/GoOnlineCard';
 import { useDirectInbox } from '../../lib/directMessages';
 import { canWalkerTakeOpenJob } from '../../lib/jobs';
 import { useWalkerOnline } from '../../lib/liveTracking';
+import { useWalkerRefPos } from '../../hooks/useWalkerRefPos';
+import { sortByDistance } from '../../lib/jobs';
+import { formatKm } from '../../lib/geo';
+import { MapPin } from 'lucide-react';
 
 const WALK_SLIDES = [
   'https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=1200&q=85',
@@ -25,6 +29,7 @@ export default function WalkerDashboard() {
   const { data, currentUser, getWalkerStats, loading, sendNotification } = useApp();
   const { unreadTotal: unreadMessages } = useDirectInbox(currentUser?.id);
   const { online } = useWalkerOnline();
+  const { pos: refPos, source: refSource } = useWalkerRefPos();
 
   const [popupWalkId, setPopupWalkId] = useState<string | null>(null);
   const [showTrainerModal, setShowTrainerModal] = useState(false);
@@ -66,10 +71,9 @@ export default function WalkerDashboard() {
     .sort((a, b) => new Date(a.scheduledDate).getTime() - new Date(b.scheduledDate).getTime())
     .slice(0, 5);
 
-  const availableWalks = data.walks
-    .filter(w => w.status === 'pending' && !w.walkerId && !declinedIds.has(w.id) && canWalkerTakeOpenJob(w, currentUser))
-    .sort((a, b) => new Date(a.scheduledDate).getTime() - new Date(b.scheduledDate).getTime())
-    .slice(0, 3);
+  const openJobs = data.walks
+    .filter(w => w.status === 'pending' && !w.walkerId && !declinedIds.has(w.id) && canWalkerTakeOpenJob(w, currentUser));
+  const availableWalks = sortByDistance(openJobs, refPos).slice(0, 3);
 
   const handlePopupDismiss = () => setPopupWalkId(null);
   const handlePopupDecline = (walkId: string) => {
@@ -318,6 +322,11 @@ export default function WalkerDashboard() {
                 View all <ArrowRight className="w-3 h-3" />
               </Link>
             </div>
+            {!refPos && (
+              <Link to="/walker/profile" className="flex items-center gap-2 px-4 py-2.5 border-b border-amber-200 text-[11px] font-semibold text-amber-700">
+                <MapPin className="w-3.5 h-3.5 shrink-0" /> Set your area to see how far each job is →
+              </Link>
+            )}
             <div className="divide-y divide-amber-100">
               {availableWalks.map(walk => {
                 const dog   = data.dogs.find(d => d.id === walk.dogId);
@@ -337,7 +346,9 @@ export default function WalkerDashboard() {
                     </div>
                     <div className="flex flex-col items-end gap-1 shrink-0">
                       <span className="text-xs font-bold" style={{ color: '#1B4332' }}>K{walk.walkerEarning}</span>
-                      <span className="text-[10px] text-amber-600 font-medium">Tap to accept →</span>
+                      <span className="text-[10px] font-medium" style={{ color: walk._distKm != null ? '#2B8A50' : '#B45309' }}>
+                        {walk._distKm != null ? `📍 ${formatKm(walk._distKm)} away` : 'Tap to accept →'}
+                      </span>
                     </div>
                   </Link>
                 );

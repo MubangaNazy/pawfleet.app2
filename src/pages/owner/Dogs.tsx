@@ -24,21 +24,10 @@ const DOG_BREEDS = [
   'Basenji', 'Dalmatian', 'Greyhound', 'Bull Terrier', 'Shar-Pei',
   'Other',
 ];
-const CAT_BREEDS = [
-  'Mixed / Unknown', 'Domestic Shorthair', 'Domestic Longhair',
-  'Siamese', 'Persian', 'Maine Coon', 'Ragdoll', 'Abyssinian',
-  'British Shorthair', 'Russian Blue', 'Bengal', 'Birman',
-  'Scottish Fold', 'Burmese', 'Devon Rex', 'Sphynx', 'Turkish Angora',
-  'American Shorthair', 'Himalayan', 'Norwegian Forest Cat', 'Other',
-];
-
-function BreedPicker({ animalType, value, onChange }: {
-  animalType: 'dog' | 'cat'; value: string; onChange: (v: string) => void;
-}) {
+function BreedPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
-  const breeds = animalType === 'dog' ? DOG_BREEDS : CAT_BREEDS;
-  const filtered = breeds.filter(b => b.toLowerCase().includes(search.toLowerCase()));
+  const filtered = DOG_BREEDS.filter(b => b.toLowerCase().includes(search.toLowerCase()));
 
   return (
     <div className="relative">
@@ -100,7 +89,6 @@ function AddDogModal({ onClose }: { onClose: () => void }) {
   const { currentUser, createDog } = useApp();
   const fileRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<string | null>(null);
-  const [animalType, setAnimalType] = useState<'dog' | 'cat'>('dog');
   const [name, setName] = useState('');
   const [breed, setBreed] = useState('');
   const [ageValue, setAgeValue] = useState('');
@@ -132,7 +120,7 @@ function AddDogModal({ onClose }: { onClose: () => void }) {
       ownerId: currentUser.id,
       imageUrl: preview || undefined,
       healthLogs: [],
-      animalType,
+      animalType: 'dog',
     });
     if (result.error) {
       setSaving(false);
@@ -204,38 +192,20 @@ function AddDogModal({ onClose }: { onClose: () => void }) {
             <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handlePhoto} />
           </div>
 
-          {/* Animal Type */}
-          <div>
-            <label className="block text-sm font-medium text-ink-secondary mb-1.5">Animal Type</label>
-            <div className="grid grid-cols-2 gap-2">
-              {(['dog', 'cat'] as const).map(type => (
-                <button key={type} type="button" onClick={() => setAnimalType(type)}
-                  className={`flex items-center justify-center gap-2 h-11 rounded-xl border-2 text-sm font-semibold transition-all ${
-                    animalType === type
-                      ? 'border-primary bg-primary/5 text-primary'
-                      : 'border-surface-border text-ink-secondary hover:bg-surface-hover'
-                  }`}>
-                  <span className="text-xl">{type === 'dog' ? '🐕' : '🐈'}</span>
-                  {type === 'dog' ? 'Dog' : 'Cat'}
-                </button>
-              ))}
-            </div>
-          </div>
-
           {/* Name */}
           <div>
             <label className="block text-sm font-medium text-ink-secondary mb-1.5">
-              {animalType === 'dog' ? "Dog's" : "Cat's"} Name <span className="text-danger">*</span>
+              Dog's Name <span className="text-danger">*</span>
             </label>
             <input type="text" value={name} onChange={e => setName(e.target.value)}
-              placeholder={animalType === 'dog' ? 'e.g. Rex, Coco, Luna' : 'e.g. Whiskers, Mochi, Luna'} required
+              placeholder="e.g. Rex, Coco, Luna" required
               className="w-full h-11 px-4 rounded-xl border border-surface-border bg-white text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-primary transition-all" />
           </div>
 
           {/* Breed */}
           <div>
             <label className="block text-sm font-medium text-ink-secondary mb-1.5">Breed</label>
-            <BreedPicker animalType={animalType} value={breed} onChange={setBreed} />
+            <BreedPicker value={breed} onChange={setBreed} />
           </div>
 
           {/* Age */}
@@ -288,7 +258,7 @@ function AddDogModal({ onClose }: { onClose: () => void }) {
                 Saving…
               </>
             ) : (
-              <>Add {animalType === 'dog' ? 'Dog' : 'Cat'}</>
+              <>Add Dog</>
             )}
           </button>
         </form>
@@ -368,7 +338,7 @@ export default function OwnerDogs() {
                     ) : (
                       <div className="w-full h-full flex items-center justify-center"
                         style={{ background: 'linear-gradient(135deg, #EBF5EF, #D1FAE5)' }}>
-                        <span style={{ fontSize: 100 }}>{dog.animalType === 'cat' ? '🐈' : '🐕'}</span>
+                        <span style={{ fontSize: 100 }}>🐕</span>
                       </div>
                     )}
                     <div className="absolute inset-0"

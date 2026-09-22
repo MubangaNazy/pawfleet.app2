@@ -8,7 +8,7 @@ import PawFleetLogo from '../components/ui/PawFleetLogo';
 import { useApp } from '../context/AppContext';
 import { prepareImage } from '../lib/image';
 
-const ROLE_ROUTES = { owner: '/owner', walker: '/walker', vet: '/vet', shopowner: '/shopowner' };
+const ROLE_ROUTES = { owner: '/owner', walker: '/walker' };
 
 export default function Register() {
   const { register } = useApp();
@@ -16,7 +16,7 @@ export default function Register() {
   const fileRef    = useRef<HTMLInputElement>(null);
   const nrcFileRef = useRef<HTMLInputElement>(null);
 
-  const [role, setRole]               = useState<'owner' | 'walker' | 'vet' | 'shopowner'>('owner');
+  const [role, setRole]               = useState<'owner' | 'walker'>('owner');
   const [name, setName]               = useState('');
   const [phone, setPhone]             = useState('');
   const [email, setEmail]             = useState('');
@@ -181,10 +181,8 @@ export default function Register() {
           {/* Role toggle */}
           <div className="grid grid-cols-2 gap-2 mb-6">
             {([
-              { value: 'owner',     label: '🐾 Dog Owner',   desc: 'Book walks & services' },
-              { value: 'walker',    label: '🦮 Dog Walker',   desc: 'Walk dogs & earn' },
-              { value: 'vet',       label: '🩺 Veterinarian', desc: 'Manage appointments' },
-              { value: 'shopowner', label: '🛍 Shop Owner',   desc: 'Sell pet products' },
+              { value: 'owner',  label: '🐾 Dog Owner', desc: 'Book walks & services' },
+              { value: 'walker', label: '🦮 Dog Walker', desc: 'Walk dogs & earn' },
             ] as const).map(r => (
               <button key={r.value} type="button" onClick={() => { setRole(r.value); setError(''); }}
                 className="p-3 rounded-2xl border-2 text-left transition-all"
@@ -365,6 +363,7 @@ export default function Register() {
               Already have an account?{' '}
               <Link to="/login" className="font-bold hover:underline" style={{ color: '#2B8A50' }}>Sign in →</Link>
             </p>
+            <p className="text-xs text-gray-400 mt-2">Signing up as a vet clinic or a shop? Ask an admin to set up your account.</p>
           </div>
 
           <p className="text-center text-[11px] text-gray-400 mt-5">

@@ -124,3 +124,42 @@ OpenStreetMap lists few clinics in Zambia (about 6 near Lusaka, none found aroun
 
 1. `supabase/migrations/20260919_realign_chat_and_live.sql` (if not done)
 2. `supabase/migrations/20260920_dogs_photos_permissions.sql`
+
+## 8. Security incident and third round (2026-09-22)
+
+**Security hole found and closed.** The user ran SQL from another project against this one by mistake.
+Audited every table live: only `public.users` was affected. Anyone holding the app's public key (bundled
+in every phone, not secret) could insert a row with `role: 'admin'` directly, no login required — proved
+with a throwaway account, deleted immediately. Also cleared two rows with a real plaintext password still
+in the (otherwise unused) `password` column. Fix: `supabase/migrations/20260922_close_users_write_hole.sql`,
+run and confirmed. See `SUPABASE_SERVICE_ROLE_KEY` in Vercel prod — it was pasted in this chat; the user
+chose not to rotate it, which is a standing, accepted risk.
+
+**Self-registration was only ever meant to allow Dog Owner and Dog Walker** — `register()`'s own type
+signature has always said so. `Register.tsx` nonetheless offered Veterinarian and Shop Owner too, which
+happened to work only because the pre-fix database let anyone insert a `users` row with any role. Today's
+RLS fix (correctly) closed that, which means anyone who picked Vet or Shop Owner at sign-up started failing
+immediately after — almost certainly what the "different person struggling to sign up" hit. Fixed by
+removing those two options from the sign-up screen; vet and shop accounts are admin-created, matching how
+they always have been in practice (see the shop owner SQL in this file's history).
+
+**Cats removed everywhere.** `animalType` no longer offers 'cat' anywhere in the app: the Add-a-Pet form,
+admin's pet browser, the marketplace demo listings, vet screens, training, self-walk and pet health. The
+`Dog.animalType` field is kept (typed to `'dog'` only) so old rows do not break, but nothing lets you pick
+Cat again. Root cause of the reported failure was very likely `dogs.age` in the earlier retry logic, or a
+genuine network blip — the createDog code was re-checked and is sound (30 s timeout, friendly errors,
+whole-year-age fallback already in place from 2026-09-20).
+
+**Walkers can now scan for nearby jobs while offline, InDrive-style.** Being online was never required to
+browse or accept open jobs — that already worked — but jobs were not sorted or filtered by area, and it
+was not obvious that offline browsing worked at all. Now:
+- `src/hooks/useWalkerRefPos.ts` gives a walker's best-known position: their live GPS while online, else
+  their saved service area, so "nearby" always means something even offline.
+- `src/lib/jobs.ts` `sortByDistance` sorts open jobs nearest-first and tags each with `_distKm`.
+- Walker Dashboard and the Walks screen's Available tab show a distance badge per job, and Walks adds a
+  5 / 10 / 25 km / All radius filter (defaults to All, so nothing is ever hidden by surprise).
+- Grooming-only bookings (`GROOMING:` / `HOME_GROOMING:` / `VET_GROOMING:`) now only show to walkers who
+  have set a grooming price, matching how training requests already only show to approved trainers. Plain
+  walks, and walks with a grooming add-on, remain open to every approved walker.
+- The Go Online card's copy now says offline browsing works either way; online adds map visibility and
+  instant ringing requests.

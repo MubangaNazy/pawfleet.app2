@@ -54,8 +54,8 @@ export default function GoOnlineCard({ compact = false }: { compact?: boolean })
           </p>
           <p className="text-xs text-ink-muted mt-0.5 leading-snug">
             {online
-              ? 'Owners nearby can see you on the map and book you. Keep the app open.'
-              : 'Go online so owners near you can find and book you.'}
+              ? 'Owners nearby can see you on the map and book you instantly. Keep the app open.'
+              : 'You can browse and accept nearby jobs below either way. Go online to also show up on the map for instant bookings.'}
           </p>
         </div>
         <button type="button" onClick={toggle}

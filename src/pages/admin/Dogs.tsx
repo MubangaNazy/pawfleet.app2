@@ -2,11 +2,10 @@ import { useState } from 'react';
 import { Search, Dog } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
-type CategoryFilter = 'all' | 'dog' | 'cat' | 'other';
+type CategoryFilter = 'all' | 'dog' | 'other';
 
 function getCategoryEmoji(type: string | undefined): string {
   if (!type || type === 'dog') return '🐕';
-  if (type === 'cat') return '🐈';
   const map: Record<string, string> = {
     bird: '🦜', rabbit: '🐇', hamster: '🐹', fish: '🐠',
     turtle: '🐢', snake: '🐍', parrot: '🦜', cow: '🐄',
@@ -15,10 +14,9 @@ function getCategoryEmoji(type: string | undefined): string {
   return map[type.toLowerCase()] ?? '🐾';
 }
 
-function getCategory(animalType: string | undefined): 'dog' | 'cat' | 'other' {
+function getCategory(animalType: string | undefined): 'dog' | 'other' {
   if (!animalType || animalType === 'dog') return 'dog';
-  if (animalType === 'cat') return 'cat';
-  return 'other';
+  return 'other'; // legacy rows only — pets are always dogs now
 }
 
 export default function AdminDogs() {
@@ -35,7 +33,6 @@ export default function AdminDogs() {
   const counts = {
     all:   allDogs.length,
     dog:   allDogs.filter(d => d.category === 'dog').length,
-    cat:   allDogs.filter(d => d.category === 'cat').length,
     other: allDogs.filter(d => d.category === 'other').length,
   };
 
@@ -59,7 +56,6 @@ export default function AdminDogs() {
   const tabs: { id: CategoryFilter; label: string; emoji: string; color: string; bg: string }[] = [
     { id: 'all',   label: 'All',   emoji: '🐾', color: '#1B4332', bg: '#EBF5EF' },
     { id: 'dog',   label: 'Dogs',  emoji: '🐕', color: '#92400E', bg: '#FEF3C7' },
-    { id: 'cat',   label: 'Cats',  emoji: '🐈', color: '#5B21B6', bg: '#EDE9FE' },
     { id: 'other', label: 'Other', emoji: '🦜', color: '#0E7490', bg: '#ECFEFF' },
   ];
 
@@ -69,7 +65,7 @@ export default function AdminDogs() {
       <div>
         <h1 className="pf-heading">All Pets</h1>
         <p className="pf-subtitle">
-          {data.dogs.length} registered · {counts.dog} dogs · {counts.cat} cats{counts.other > 0 ? ` · ${counts.other} other` : ''}
+          {data.dogs.length} registered{counts.other > 0 ? ` · ${counts.other} other` : ''}
         </p>
       </div>
 

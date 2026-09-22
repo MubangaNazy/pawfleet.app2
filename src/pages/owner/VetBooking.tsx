@@ -346,7 +346,7 @@ export default function VetBooking() {
                   }`}>
                   {pet.imageUrl
                     ? <img src={pet.imageUrl} alt={pet.name} className="w-7 h-7 rounded-full object-cover" />
-                    : <span className="text-lg">{pet.animalType === 'cat' ? '🐈' : '🐕'}</span>}
+                    : <span className="text-lg">🐕</span>}
                   {pet.name}
                   {selectedPet === pet.id && <Check className="w-3.5 h-3.5" />}
                 </button>

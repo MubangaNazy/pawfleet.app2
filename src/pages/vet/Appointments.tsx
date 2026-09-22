@@ -108,7 +108,7 @@ export default function VetAppointments() {
                 <div className="flex items-start gap-3">
                   <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl shrink-0"
                     style={{ background: '#F0FDFA' }}>
-                    {pet?.animalType === 'cat' ? '🐈' : '🐕'}
+                    🐕
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">

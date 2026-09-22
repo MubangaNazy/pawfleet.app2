@@ -314,7 +314,7 @@ export default function SelfWalk() {
                           style={{ background: '#EBF5EF' }}>
                           {dog.imageUrl
                             ? <img src={dog.imageUrl} alt={dog.name} className="w-full h-full object-cover" />
-                            : <span>{dog.animalType === 'cat' ? '🐈' : '🐕'}</span>}
+                            : <span>🐕</span>}
                         </div>
                         <div className="flex-1">
                           <p className="font-extrabold text-ink">{dog.name}</p>

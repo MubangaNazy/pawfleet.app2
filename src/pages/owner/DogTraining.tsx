@@ -224,7 +224,7 @@ export default function DogTraining() {
               {myDogs.map(dog => (
                 <button key={dog.id} onClick={() => setSelectedDog(dog.id)}
                   className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl border-2 text-sm font-semibold transition-all ${selectedDog === dog.id ? 'border-primary bg-primary/10 text-primary' : 'border-surface-border text-ink'}`}>
-                  <span>{dog.animalType === 'cat' ? '🐱' : '🐶'}</span>
+                  <span>🐶</span>
                   {dog.name}
                 </button>
               ))}

@@ -228,7 +228,7 @@ export default function PetHealth() {
                 style={selectedDog?.id === dog.id
                   ? { background: 'white', color: '#6D28D9' }
                   : { background: 'rgba(255,255,255,0.18)', color: 'rgba(255,255,255,0.80)' }}>
-                <span>{dog.animalType === 'cat' ? '🐈' : '🐕'}</span>
+                <span>🐕</span>
                 {dog.name}
               </button>
             ))}

@@ -9,7 +9,10 @@ import { GeoLocation, WalkStatus } from '../../types';
 import { supabase } from '../../lib/supabase';
 import { StaggerList, StaggerItem } from '../../components/ui/Anim';
 import { NoWalksIllustration } from '../../components/ui/Illustrations';
-import { canWalkerTakeOpenJob } from '../../lib/jobs';
+import { canWalkerTakeOpenJob, sortByDistance } from '../../lib/jobs';
+import { useWalkerRefPos } from '../../hooks/useWalkerRefPos';
+import { formatKm } from '../../lib/geo';
+import { Navigation2 } from 'lucide-react';
 import OnlineSwitch from '../../components/walker/OnlineSwitch';
 
 const CANCEL_REASONS = [
@@ -47,13 +50,19 @@ export default function WalkerMyWalks() {
   const [cancelReason, setCancelReason] = useState('');
   const [confirmedIds, setConfirmedIds] = useState<Set<string>>(new Set());
   const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
+  const [radius, setRadius] = useState<number | 'all'>('all');
+  const { pos: refPos, source: refSource } = useWalkerRefPos();
 
   const todayEnd = new Date(); todayEnd.setHours(23, 59, 59, 999);
 
-  // Only show pending unassigned walks for TODAY or past — not future bookings
-  const availableWalks = data.walks
-    .filter(w => w.status === 'pending' && !w.walkerId && new Date(w.scheduledDate) <= todayEnd && canWalkerTakeOpenJob(w, currentUser))
-    .sort((a, b) => new Date(a.scheduledDate).getTime() - new Date(b.scheduledDate).getTime());
+  // Only show pending unassigned walks for TODAY or past — not future bookings.
+  // Nearest first, using live position while online or the saved service area while offline — either way,
+  // jobs are always browsable and acceptable without being online.
+  const availableWalksAll = sortByDistance(
+    data.walks.filter(w => w.status === 'pending' && !w.walkerId && new Date(w.scheduledDate) <= todayEnd && canWalkerTakeOpenJob(w, currentUser)),
+    refPos,
+  );
+  const availableWalks = radius === 'all' ? availableWalksAll : availableWalksAll.filter(w => w._distKm == null || w._distKm <= radius);
 
   const myWalks = data.walks
     .filter(w => w.walkerId === currentUser?.id)
@@ -154,7 +163,7 @@ export default function WalkerMyWalks() {
         <p className="text-sm font-medium mt-1" style={{ color: '#5A8A70' }}>{availableWalks.length} available · {myWalks.length} assigned to you</p>
         <div className="mt-3"><OnlineSwitch /></div>
         <p className="text-[11px] text-ink-muted mt-2 leading-relaxed">
-          Go online to appear on the map and get new requests on your phone. Offline, you can still look through the jobs below and accept them.
+          Go online to appear on the map and get new requests ringing on your phone. Either way, jobs near you are listed below and you can accept them any time.
         </p>
         {!approved && (
           <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800 leading-relaxed">
@@ -162,6 +171,31 @@ export default function WalkerMyWalks() {
           </div>
         )}
       </div>
+
+      {filter === 'available' && (
+        <div>
+          {!refPos ? (
+            <Link to="/walker/profile" className="flex items-center gap-2 px-4 py-3 rounded-2xl border border-amber-200 bg-amber-50 text-xs font-semibold text-amber-800">
+              <MapPin className="w-4 h-4 shrink-0" /> Set your area in Profile to see which jobs are nearest to you →
+            </Link>
+          ) : (
+            <div className="flex items-center gap-2">
+              <span className="flex items-center gap-1 text-[11px] font-semibold text-ink-muted shrink-0">
+                <Navigation2 className="w-3.5 h-3.5" /> {refSource === 'live' ? 'From your live location' : 'From your saved area'}
+              </span>
+              <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+                {([['all', 'All'], [5, '5 km'], [10, '10 km'], [25, '25 km']] as const).map(([val, label]) => (
+                  <button key={String(val)} type="button" onClick={() => setRadius(val)}
+                    className={`px-3 py-1 rounded-full text-[11px] font-bold shrink-0 border transition-all ${radius === val ? 'text-white border-transparent' : 'text-ink-secondary border-surface-border bg-white'}`}
+                    style={radius === val ? { background: '#1B4332' } : {}}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Filter tabs */}
       <div className="flex gap-1 p-1 bg-surface-secondary border border-surface-border rounded-xl overflow-x-auto flex-nowrap pb-1">
@@ -220,6 +254,9 @@ export default function WalkerMyWalks() {
                       <h3 className="font-semibold text-ink text-base">{dog?.name || 'Unknown Dog'}</h3>
                       {dog?.breed && <p className="text-xs text-ink-muted">{dog.breed}</p>}
                       <p className="text-xs text-ink-muted mt-0.5">Owner: {owner?.name}</p>
+                      {(walk as any)._distKm != null && (
+                        <p className="text-xs font-bold mt-0.5" style={{ color: '#2B8A50' }}>📍 {formatKm((walk as any)._distKm)} away</p>
+                      )}
                     </div>
                   </div>
                   <div className="flex flex-col items-end gap-2">

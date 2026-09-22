@@ -116,7 +116,7 @@ export default function VetAppointmentDetail() {
           <div className="flex items-center gap-4">
             <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-4xl shrink-0"
               style={{ background: 'rgba(255,255,255,0.2)' }}>
-              {pet?.animalType === 'cat' ? '🐈' : '🐕'}
+              🐕
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-xl font-extrabold text-white leading-tight">{pet?.name ?? 'Unknown Pet'}</p>

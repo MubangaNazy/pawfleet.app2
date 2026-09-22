@@ -4,7 +4,7 @@ import { ArrowLeft, Search, X, Phone, MessageCircle, MapPin, ChevronRight, Check
 
 interface Listing {
   id: string;
-  type: 'dog' | 'cat';
+  type: 'dog';
   breed: string;
   name: string;
   ageDisplay: string;    // e.g. "8 weeks", "4 months", "2 years"
@@ -52,28 +52,12 @@ const LISTINGS: Listing[] = [
     description: 'South African Boerboel pups from working guard dog parents. Confident and loyal. Requires experienced handler. Dewormed on schedule.',
   },
   {
-    id: '4', type: 'cat', breed: 'Persian Cat', name: 'Luna', ageDisplay: '3 months',
-    ageMonths: 3, sex: 'female', color: 'White', size: 'Small', weightKg: '3–5 kg',
-    price: 1800, location: 'Lusaka, Rhodes Park', seller: 'Sarah Tembo', phone: '+260977000004',
-    verified: true, condition: 'Excellent', vaccinated: true, dewormed: true, microchipped: false,
-    image: 'https://images.unsplash.com/photo-1592194996308-7b43878e84a6?w=700&q=80',
-    description: 'Beautiful white Persian kitten with stunning blue eyes. Calm, loving and raised indoors. Litter trained and eating dry food independently.',
-  },
-  {
     id: '5', type: 'dog', breed: 'Rottweiler', name: 'Rex', ageDisplay: '9 weeks',
     ageMonths: 2, sex: 'male', color: 'Black & Mahogany', size: 'Large', weightKg: '36–54 kg',
     price: 4000, location: 'Lusaka, Woodlands', seller: 'Michael Lungu', phone: '+260966000005',
     verified: true, condition: 'Excellent', vaccinated: true, dewormed: true, microchipped: true,
     image: 'https://images.unsplash.com/photo-1605568427561-40dd23c2acea?w=700&q=80',
     description: 'ANKC registered Rottweiler pups. Both parents on site with full paperwork. High drive, excellent conformation. Suitable for protection and family.',
-  },
-  {
-    id: '6', type: 'cat', breed: 'Siamese', name: 'Nala', ageDisplay: '10 weeks',
-    ageMonths: 2, sex: 'female', color: 'Blue Point', size: 'Small', weightKg: '3–4 kg',
-    price: 1500, location: 'Lusaka, Kabulonga', seller: 'Charity Zulu', phone: '+260955000006',
-    verified: false, condition: 'Good', vaccinated: true, dewormed: true, microchipped: false,
-    image: 'https://images.unsplash.com/photo-1541781774459-bb2af2f05b55?w=700&q=80',
-    description: 'Blue point Siamese kittens with striking blue eyes. Well socialised, playful and litter trained. Feed on royal canin kitten.',
   },
   {
     id: '7', type: 'dog', breed: 'Belgian Malinois', name: 'Storm', ageDisplay: '8 weeks',
@@ -93,7 +77,7 @@ const CONDITION_COLORS: Record<string, { background: string; color: string }> = 
 
 export default function Marketplace() {
   const navigate = useNavigate();
-  const [filter, setFilter] = useState<'all' | 'dog' | 'cat'>('all');
+  const [filter, setFilter] = useState<'all' | 'dog'>('all');
   const [search, setSearch] = useState('');
   const [detail, setDetail] = useState<Listing | null>(null);
   const [showList, setShowList] = useState(false);
@@ -153,7 +137,7 @@ export default function Marketplace() {
 
         {/* Tabs */}
         <div className="flex gap-2">
-          {([['all', '🐾 All'], ['dog', '🐕 Dogs'], ['cat', '🐱 Cats']] as const).map(([val, label]) => (
+          {([['all', '🐾 All'], ['dog', '🐕 Dogs']] as const).map(([val, label]) => (
             <button key={val} onClick={() => setFilter(val)}
               className={`flex-1 py-2 rounded-xl text-sm font-semibold border-2 transition-all ${filter === val ? 'border-primary bg-primary/10 text-primary' : 'border-surface-border text-ink-muted'}`}>
               {label}

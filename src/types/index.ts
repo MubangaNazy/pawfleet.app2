@@ -67,7 +67,8 @@ export interface Dog {
   imageUrl?: string; // base64 data URL
   notes?: string;
   healthLogs?: HealthLog[];
-  animalType?: 'dog' | 'cat';
+  /** Legacy field, kept for old records; every new pet is a dog. */
+  animalType?: 'dog';
 }
 
 export interface GeoLocation {

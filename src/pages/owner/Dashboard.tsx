@@ -634,7 +634,7 @@ export default function OwnerDashboard() {
                         <div className="w-10 h-10 rounded-xl overflow-hidden bg-[#EBF5EF] shrink-0">
                           {dog.imageUrl
                             ? <img src={dog.imageUrl} alt={dog.name} className="w-full h-full object-cover" />
-                            : <div className="w-full h-full flex items-center justify-center text-lg">{dog.animalType === 'cat' ? '🐈' : '🐕'}</div>}
+                            : <div className="w-full h-full flex items-center justify-center text-lg">🐕</div>}
                         </div>
                         <div className="min-w-0">
                           <p className="font-bold text-ink text-sm truncate">{dog.name}</p>

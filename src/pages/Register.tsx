@@ -90,7 +90,7 @@ export default function Register() {
             </div>
             <div className="px-6 py-6">
               <div className="space-y-3 mb-6">
-                {['Admin reviews your photo & NRC', "You'll be notified by email when approved", 'Log in and start accepting walks!'].map((s, i) => (
+                {['Admin reviews your photo & NRC', "You'll see a notification in the app when approved", 'Log in any time to check — then start accepting walks!'].map((s, i) => (
                   <div key={i} className="flex items-center gap-3 p-3 rounded-xl" style={{ background: '#F4F9F6' }}>
                     <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0"
                       style={{ background: '#2B8A50' }}>{i + 1}</div>
@@ -332,7 +332,7 @@ export default function Register() {
                 <span className="text-base shrink-0">⏳</span>
                 <div>
                   <p className="font-bold text-amber-800 mb-0.5">Application review takes 24–48 hrs</p>
-                  <p className="text-amber-700 leading-relaxed">Admin will verify your photo & NRC. You'll be emailed once approved.</p>
+                  <p className="text-amber-700 leading-relaxed">Admin will verify your photo & NRC. You can log in any time to check your status.</p>
                 </div>
               </div>
             )}

@@ -4,11 +4,11 @@
     <selectionStates>
       <SelectionState runConfigName="app">
         <option name="selectionMode" value="DROPDOWN" />
-        <DropdownSelection timestamp="2026-07-01T19:05:50.084636700Z">
+        <DropdownSelection timestamp="2026-09-22T20:07:12.366230200Z">
           <Target type="DEFAULT_BOOT">
-            <handle>
-              <DeviceId pluginId="LocalEmulator" identifier="path=C:\Users\HC COMPUTER STORE\.android\avd\pixel_7_-_api_35.avd" />
-            </handle>
+            <template>
+              <DeviceId pluginId="FirebaseDirectAccess" type="TEMPLATE" identifier="model_id=TECNO-KI5k/31" />
+            </template>
           </Target>
         </DropdownSelection>
         <DialogSelection />

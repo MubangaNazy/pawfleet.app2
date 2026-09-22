@@ -7,6 +7,17 @@ import { goOffline } from '../lib/liveTracking';
 import { OFFLINE_MESSAGE, isNetworkFailure, sessionState, withTimeout as guardTimeout } from '../lib/netguard';
 import { shrinkDataUrl } from '../lib/image';
 
+// Fire-and-forget transactional email. Never awaited by a caller — an email hiccup must never block
+// approving a walker, rejecting one, or finishing sign-up.
+function sendEmail(to: string | undefined, template: string, data: Record<string, unknown>) {
+  if (!to) return;
+  fetch('/api/send-email', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ to, template, data }),
+  }).catch(() => {}); // best-effort; the in-app/push notification is the reliable path
+}
+
 // ── Type helpers ────────────────────────────────────────────
 const toUser = (r: any): User => ({
   id: r.id, name: r.name, phone: r.phone, email: r.email,
@@ -778,8 +789,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           { walkerId: userId }
         );
       });
+      sendEmail(email, 'welcome_walker_pending', { name });
       return { success: true, pendingApproval: true };
     }
+
+    sendEmail(email, 'welcome_owner', { name });
 
     if (authData.session) {
       setCurrentUser(newUser);
@@ -1440,6 +1454,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       'Application Approved! 🎉',
       'Congratulations! Your walker application has been approved. You can now start accepting walks.',
     );
+    const walker = data.users.find(u => u.id === walkerId);
+    sendEmail(walker?.email, 'walker_approved', { name: walker?.name ?? 'there' });
   };
 
   const rejectWalker = (walkerId: string) => {
@@ -1453,6 +1469,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       'Application Not Approved',
       'Unfortunately your walker application was not approved at this time. Contact admin for more information.',
     );
+    const walker = data.users.find(u => u.id === walkerId);
+    sendEmail(walker?.email, 'walker_rejected', { name: walker?.name ?? 'there' });
   };
 
   // Photos that were only ever saved on one phone (or stored inside the database as a giant text blob) are

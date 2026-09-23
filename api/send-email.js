@@ -2,7 +2,7 @@
 // POST /api/send-email  { to, template, data }
 // Never blocks anything else: the app fires this and moves on regardless of the result.
 
-const FROM = 'PawFleet <notifications@pawfleetapp.com>';
+const FROM = 'PawFleet <notifications@mail.pawfleetapp.com>';
 const SUPPORT_EMAIL = 'pawfleetapp@gmail.com';
 
 function shell(bodyHtml, { badge = '🐾', title, subtitle = 'PawFleet · Lusaka, Zambia' } = {}) {
@@ -86,7 +86,8 @@ export default async function handler(req, res) {
     const r = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { Authorization: `Bearer ${RESEND_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from: FROM, to: [to], subject, html }),
+      // "from" is a send-only technical address; a reply routes to a real inbox instead.
+      body: JSON.stringify({ from: FROM, to: [to], subject, html, reply_to: SUPPORT_EMAIL }),
     });
     const d = await r.json();
     if (!r.ok) { console.error('send-email (Resend):', d); return res.status(r.status).json({ error: d.message || 'Resend error' }); }

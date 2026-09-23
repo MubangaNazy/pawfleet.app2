@@ -73,10 +73,12 @@ export default async function handler(req, res) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: 'PawFleet <receipts@pawfleetapp.com>',
+        from: 'PawFleet <receipts@mail.pawfleetapp.com>',
         to: [to],
         subject: `Payment Confirmed — K${Number(amount).toLocaleString()} received`,
         html,
+        // "from" is a send-only technical address; a reply routes to a real inbox instead.
+        reply_to: 'pawfleetapp@gmail.com',
       }),
     });
     const d = await r.json();

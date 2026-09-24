@@ -13,6 +13,7 @@
     "@capacitor/cli": "^8.3.4",
     "@capacitor/core": "^8.3.4",
     "@capacitor/geolocation": "^8.2.0",
+    "@capacitor/push-notifications": "^8.1.2",
     "@capgo/background-geolocation": "^8.4.6",
     "@react-google-maps/api": "^2.20.8",
     "@sentry/react": "^10.58.0",

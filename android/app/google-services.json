@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "557657510161",
+    "project_id": "pawfleet-7bcf2",
+    "storage_bucket": "pawfleet-7bcf2.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:557657510161:android:2b9f020fb5610f4787fcb0",
+        "android_client_info": {
+          "package_name": "com.pawfleet.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDaWaPvIN0p0SRjAu88LLxtI2b2dsDMD-4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -603,23 +603,36 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             user = toUser(row);
             setData(prev => ({ ...prev, users: [...prev.users.filter(u => u.id !== row.id), user!] }));
           } else {
-            // Profile row missing (registration DB insert failed) — auto-create it now
+            // Profile row missing (registration's own insert failed silently at signup time) — create it now.
             const meta = authData.user!.user_metadata || {};
             const healed: User = {
               id: authData.user!.id,
               name: meta.name || authData.user!.email?.split('@')[0] || 'User',
-              phone: meta.phone || '',
+              phone: meta.phone || undefined,
               email: authData.user!.email || '',
               password: '',
               role: (meta.role as Role) || 'owner',
               createdAt: authData.user!.created_at,
               walkerStatus: meta.role === 'walker' ? 'pending_approval' : undefined,
             };
-            await supabase.from('users').upsert({
-              id: healed.id, name: healed.name, phone: healed.phone,
+            const healRow = (phoneValue: string | null) => supabase.from('users').upsert({
+              id: healed.id, name: healed.name, phone: phoneValue,
               email: healed.email, password: '', role: healed.role,
               walker_status: healed.walkerStatus ?? null,
             }, { onConflict: 'id' });
+            let { error: healErr } = await healRow(meta.phone || null);
+            // Someone else already has this phone on file — keep the account working rather than fail on it.
+            if (healErr?.code === '23505' && /phone/i.test(healErr.message || '')) {
+              ({ error: healErr } = await healRow(null));
+            }
+            if (healErr) {
+              console.error('login profile heal failed:', healErr);
+              return { user: null, error: "We could not finish setting up your account. Please try again in a moment, or email pawfleetapp@gmail.com if this keeps happening." };
+            }
+            if (healed.role === 'walker') {
+              await supabase.from('walker_stats').upsert({ walker_id: healed.id }, { onConflict: 'walker_id' })
+                .then(({ error }) => { if (error) console.warn('walkerStats heal:', error); });
+            }
             user = healed;
             setData(prev => ({ ...prev, users: [...prev.users.filter(u => u.id !== healed.id), healed] }));
           }
@@ -759,17 +772,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       walkerStatus,
     };
 
-    // Insert profile row — critical for login to work
-    const { error: insertError } = await supabase.from('users').upsert({
-      id: userId, name, phone, email: email || null, password: '', role,
+    // Insert profile row — critical for the account to actually work.
+    const insertProfile = (phoneValue: string | null) => supabase.from('users').upsert({
+      id: userId, name, phone: phoneValue, email: email || null, password: '', role,
       image_url: publicImageUrl ?? null,
       nrc: extras?.nrc ?? null,
       nrc_image_url: nrcImagePublicUrl ?? null,
       walker_status: walkerStatus ?? null,
     }, { onConflict: 'id' });
+    let { error: insertError } = await insertProfile(phone);
+    // Someone else already has this phone on file — keep the new account, don't fail the whole sign-up on it.
+    if (insertError?.code === '23505' && /phone/i.test(insertError.message || '')) {
+      ({ error: insertError } = await insertProfile(null));
+    }
     if (insertError) {
       console.error('register insert:', insertError);
-      // Auth user was created — don't block them. login() will auto-heal the missing profile.
+      // The Auth account exists but the profile does not. Say so honestly rather than a false "success" —
+      // login()'s heal path above will finish the job the moment they try to sign in.
+      return { success: false, error: "Your account was created but we couldn't finish setting it up. Please try logging in — it will finish automatically. If it still doesn't work, email pawfleetapp@gmail.com." };
     }
 
     if (role === 'walker') {

@@ -72,6 +72,14 @@ export default function PinDropPicker({ initial, onConfirm, onClose }: Props) {
       return;
     }
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+    // A dropped/refused WebGL context (e.g. too many maps already open elsewhere on the page, or a
+    // low-power device reclaiming GPU memory) leaves the map "working" (style loads, panning still
+    // fires events) but paints nothing — this is the one signal that actually catches that case.
+    map.getCanvas().addEventListener('webglcontextlost', ev => {
+      ev.preventDefault();
+      console.error('PinDropPicker: WebGL context lost');
+      setMapError(true);
+    });
 
     const resolveAddress = async (lat: number, lng: number) => {
       const seq = ++geocodeSeq.current;
@@ -93,8 +101,16 @@ export default function PinDropPicker({ initial, onConfirm, onClose }: Props) {
 
     // The container's final size can land a frame after the map is constructed. A couple of follow-up
     // resizes make sure the canvas always matches it instead of staying the wrong size (or blank).
-    requestAnimationFrame(() => map.resize());
-    const resizeTimer = setTimeout(() => map.resize(), 300);
+    const checkSize = () => {
+      map.resize();
+      const el = containerRef.current;
+      if (el && (el.offsetWidth === 0 || el.offsetHeight === 0)) {
+        console.error('PinDropPicker: map container has no size', el.offsetWidth, el.offsetHeight);
+        setMapError(true);
+      }
+    };
+    requestAnimationFrame(checkSize);
+    const resizeTimer = setTimeout(checkSize, 300);
     // A stalled tile/style fetch doesn't always fire 'error' — surface it after a reasonable wait either way.
     const loadTimeout = setTimeout(() => { if (!loaded) setMapError(true); }, 8000);
 
@@ -130,9 +146,10 @@ export default function PinDropPicker({ initial, onConfirm, onClose }: Props) {
     // Rendered straight onto <body>: an animated ancestor (page-transition wrapper) further up the tree
     // sets a CSS transform, which turns "fixed" into "relative to that ancestor" per the CSS spec.
     // A portal sidesteps that entirely so this reliably sizes itself against the real viewport.
-    <div className="fixed inset-0 z-[9999] bg-white overflow-hidden">
-      {/* Map, full-bleed behind everything else */}
-      <div ref={containerRef} className="absolute inset-0" />
+    <div className="fixed inset-0 z-[9999] bg-white overflow-hidden" style={{ width: '100vw', height: '100dvh' }}>
+      {/* Map, full-bleed behind everything else. Explicit width/height (not just inset:0) so this can't
+          end up ambiguous or 0-sized no matter what CSS is active further up the document. */}
+      <div ref={containerRef} className="absolute inset-0" style={{ width: '100%', height: '100%' }} />
 
       {mapError && (
         <div className="absolute top-16 inset-x-3 z-10 px-3 py-2.5 rounded-xl text-xs font-medium text-center shadow"

@@ -644,8 +644,10 @@ export default function OwnerRequestWalk() {
           </div>
         </div>
 
-        {/* Suggested route for the chosen length */}
-        {pickupLat != null && pickupLng != null && (
+        {/* Suggested route for the chosen length. Hidden while the pin picker is open so there's only
+            ever one live map on screen at a time — avoids any chance of a second WebGL context (which
+            some phones and browsers refuse to grant) leaving the picker's map unable to paint. */}
+        {!showPinPicker && pickupLat != null && pickupLng != null && (
           <div className="bg-white rounded-2xl shadow-sm border border-[#DDE9E2] overflow-hidden">
             <div className="px-4 pt-4 pb-2 flex items-center justify-between">
               <p className="text-xs font-bold text-ink-muted uppercase tracking-wider">Your {duration}-minute walk route</p>

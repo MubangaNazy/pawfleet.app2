@@ -1,0 +1,162 @@
+import { useEffect, useRef, useState } from 'react';
+import maplibregl from 'maplibre-gl';
+import 'maplibre-gl/dist/maplibre-gl.css';
+import { Loader2, Locate, Search, X } from 'lucide-react';
+import { LUSAKA, type LatLng } from '../../lib/geo';
+import { geocodeAddress, reverseGeocode } from '../../lib/geocode';
+
+interface Props {
+  /** Where to centre the map when it first opens. Defaults to Lusaka. */
+  initial?: LatLng | null;
+  onConfirm: (result: { lat: number; lng: number; address: string }) => void;
+  onClose: () => void;
+}
+
+/**
+ * Full-screen "drop a pin" location picker, the same idea Uber/Bolt/InDrive use: the pin stays fixed
+ * in the middle of the screen and the map moves underneath it, so whatever is under the pin when you
+ * stop dragging is the exact spot chosen — far more accurate than typing an address.
+ */
+export default function PinDropPicker({ initial, onConfirm, onClose }: Props) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<maplibregl.Map | null>(null);
+  const geocodeSeq = useRef(0);
+  const centerRef = useRef<LatLng>(initial ?? LUSAKA);
+
+  const [dragging, setDragging] = useState(false);
+  const [address, setAddress] = useState('Move the map to place the pin');
+  const [resolving, setResolving] = useState(false);
+  const [search, setSearch] = useState('');
+  const [searching, setSearching] = useState(false);
+  const [locating, setLocating] = useState(false);
+  const [hintError, setHintError] = useState('');
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const start = initial ?? LUSAKA;
+    const map = new maplibregl.Map({
+      container: containerRef.current,
+      style: 'https://tiles.openfreemap.org/styles/liberty',
+      center: [start[1], start[0]],
+      zoom: 16,
+      attributionControl: false,
+    });
+    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+
+    const resolveAddress = async (lat: number, lng: number) => {
+      const seq = ++geocodeSeq.current;
+      setResolving(true);
+      const addr = await reverseGeocode(lat, lng);
+      if (seq === geocodeSeq.current) { setAddress(addr); setResolving(false); }
+    };
+
+    map.on('movestart', () => setDragging(true));
+    map.on('moveend', () => {
+      setDragging(false);
+      const c = map.getCenter();
+      centerRef.current = [c.lat, c.lng];
+      resolveAddress(c.lat, c.lng);
+    });
+    map.on('load', () => resolveAddress(start[0], start[1]));
+
+    mapRef.current = map;
+    return () => { map.remove(); mapRef.current = null; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const flyTo = (lat: number, lng: number) => mapRef.current?.flyTo({ center: [lng, lat], zoom: 17, duration: 700 });
+
+  const handleSearch = async () => {
+    if (search.trim().length < 3) return;
+    setSearching(true);
+    setHintError('');
+    const hit = await geocodeAddress(search.trim());
+    setSearching(false);
+    if (!hit) { setHintError('Could not find that. Try a nearby landmark or area name.'); return; }
+    flyTo(hit[0], hit[1]);
+  };
+
+  const handleUseGps = () => {
+    if (!navigator.geolocation) { setHintError('Location is not available on this device.'); return; }
+    setLocating(true);
+    setHintError('');
+    navigator.geolocation.getCurrentPosition(
+      pos => { setLocating(false); flyTo(pos.coords.latitude, pos.coords.longitude); },
+      () => { setLocating(false); setHintError('Could not get your location. Check location permission and try again.'); },
+      { enableHighAccuracy: true, timeout: 12000 },
+    );
+  };
+
+  return (
+    <div className="fixed inset-0 z-[9999] bg-white flex flex-col">
+      {/* Map area, with the search bar, pin and GPS button all overlaid on top of it */}
+      <div className="relative flex-1 min-h-0">
+        <div ref={containerRef} className="absolute inset-0" />
+
+        {/* Search bar */}
+        <div className="absolute top-0 inset-x-0 z-10 p-3">
+          <div className="flex items-center gap-2 bg-white rounded-2xl shadow-lg px-2 py-2 border border-surface-border">
+            <button type="button" onClick={onClose} aria-label="Close"
+              className="w-8 h-8 flex items-center justify-center text-ink-muted shrink-0">
+              <X className="w-4 h-4" />
+            </button>
+            <Search className="w-4 h-4 text-ink-muted shrink-0" />
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') handleSearch(); }}
+              placeholder="Search an area or landmark…"
+              className="flex-1 min-w-0 text-sm text-ink placeholder:text-ink-muted outline-none bg-transparent"
+            />
+            {searching
+              ? <Loader2 className="w-4 h-4 text-primary animate-spin shrink-0 mr-1" />
+              : search.trim().length > 2 && (
+                <button type="button" onClick={handleSearch} className="text-xs font-bold text-primary shrink-0 pr-1">Go</button>
+              )}
+          </div>
+          {hintError && (
+            <p className="text-xs font-medium mt-1.5 mx-1 px-2.5 py-1.5 rounded-lg bg-white shadow" style={{ color: '#B45309' }}>{hintError}</p>
+          )}
+        </div>
+
+        {/* Fixed centre pin — this is what "drops" onto whatever is under it */}
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center" style={{ paddingBottom: 28 }}>
+          <div className="flex flex-col items-center">
+            <div className="rounded-full flex items-center justify-center shadow-lg transition-transform duration-150"
+              style={{
+                width: 34, height: 34, background: 'linear-gradient(135deg,#1B4332,#2B8A50)', border: '3px solid white',
+                transform: dragging ? 'translateY(-10px) scale(1.08)' : 'translateY(0) scale(1)',
+              }}>
+              <span style={{ fontSize: 15 }}>🐾</span>
+            </div>
+            <div className="transition-all duration-150" style={{ width: 3, background: '#1B4332', height: dragging ? 16 : 10, marginTop: -2, borderRadius: 2 }} />
+            <div className="rounded-full bg-black/25 transition-all duration-150"
+              style={{ width: dragging ? 5 : 9, height: dragging ? 2.5 : 4.5, marginTop: dragging ? 3 : 1, filter: 'blur(0.5px)' }} />
+          </div>
+        </div>
+
+        {/* Use current location */}
+        <button type="button" onClick={handleUseGps} disabled={locating}
+          className="absolute right-3 bottom-3 w-11 h-11 rounded-full bg-white shadow-lg border border-surface-border flex items-center justify-center disabled:opacity-60">
+          {locating ? <Loader2 className="w-5 h-5 text-primary animate-spin" /> : <Locate className="w-5 h-5 text-primary" />}
+        </button>
+      </div>
+
+      {/* Confirm sheet */}
+      <div className="shrink-0 p-4 bg-white border-t border-surface-border space-y-3" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)' }}>
+        <div className="flex items-start gap-2.5">
+          <div className="w-2 h-2 rounded-full shrink-0 mt-1.5" style={{ background: '#2B8A50' }} />
+          <p className="text-sm text-ink font-medium leading-snug min-h-[2.5em]">
+            {resolving ? 'Finding this address…' : address}
+          </p>
+        </div>
+        <button type="button" onClick={() => onConfirm({ lat: centerRef.current[0], lng: centerRef.current[1], address })}
+          disabled={resolving}
+          className="w-full py-3.5 rounded-2xl text-sm font-bold text-white disabled:opacity-50"
+          style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)' }}>
+          Confirm this location
+        </button>
+      </div>
+    </div>
+  );
+}

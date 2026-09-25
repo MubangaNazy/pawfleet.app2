@@ -13,6 +13,7 @@ import { SuccessDogIllustration, NoPetsIllustration } from '../../components/ui/
 import { useApp } from '../../context/AppContext';
 import PaymentModal from '../../components/ui/PaymentModal';
 import LiveRouteMap from '../../components/map/LiveRouteMap';
+import PinDropPicker from '../../components/map/PinDropPicker';
 import { useWalkersLive } from '../../lib/liveTracking';
 import { isValidCoord } from '../../lib/geo';
 import { geocodeAddress, reverseGeocode } from '../../lib/geocode';
@@ -56,7 +57,8 @@ export default function OwnerRequestWalk() {
   const [paymentDone, setPaymentDone] = useState(false);
 
   // Pickup location state
-  const [pickupMode, setPickupMode] = useState<'live' | 'manual' | null>(null);
+  const [pickupMode, setPickupMode] = useState<'live' | 'manual' | 'pin' | null>(null);
+  const [showPinPicker, setShowPinPicker] = useState(false);
   const [pickupLat, setPickupLat] = useState<number | null>(null);
   const [pickupLng, setPickupLng] = useState<number | null>(null);
   const [pickupAddress, setPickupAddress] = useState('');
@@ -188,6 +190,14 @@ export default function OwnerRequestWalk() {
     setGpsError('');
   };
 
+  const handlePinConfirmed = (result: { lat: number; lng: number; address: string }) => {
+    setPickupMode('pin');
+    setPickupLat(result.lat);
+    setPickupLng(result.lng);
+    setPickupAddress(result.address);
+    setShowPinPicker(false);
+  };
+
   const handleFindWalker = () => {
     if (!dogId || !pickupReady) return;
     setShowWalkers(true);
@@ -209,7 +219,7 @@ export default function OwnerRequestWalk() {
       ? new Date().toISOString()
       : new Date(`${schedDate}T${schedTime}:00`).toISOString();
 
-    const pickupTag = pickupMode === 'live' ? 'PICKUP:live|' : 'PICKUP:manual|';
+    const pickupTag = pickupMode === 'live' ? 'PICKUP:live|' : pickupMode === 'pin' ? 'PICKUP:pin|' : 'PICKUP:manual|';
     // The route the owner chose: the walker's app rebuilds the same loop from this direction.
     const routeTag = pickupLat != null && pickupLng != null
       ? `ROUTE:${loopBearing(`${pickupLat.toFixed(3)},${pickupLng.toFixed(3)}`, routeOption)}|`
@@ -427,25 +437,35 @@ export default function OwnerRequestWalk() {
 
           {/* Mode selector */}
           {!pickupMode && !gpsLoading && (
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-2.5">
+              <button type="button" onClick={() => setShowPinPicker(true)}
+                className="flex flex-col items-center gap-2 p-3 rounded-2xl border-2 border-primary/40 bg-primary-50/30 hover:bg-primary-50/50 transition-all active:scale-95">
+                <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: '#EBF5EF' }}>
+                  <span className="text-xl">📌</span>
+                </div>
+                <div className="text-center">
+                  <p className="text-xs font-bold text-ink">Drop a Pin</p>
+                  <p className="text-[9px] text-ink-muted mt-0.5">Most accurate</p>
+                </div>
+              </button>
               <button type="button" onClick={handleUseCurrentLocation}
-                className="flex flex-col items-center gap-2.5 p-4 rounded-2xl border-2 border-surface-border bg-white hover:border-primary/40 hover:bg-primary-50/30 transition-all active:scale-95">
-                <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: '#EBF5EF' }}>
-                  <span className="text-2xl">📍</span>
+                className="flex flex-col items-center gap-2 p-3 rounded-2xl border-2 border-surface-border bg-white hover:border-primary/40 hover:bg-primary-50/30 transition-all active:scale-95">
+                <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: '#EBF5EF' }}>
+                  <span className="text-xl">📍</span>
                 </div>
                 <div className="text-center">
                   <p className="text-xs font-bold text-ink">Live Location</p>
-                  <p className="text-[10px] text-ink-muted mt-0.5">Use my GPS</p>
+                  <p className="text-[9px] text-ink-muted mt-0.5">Use my GPS</p>
                 </div>
               </button>
               <button type="button" onClick={() => setPickupMode('manual')}
-                className="flex flex-col items-center gap-2.5 p-4 rounded-2xl border-2 border-surface-border bg-white hover:border-primary/40 hover:bg-primary-50/30 transition-all active:scale-95">
-                <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: '#EBF5EF' }}>
-                  <span className="text-2xl">✏️</span>
+                className="flex flex-col items-center gap-2 p-3 rounded-2xl border-2 border-surface-border bg-white hover:border-primary/40 hover:bg-primary-50/30 transition-all active:scale-95">
+                <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: '#EBF5EF' }}>
+                  <span className="text-xl">✏️</span>
                 </div>
                 <div className="text-center">
                   <p className="text-xs font-bold text-ink">Type Address</p>
-                  <p className="text-[10px] text-ink-muted mt-0.5">Enter manually</p>
+                  <p className="text-[9px] text-ink-muted mt-0.5">Enter manually</p>
                 </div>
               </button>
             </div>
@@ -471,6 +491,20 @@ export default function OwnerRequestWalk() {
                 </div>
                 <p className="text-sm text-ink font-medium leading-relaxed">{pickupAddress}</p>
                 <p className="text-[10px] text-ink-muted mt-1">Walker will track your real-time position</p>
+              </div>
+            </div>
+          )}
+
+          {/* Pin mode — location dropped on the map */}
+          {pickupMode === 'pin' && pickupLat != null && (
+            <div className="p-4 rounded-2xl border-2 border-primary/30 bg-[#EBF5EF] flex items-start gap-3">
+              <div className="text-2xl shrink-0 mt-0.5">📌</div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-bold text-primary mb-0.5">Pinned on the map</p>
+                <p className="text-sm text-ink font-medium leading-relaxed">{pickupAddress}</p>
+                <button type="button" onClick={() => setShowPinPicker(true)} className="text-xs font-semibold text-primary mt-1.5 hover:underline">
+                  Adjust pin
+                </button>
               </div>
             </div>
           )}
@@ -853,6 +887,14 @@ export default function OwnerRequestWalk() {
         )}
 
       </div>
+
+      {showPinPicker && (
+        <PinDropPicker
+          initial={pickupLat != null && pickupLng != null ? [pickupLat, pickupLng] : undefined}
+          onConfirm={handlePinConfirmed}
+          onClose={() => setShowPinPicker(false)}
+        />
+      )}
 
     </div>
   );

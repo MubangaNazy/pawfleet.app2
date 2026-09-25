@@ -879,6 +879,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (error.code === '23503') return "Your account or your dog's profile is not fully saved yet. Please log out, log back in and try again.";
     if (error.code === '42501') return 'You do not have permission to do that. Please log in again.';
     if (error.code === 'timeout' || isNetworkFailure(error.message)) return OFFLINE_MESSAGE;
+    if (/lock .* stole it|lock .* timed out/i.test(error.message || '')) return 'That took a moment too long. Please try again.';
     return error.message || 'Something went wrong. Please try again.';
   };
 
@@ -1301,8 +1302,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
 
     const runInsert = async (r: ReturnType<typeof row>): Promise<any> => {
-      const res: any = await withTimeout(Promise.resolve(supabase.from('dogs').insert(r)), 30000, { error: { code: 'timeout', message: 'timeout' } } as any);
-      return res?.error ?? null;
+      try {
+        const res: any = await withTimeout(Promise.resolve(supabase.from('dogs').insert(r)), 30000, { error: { code: 'timeout', message: 'timeout' } } as any);
+        return res?.error ?? null;
+      } catch (thrown: any) {
+        // Some failures (e.g. an in-flight auth token refresh) throw instead of resolving with {error}.
+        return { message: thrown?.message || String(thrown) };
+      }
     };
     let error: any = await runInsert(row(dog.age ?? null, dog.notes));
     if (error?.code === '22P02' && dog.age != null) {

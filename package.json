@@ -17,6 +17,7 @@
     "@capgo/background-geolocation": "^8.4.6",
     "@react-google-maps/api": "^2.20.8",
     "@sentry/react": "^10.58.0",
+    "@supabase/auth-js": "^2.101.1",
     "@supabase/supabase-js": "^2.101.1",
     "@types/leaflet": "^1.9.21",
     "date-fns": "^3.6.0",

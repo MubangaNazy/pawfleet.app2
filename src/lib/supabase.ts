@@ -1,4 +1,11 @@
 import { createClient } from '@supabase/supabase-js';
+// The default lock coordinates token refresh across browser tabs via the Web Locks API. On a slow or
+// flaky connection (the whole reason resilientFetch below exists) a refresh can run long enough that
+// another call times out waiting and force-"steals" the lock, throwing a raw
+// `Lock "..." was released because another request stole it` error at whoever was mid-request.
+// processLock skips that cross-tab coordination (fine for this app — it's mostly a single-tab/webview
+// experience) and just queues auth calls in-process, so this class of error can't happen at all.
+import { processLock } from '@supabase/auth-js';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://tqoordnjsigllzjzkqxb.supabase.co';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxb29yZG5qc2lnbGx6anprcXhiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ4MDYxOTcsImV4cCI6MjEwMDM4MjE5N30.DypPuG561fF_kJcUC83P2XNIZXrLO48-EPs_O_f7V5M';
@@ -72,6 +79,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: true,
+    lock: processLock,
   },
   global: { fetch: resilientFetch },
 });

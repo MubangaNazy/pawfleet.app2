@@ -38,7 +38,7 @@ export default function PinDropPicker({ initial, onConfirm, onClose }: Props) {
   const [searching, setSearching] = useState(false);
   const [locating, setLocating] = useState(false);
   const [hintError, setHintError] = useState('');
-  const [mapError, setMapError] = useState(false);
+  const [mapError, setMapError] = useState('');
   const [sheetHeight, setSheetHeight] = useState(150);
 
   // Reserve exactly as much room as the bottom sheet actually needs, so the pin sits centred over the
@@ -68,7 +68,7 @@ export default function PinDropPicker({ initial, onConfirm, onClose }: Props) {
     } catch (err) {
       // e.g. WebGL unavailable/blocked on this device or browser — this never gets as far as 'error' below.
       console.error('PinDropPicker: could not create the map:', err);
-      setMapError(true);
+      setMapError('code A — could not start the map on this device.');
       return;
     }
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
@@ -78,7 +78,7 @@ export default function PinDropPicker({ initial, onConfirm, onClose }: Props) {
     map.getCanvas().addEventListener('webglcontextlost', ev => {
       ev.preventDefault();
       console.error('PinDropPicker: WebGL context lost');
-      setMapError(true);
+      setMapError('code B — the device stopped the map mid-way.');
     });
 
     const resolveAddress = async (lat: number, lng: number) => {
@@ -96,8 +96,11 @@ export default function PinDropPicker({ initial, onConfirm, onClose }: Props) {
       centerRef.current = [c.lat, c.lng];
       resolveAddress(c.lat, c.lng);
     });
-    map.on('load', () => { loaded = true; setMapError(false); resolveAddress(start[0], start[1]); });
-    map.on('error', e => { console.error('PinDropPicker map error:', e?.error || e); setMapError(true); });
+    map.on('load', () => { loaded = true; setMapError(''); resolveAddress(start[0], start[1]); });
+    map.on('error', e => {
+      console.error('PinDropPicker map error:', e?.error || e);
+      setMapError(`code C — ${e?.error?.message || 'the map service returned an error'}.`);
+    });
 
     // The container's final size can land a frame after the map is constructed. A couple of follow-up
     // resizes make sure the canvas always matches it instead of staying the wrong size (or blank).
@@ -106,13 +109,13 @@ export default function PinDropPicker({ initial, onConfirm, onClose }: Props) {
       const el = containerRef.current;
       if (el && (el.offsetWidth === 0 || el.offsetHeight === 0)) {
         console.error('PinDropPicker: map container has no size', el.offsetWidth, el.offsetHeight);
-        setMapError(true);
+        setMapError(`code D — the map area came out ${el.offsetWidth}×${el.offsetHeight}px.`);
       }
     };
     requestAnimationFrame(checkSize);
     const resizeTimer = setTimeout(checkSize, 300);
     // A stalled tile/style fetch doesn't always fire 'error' — surface it after a reasonable wait either way.
-    const loadTimeout = setTimeout(() => { if (!loaded) setMapError(true); }, 8000);
+    const loadTimeout = setTimeout(() => { if (!loaded) setMapError('code E — the map is taking too long to load.'); }, 8000);
 
     mapRef.current = map;
     return () => { clearTimeout(resizeTimer); clearTimeout(loadTimeout); map.remove(); mapRef.current = null; };
@@ -154,7 +157,7 @@ export default function PinDropPicker({ initial, onConfirm, onClose }: Props) {
       {mapError && (
         <div className="absolute top-16 inset-x-3 z-10 px-3 py-2.5 rounded-xl text-xs font-medium text-center shadow"
           style={{ background: '#FEF2F2', color: '#B91C1C' }}>
-          The map could not load — check your connection. You can still search or use your current location.
+          The map could not load ({mapError}) You can still search or use your current location.
         </div>
       )}
 

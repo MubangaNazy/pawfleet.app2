@@ -41,7 +41,7 @@ const ownerNav = [
   { to: '/owner',              icon: LayoutDashboard, label: 'Dashboard',  exact: true },
   { to: '/owner/request',      icon: PlusCircle,      label: 'Book a Walk' },
   { to: '/owner/schedule',     icon: Calendar,        label: 'Schedule' },
-  { to: '/owner/dogs',         icon: Dog,             label: 'My Dogs' },
+  { to: '/owner/dogs',         icon: Dog,             label: 'My Pets' },
   { to: '/owner/history',      icon: Clock,           label: 'Walk History' },
   { to: '/owner/walker-map',   icon: Map,             label: 'Live Map' },
   { to: '/owner/services',      icon: Scissors,        label: 'Grooming & Walking' },

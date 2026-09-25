@@ -355,9 +355,9 @@ export default function OwnerRequestWalk() {
           <NoPetsIllustration />
         </ScalePop>
         <FadeIn delay={0.12} className="text-center">
-          <h2 className="pf-heading mb-2">Add your dog first</h2>
+          <h2 className="pf-heading mb-2">Add pet first</h2>
           <p className="pf-subtitle mb-7 max-w-xs mx-auto leading-relaxed">
-            Register your dog before booking a walk — it only takes a minute!
+            Register your pet before booking a walk — it only takes a minute!
           </p>
           <button onClick={() => navigate('/owner/dogs')}
             className="btn-spring px-8 py-3.5 rounded-2xl text-sm font-bold text-white shadow-lg mb-3 block w-full max-w-xs mx-auto"

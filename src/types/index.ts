@@ -31,8 +31,8 @@ export interface User {
   fcmToken?: string;                   // Firebase Cloud Messaging push token
   subscriptionPaidUntil?: string;      // ISO date — subscription active until this date
   trialEndsAt?: string;                // ISO date — free trial expiry
-  serviceLat?: number;                 // Walker service area centre (latitude)
-  serviceLng?: number;                 // Walker service area centre (longitude)
+  serviceLat?: number;                 // Walker service area centre, or vet/shop business location (latitude)
+  serviceLng?: number;                 // Walker service area centre, or vet/shop business location (longitude)
   isOnline?: boolean;                  // Walker is live and accepting walks
   onlineLat?: number;                  // Walker's current live GPS latitude
   onlineLng?: number;                  // Walker's current live GPS longitude

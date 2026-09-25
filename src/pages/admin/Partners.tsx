@@ -1,7 +1,13 @@
 import { useState } from 'react';
-import { Building2, Check, ChevronDown, ChevronUp, Eye, EyeOff, Mail, Phone, Plus, Stethoscope, Store, X } from 'lucide-react';
+import {
+  Building2, Check, ChevronDown, ChevronUp, Eye, EyeOff, Loader2, Mail, MapPin, Navigation,
+  Phone, Plus, Search, Stethoscope, Store, X,
+} from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import type { Role } from '../../types';
+import LiveRouteMap, { MapMarker } from '../../components/map/LiveRouteMap';
+import { geocodeAddress } from '../../lib/geocode';
+import { isValidCoord } from '../../lib/geo';
 
 type Tab = 'vet' | 'shopowner';
 
@@ -10,7 +16,96 @@ const TAB_META: Record<Tab, { label: string; singular: string; icon: typeof Stet
   shopowner: { label: 'Shop Owners', singular: 'Shop Owner', icon: Store,       emptyLine: 'No shop owners yet. Add one so they can list products in the Shop.' },
 };
 
-const BLANK = { name: '', email: '', phone: '', password: '', businessName: '', businessAddress: '' };
+const BLANK = { name: '', email: '', phone: '', password: '', businessName: '', businessAddress: '', lat: null as number | null, lng: null as number | null };
+
+/** Pins an address or the device's current position, with a small live preview. Shared by the Add form and per-account editing below. */
+function LocationField({ address, lat, lng, onSet }: { address: string; lat: number | null; lng: number | null; onSet: (lat: number, lng: number) => void }) {
+  const [busy, setBusy] = useState<'address' | 'gps' | null>(null);
+  const [err, setErr] = useState('');
+
+  const fromAddress = async () => {
+    if (!address.trim()) { setErr('Type the address above first.'); return; }
+    setErr('');
+    setBusy('address');
+    const hit = await geocodeAddress(address);
+    setBusy(null);
+    if (!hit) { setErr('Could not find that address on the map. Try "Use current location" instead.'); return; }
+    onSet(hit[0], hit[1]);
+  };
+
+  const fromGps = () => {
+    if (!navigator.geolocation) { setErr('Location is not available on this device.'); return; }
+    setErr('');
+    setBusy('gps');
+    navigator.geolocation.getCurrentPosition(
+      pos => { setBusy(null); onSet(pos.coords.latitude, pos.coords.longitude); },
+      () => { setBusy(null); setErr('Could not get your location. Check location permission and try again.'); },
+      { enableHighAccuracy: true, timeout: 10000 },
+    );
+  };
+
+  const markers: MapMarker[] = lat != null && lng != null ? [{ id: 'pin', lat, lng, kind: 'shop', title: 'Location' }] : [];
+
+  return (
+    <div>
+      <label className="text-xs font-semibold text-ink-secondary block mb-1">Map location (optional, but lets owners find them on the map)</label>
+      <div className="flex gap-2 mb-2">
+        <button type="button" onClick={fromAddress} disabled={busy !== null}
+          className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl border border-surface-border text-xs font-semibold text-ink-secondary disabled:opacity-50">
+          {busy === 'address' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />} Find from address
+        </button>
+        <button type="button" onClick={fromGps} disabled={busy !== null}
+          className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl border border-surface-border text-xs font-semibold text-ink-secondary disabled:opacity-50">
+          {busy === 'gps' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Navigation className="w-3.5 h-3.5" />} Use current location
+        </button>
+      </div>
+      {err && <p className="text-[11px] text-red-600 mb-2">{err}</p>}
+      {lat != null && lng != null ? (
+        <div className="rounded-xl overflow-hidden border border-surface-border" style={{ height: 140 }}>
+          <LiveRouteMap markers={markers} center={[lat, lng]} zoom={14} fitKey={`${lat},${lng}`} />
+        </div>
+      ) : (
+        <p className="text-[11px] text-ink-muted">No location pinned yet — they'll still show up everywhere else, just not on the map.</p>
+      )}
+    </div>
+  );
+}
+
+/** Compact "on the map / not yet" row for an existing account, expanding into the same picker on demand. */
+function LocationRow({ address, lat, lng, onSet }: { address: string; lat?: number; lng?: number; onSet: (lat: number, lng: number) => Promise<void> }) {
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const hasPin = isValidCoord(lat, lng);
+
+  const handleSet = async (newLat: number, newLng: number) => {
+    setSaving(true);
+    await onSet(newLat, newLng);
+    setSaving(false);
+    setEditing(false);
+  };
+
+  if (!editing) {
+    return (
+      <div className="flex items-center justify-between">
+        <p className="text-xs text-ink-secondary flex items-center gap-2">
+          <MapPin className="w-3.5 h-3.5 shrink-0" /> {hasPin ? 'On the map' : 'Not on the map yet'}
+        </p>
+        <button type="button" onClick={() => setEditing(true)} className="text-xs font-bold text-primary">
+          {hasPin ? 'Update location' : 'Set location'}
+        </button>
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-1.5">
+      <LocationField address={address} lat={lat ?? null} lng={lng ?? null} onSet={handleSet} />
+      <div className="flex items-center gap-3">
+        {saving && <p className="text-[11px] text-ink-muted">Saving…</p>}
+        <button type="button" onClick={() => setEditing(false)} className="text-[11px] text-ink-muted underline">Cancel</button>
+      </div>
+    </div>
+  );
+}
 
 /**
  * Admin creates real vet and shop-owner logins. Self sign-up for these roles was removed on purpose —
@@ -18,7 +113,7 @@ const BLANK = { name: '', email: '', phone: '', password: '', businessName: '', 
  * walkers are added in Admin > Walkers.
  */
 export default function AdminPartners() {
-  const { data, addUser } = useApp();
+  const { data, addUser, updateUser } = useApp();
   const [tab, setTab] = useState<Tab>('vet');
   const [showAdd, setShowAdd] = useState(false);
   const [form, setForm] = useState(BLANK);
@@ -45,6 +140,8 @@ export default function AdminPartners() {
       role: tab as Role,
       businessName: form.businessName.trim() || undefined,
       businessAddress: form.businessAddress.trim() || undefined,
+      serviceLat: form.lat ?? undefined,
+      serviceLng: form.lng ?? undefined,
     });
     setSaving(false);
     if (result.error) { setError(result.error); return; }
@@ -102,11 +199,16 @@ export default function AdminPartners() {
                   {open ? <ChevronUp className="w-4 h-4 text-ink-muted shrink-0" /> : <ChevronDown className="w-4 h-4 text-ink-muted shrink-0" />}
                 </button>
                 {open && (
-                  <div className="px-4 pb-4 space-y-2 border-t border-surface-border pt-3">
+                  <div className="px-4 pb-4 space-y-2.5 border-t border-surface-border pt-3">
                     <p className="text-xs text-ink-secondary flex items-center gap-2"><Building2 className="w-3.5 h-3.5 shrink-0" /> Contact: {u.name}</p>
                     <p className="text-xs text-ink-secondary flex items-center gap-2"><Mail className="w-3.5 h-3.5 shrink-0" /> {u.email}</p>
                     <p className="text-xs text-ink-secondary flex items-center gap-2"><Phone className="w-3.5 h-3.5 shrink-0" /> {u.phone}</p>
-                    {u.businessAddress && <p className="text-xs text-ink-secondary">📍 {u.businessAddress}</p>}
+                    {u.businessAddress && <p className="text-xs text-ink-secondary flex items-center gap-2"><MapPin className="w-3.5 h-3.5 shrink-0" /> {u.businessAddress}</p>}
+                    <LocationRow
+                      address={u.businessAddress || u.name}
+                      lat={u.serviceLat} lng={u.serviceLng}
+                      onSet={(lat, lng) => updateUser(u.id, { serviceLat: lat, serviceLng: lng })}
+                    />
                   </div>
                 )}
               </div>
@@ -178,6 +280,13 @@ export default function AdminPartners() {
                     className="w-full border border-surface-border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-primary"
                     placeholder="e.g. Cairo Road, Lusaka" />
                 </div>
+
+                <LocationField
+                  address={form.businessAddress}
+                  lat={form.lat} lng={form.lng}
+                  onSet={(lat, lng) => setForm(f => ({ ...f, lat, lng }))}
+                />
+
                 <div>
                   <label className="text-xs font-semibold text-ink-secondary block mb-1">Login password *</label>
                   <div className="relative">

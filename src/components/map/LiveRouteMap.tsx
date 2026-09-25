@@ -3,7 +3,7 @@ import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { LatLng, LUSAKA } from '../../lib/geo';
 
-export type MarkerKind = 'walker' | 'walker-offline' | 'groomer' | 'me' | 'owner' | 'pickup' | 'job' | 'dog' | 'vet' | 'vet-listed' | 'trainer';
+export type MarkerKind = 'walker' | 'walker-offline' | 'groomer' | 'me' | 'owner' | 'pickup' | 'job' | 'dog' | 'vet' | 'vet-listed' | 'trainer' | 'shop';
 
 export interface MapMarker {
   id: string;
@@ -66,6 +66,7 @@ const KIND: Record<MarkerKind, { size: number; bg: string; glyph: string; opacit
   vet:              { size: 40, bg: 'linear-gradient(135deg,#0F766E,#0891B2)', glyph: '🏥' },
   'vet-listed':     { size: 34, bg: 'linear-gradient(135deg,#64748B,#94A3B8)', glyph: '🏥', opacity: 0.9 },
   trainer:          { size: 40, bg: 'linear-gradient(135deg,#1B4332,#2B8A50)', glyph: '🎓' },
+  shop:             { size: 40, bg: 'linear-gradient(135deg,#B45309,#F59E0B)', glyph: '🛍️' },
 };
 
 function buildPin(m: MapMarker): HTMLDivElement {

@@ -1398,6 +1398,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({
           name: user.name, phone: user.phone, email: user.email, password: user.password, role: user.role,
           businessName: user.businessName, businessAddress: user.businessAddress, walkerStatus: user.walkerStatus,
+          serviceLat: user.serviceLat, serviceLng: user.serviceLng,
         }),
       });
     } catch {

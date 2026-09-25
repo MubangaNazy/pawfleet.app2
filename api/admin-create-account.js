@@ -1,6 +1,6 @@
 // Admin creates a real login for someone else: a walker, a vet clinic, or a shop.
 // POST /api/admin-create-account   Authorization: Bearer <the admin's own login token>
-// body: { name, phone, email, password, role: 'walker'|'vet'|'shopowner', businessName?, businessAddress?, walkerStatus? }
+// body: { name, phone, email, password, role: 'walker'|'vet'|'shopowner', businessName?, businessAddress?, walkerStatus?, serviceLat?, serviceLng? }
 //
 // The service role key can create logins for anyone, so this only ever runs on the server, gated on the
 // caller actually being an admin themselves — never trust a role sent in the request body for that check.
@@ -33,6 +33,8 @@ export default async function handler(req, res) {
   const businessName = clean(body?.businessName) || null;
   const businessAddress = clean(body?.businessAddress) || null;
   const walkerStatus = role === 'walker' ? (clean(body?.walkerStatus) || 'active') : null;
+  const serviceLat = Number.isFinite(Number(body?.serviceLat)) ? Number(body.serviceLat) : null;
+  const serviceLng = Number.isFinite(Number(body?.serviceLng)) ? Number(body.serviceLng) : null;
 
   if (!name || !email || !ALLOWED_ROLES.includes(role)) return res.status(400).json({ error: 'Name, email and a valid role are required.' });
   if (password.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters.' });
@@ -72,6 +74,7 @@ export default async function handler(req, res) {
         id: newId, name, phone, email, password: '', role,
         business_name: businessName, business_address: businessAddress,
         walker_status: walkerStatus,
+        service_lat: serviceLat, service_lng: serviceLng,
       }),
     });
     if (!profile.ok) {

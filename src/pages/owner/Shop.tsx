@@ -1,9 +1,12 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, ShoppingCart, Plus, X, Star, ShieldCheck, MapPin } from 'lucide-react';
+import { Search, ShoppingCart, Plus, X, Star, ShieldCheck, MapPin, ExternalLink } from 'lucide-react';
 import { useCart } from '../../context/CartContext';
 import { useShop, ShopProduct } from '../../context/ShopContext';
 import { useApp } from '../../context/AppContext';
+import LiveRouteMap, { MapMarker } from '../../components/map/LiveRouteMap';
+import { useMyLocation } from '../../hooks/useMyLocation';
+import { formatKm, haversineKm, isValidCoord } from '../../lib/geo';
 
 const GROOM_IMG = 'https://images.unsplash.com/photo-1597633544156-0a5e9d7a1285?w=400&q=80';
 
@@ -111,14 +114,34 @@ function ProductDetailModal({ item, onClose, onAdd }: { item: ShopProduct; onClo
 export default function Shop() {
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<ShopProduct | null>(null);
+  const [selectedShopPin, setSelectedShopPin] = useState<string>('');
   const { addItem, count: cartTotal } = useCart();
   const { products } = useShop();
   const { data } = useApp();
   const navigate = useNavigate();
+  const loc = useMyLocation(true);
 
   // Group custom products by shop owner, showing shop header
   const shopOwnerIds = [...new Set(products.filter(p => p.shopOwnerId).map(p => p.shopOwnerId!))];
   const getShopInfo = (ownerId: string) => data.users.find(u => u.id === ownerId);
+
+  // Registered shops that have a pinned location, so owners can find them on the map.
+  const shopsOnMap = useMemo(() => data.users
+    .filter(u => u.role === 'shopowner' && isValidCoord(u.serviceLat, u.serviceLng))
+    .map(u => ({
+      id: u.id, name: u.businessName || u.name, address: u.businessAddress || null, phone: u.phone,
+      lat: u.serviceLat!, lng: u.serviceLng!,
+      distKm: loc.pos ? haversineKm(loc.pos, [u.serviceLat!, u.serviceLng!]) : null,
+    }))
+    .sort((a, b) => (a.distKm ?? Infinity) - (b.distKm ?? Infinity)),
+  [data.users, loc.pos]);
+
+  const shopMarkers: MapMarker[] = useMemo(() => {
+    const m: MapMarker[] = [];
+    if (loc.pos) m.push({ id: 'me', lat: loc.pos[0], lng: loc.pos[1], kind: 'me', title: 'You' });
+    shopsOnMap.forEach(s => m.push({ id: s.id, lat: s.lat, lng: s.lng, kind: 'shop', selected: s.id === selectedShopPin, title: s.name }));
+    return m;
+  }, [shopsOnMap, loc.pos, selectedShopPin]);
 
   const treats      = products.filter(p => p.category === 'treats');
   const accessories = products.filter(p => p.category === 'accessories');
@@ -191,6 +214,40 @@ export default function Shop() {
             <p className="font-bold text-sm">Book a walk</p>
             <p className="text-white/70 text-xs">Find a walker</p>
           </button>
+        </div>
+      )}
+
+      {/* Shops near you, on a real map */}
+      {!search && shopsOnMap.length > 0 && (
+        <div className="px-4 pb-5">
+          <h2 className="text-base font-bold text-ink mb-3">Shops near you</h2>
+          <div className="rounded-2xl overflow-hidden border border-surface-border mb-3" style={{ height: 200 }}>
+            <LiveRouteMap
+              markers={shopMarkers}
+              center={loc.pos ?? [shopsOnMap[0].lat, shopsOnMap[0].lng]}
+              zoom={12}
+              fitKey={`${shopsOnMap.length}|${loc.source}`}
+              onSelect={id => { if (id !== 'me') setSelectedShopPin(id); }}
+            />
+          </div>
+          <div className="flex gap-3 overflow-x-auto pb-1 -mx-4 px-4 snap-x">
+            {shopsOnMap.map(s => (
+              <button key={s.id} type="button" onClick={() => setSelectedShopPin(s.id)}
+                className="shrink-0 w-56 snap-start text-left rounded-2xl border p-3 transition-colors"
+                style={{ borderColor: s.id === selectedShopPin ? '#F59E0B' : 'var(--surface-border, #E5E7EB)' }}>
+                <p className="text-sm font-bold text-ink truncate">{s.name}</p>
+                {s.address && <p className="text-xs text-ink-muted truncate mt-0.5">{s.address}</p>}
+                <div className="flex items-center justify-between mt-2">
+                  {s.distKm != null && <span className="text-xs font-semibold" style={{ color: '#B45309' }}>{formatKm(s.distKm)} away</span>}
+                  <a href={`https://www.google.com/maps/dir/?api=1&destination=${s.lat},${s.lng}`} target="_blank" rel="noopener noreferrer"
+                    onClick={e => e.stopPropagation()}
+                    className="flex items-center gap-1 text-[11px] font-bold ml-auto" style={{ color: '#B45309' }}>
+                    <ExternalLink className="w-3 h-3" /> Directions
+                  </a>
+                </div>
+              </button>
+            ))}
+          </div>
         </div>
       )}
 

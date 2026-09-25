@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { Loader2, Locate, Search, X } from 'lucide-react';
@@ -59,8 +60,13 @@ export default function PinDropPicker({ initial, onConfirm, onClose }: Props) {
     });
     map.on('load', () => resolveAddress(start[0], start[1]));
 
+    // The container's final size can land a frame after the map is constructed (portal + flex layout).
+    // A couple of follow-up resizes make sure the canvas always matches it instead of staying blank.
+    requestAnimationFrame(() => map.resize());
+    const resizeTimer = setTimeout(() => map.resize(), 300);
+
     mapRef.current = map;
-    return () => { map.remove(); mapRef.current = null; };
+    return () => { clearTimeout(resizeTimer); map.remove(); mapRef.current = null; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -87,7 +93,10 @@ export default function PinDropPicker({ initial, onConfirm, onClose }: Props) {
     );
   };
 
-  return (
+  return createPortal(
+    // Rendered straight onto <body>: an animated ancestor (page-transition wrapper) further up the tree
+    // has a CSS transform on it, which turns "fixed" into "relative to that ancestor" per the CSS spec —
+    // that left this at the wrong size and the map canvas unable to draw. A portal sidesteps it entirely.
     <div className="fixed inset-0 z-[9999] bg-white flex flex-col">
       {/* Map area, with the search bar, pin and GPS button all overlaid on top of it */}
       <div className="relative flex-1 min-h-0">
@@ -157,6 +166,7 @@ export default function PinDropPicker({ initial, onConfirm, onClose }: Props) {
           Confirm this location
         </button>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

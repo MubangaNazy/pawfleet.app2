@@ -132,7 +132,8 @@ interface AppContextType {
   createDog: (dog: Omit<Dog, 'id'>) => Promise<{ dog?: Dog; error?: string; warning?: string }>;
   updateDog: (id: string, updates: Partial<Dog>) => void;
   logHealth: (dogId: string, date: string, field: 'water' | 'foodMorning' | 'foodEvening', value: boolean) => void;
-  addUser: (user: Omit<User, 'id' | 'createdAt'>) => User;
+  /** Admin-only: creates a real login for a walker, vet or shop, plus their profile. */
+  addUser: (user: Omit<User, 'id' | 'createdAt'> & { password: string }) => Promise<{ user?: User; error?: string }>;
   updateUser: (userId: string, updates: Partial<User>) => Promise<void>;
   getWalkerStats: (walkerId: string) => WalkerStats;
   refreshData: () => void;
@@ -1384,23 +1385,33 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   // ── Users ────────────────────────────────────────────────
-  const addUser = (user: Omit<User, 'id' | 'createdAt'>): User => {
-    const newUser: User = { ...user, id: crypto.randomUUID(), createdAt: new Date().toISOString() };
-    setData(prev => ({ ...prev, users: [...prev.users, newUser] }));
-    supabase.from('users').insert({
-      id: newUser.id, name: user.name, phone: user.phone,
-      email: user.email ?? null, password: '', role: user.role,
-      image_url: user.imageUrl ?? null,
-      walker_status: user.walkerStatus ?? null,
-      nrc: user.nrc ?? null,
-    }).then(({ error }) => { if (error) console.error('addUser:', error); });
-    if (user.role === 'walker') {
-      const stats: WalkerStats = { walkerId: newUser.id, points: 0, streak: 0, badges: [] };
-      setData(prev => ({ ...prev, walkerStats: [...prev.walkerStats, stats] }));
-      supabase.from('walker_stats').insert({ walker_id: newUser.id })
-        .then(({ error }) => { if (error) console.error('walkerStats insert:', error); });
+  const addUser = async (user: Omit<User, 'id' | 'createdAt'> & { password: string }): Promise<{ user?: User; error?: string }> => {
+    const { data: sess } = await supabase.auth.getSession();
+    const token = sess.session?.access_token;
+    if (!token) return { error: 'Please log out, log back in, then try again.' };
+
+    let res: Response;
+    try {
+      res = await fetch('/api/admin-create-account', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: user.name, phone: user.phone, email: user.email, password: user.password, role: user.role,
+          businessName: user.businessName, businessAddress: user.businessAddress, walkerStatus: user.walkerStatus,
+        }),
+      });
+    } catch {
+      return { error: OFFLINE_MESSAGE };
     }
-    return newUser;
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) return { error: json.error || 'Could not create the account. Please try again.' };
+
+    const newUser: User = { ...user, id: json.id, createdAt: new Date().toISOString(), password: '' };
+    setData(prev => ({ ...prev, users: [...prev.users, newUser] }));
+    if (user.role === 'walker') {
+      setData(prev => ({ ...prev, walkerStats: [...prev.walkerStats, { walkerId: newUser.id, points: 0, streak: 0, badges: [] }] }));
+    }
+    return { user: newUser };
   };
 
   const getWalkerStats = (walkerId: string): WalkerStats =>

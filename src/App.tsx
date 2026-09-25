@@ -20,6 +20,7 @@ const AdminWalkers     = lazy(() => import('./pages/admin/Walkers'));
 const AdminOwners      = lazy(() => import('./pages/admin/Owners'));
 const AdminPayments    = lazy(() => import('./pages/admin/Payments'));
 const AdminShopManager = lazy(() => import('./pages/admin/ShopManager'));
+const AdminPartners    = lazy(() => import('./pages/admin/Partners'));
 const AdminAnalytics   = lazy(() => import('./pages/admin/Analytics'));
 const AdminProfitMgmt  = lazy(() => import('./pages/admin/ProfitManagement'));
 
@@ -361,6 +362,7 @@ function AppRoutes() {
         <Route path="owners"      element={<AdminOwners />} />
         <Route path="payments"    element={<AdminPayments />} />
         <Route path="shop"        element={<AdminShopManager />} />
+        <Route path="partners"    element={<AdminPartners />} />
         <Route path="analytics"   element={<AdminAnalytics />} />
         <Route path="profit"      element={<AdminProfitMgmt />} />
         <Route path="dogs"        element={<AdminDogs />} />

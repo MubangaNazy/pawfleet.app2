@@ -4,6 +4,7 @@ import { CreditCard, Bell, Heart, Shield, ChevronRight, LogOut, Dog, Camera, Upl
 import { useApp } from '../../context/AppContext';
 import { isThisMonth } from 'date-fns';
 import DeleteAccountRow from '../../components/account/DeleteAccount';
+import ChangePasswordRow from '../../components/account/ChangePassword';
 
 async function resizePhoto(file: File, maxDim = 512, q = 0.78): Promise<string> {
   return new Promise(resolve => {
@@ -354,6 +355,7 @@ export default function Profile() {
           );
         })()}
 
+        <ChangePasswordRow />
         <DeleteAccountRow />
 
         {/* Sign out */}

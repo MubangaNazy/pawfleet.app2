@@ -172,18 +172,15 @@ export default function AdminWalkers() {
   const handleAdd = async () => {
     if (!form.name.trim()) { setError('Name is required'); return; }
     if (!form.phone.trim()) { setError('Phone is required'); return; }
-    if (!form.password.trim() || form.password.length < 4) { setError('Password must be at least 4 characters'); return; }
+    if (!form.email.trim()) { setError('Email is required — it becomes their login.'); return; }
+    if (!form.password.trim() || form.password.length < 6) { setError('Password must be at least 6 characters'); return; }
     setError('');
     setSaving(true);
-    try {
-      addUser({ name: form.name.trim(), phone: form.phone.trim(), email: form.email.trim(), password: form.password, role: 'walker', walkerStatus: 'active', imageUrl: form.photoUrl || undefined });
-      setForm(BLANK);
-      setShowAdd(false);
-    } catch {
-      setError('Failed to add walker. Please try again.');
-    } finally {
-      setSaving(false);
-    }
+    const result = await addUser({ name: form.name.trim(), phone: form.phone.trim(), email: form.email.trim(), password: form.password, role: 'walker', walkerStatus: 'active', imageUrl: form.photoUrl || undefined });
+    setSaving(false);
+    if (result.error) { setError(result.error); return; }
+    setForm(BLANK);
+    setShowAdd(false);
   };
 
   const totalCompleted = walkers.reduce((s, w) => s + getStats(w.id).completedWalks, 0);
@@ -722,7 +719,7 @@ export default function AdminWalkers() {
                   placeholder="e.g. 0977 123456" />
               </div>
               <div>
-                <label className="text-xs font-semibold text-ink-secondary block mb-1">Email (optional)</label>
+                <label className="text-xs font-semibold text-ink-secondary block mb-1">Email * (becomes their login)</label>
                 <input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
                   className="w-full border border-surface-border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-primary"
                   placeholder="chanda@email.com" />
@@ -732,7 +729,7 @@ export default function AdminWalkers() {
                 <div className="relative">
                   <input type={showPw ? 'text' : 'password'} value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
                     className="w-full border border-surface-border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-primary pr-10"
-                    placeholder="Min. 4 characters" />
+                    placeholder="Min. 6 characters" />
                   <button type="button" onClick={() => setShowPw(p => !p)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-muted hover:text-ink">
                     {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}

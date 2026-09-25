@@ -68,6 +68,16 @@ const TEMPLATES = {
       { badge: '🦮', title: 'Application Received' },
     ),
   }),
+  account_created: (d) => ({
+    subject: `Your PawFleet ${esc(d.roleLabel)} account is ready`,
+    html: shell(
+      P(`Hi <strong>${esc(d.name)}</strong>, an admin has set up your ${esc(d.roleLabel)} account on PawFleet.`) +
+      BOX('#EBF5EF', '#2B8A50',
+        `<strong>Email:</strong> ${esc(d.email)}<br><strong>Temporary password:</strong> ${esc(d.password)}<br><br>Please log in and change your password from your profile as soon as you can.`) +
+      `<div style="text-align:center">${CTA(APP_URL, 'Log in to PawFleet')}</div>`,
+      { badge: '🔑', title: 'Your Account Is Ready' },
+    ),
+  }),
 };
 
 export default async function handler(req, res) {

@@ -21,6 +21,7 @@ const adminNav = [
   { to: '/admin/dogs',        icon: Dog,             label: 'All Pets' },
   { to: '/admin/payments',    icon: CreditCard,      label: 'Payments' },
   { to: '/admin/shop',        icon: ShoppingBag,     label: 'Shop Manager' },
+  { to: '/admin/partners',    icon: Stethoscope,     label: 'Vets & Shop Owners' },
   { to: '/admin/analytics',   icon: Activity,        label: 'Analytics' },
   { to: '/admin/profit',      icon: TrendingUp,      label: 'Profit Management' },
 ];

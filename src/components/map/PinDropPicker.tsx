@@ -56,13 +56,21 @@ export default function PinDropPicker({ initial, onConfirm, onClose }: Props) {
   useEffect(() => {
     if (!containerRef.current) return;
     const start = initial ?? LUSAKA;
-    const map = new maplibregl.Map({
-      container: containerRef.current,
-      style: 'https://tiles.openfreemap.org/styles/liberty',
-      center: [start[1], start[0]],
-      zoom: 16,
-      attributionControl: false,
-    });
+    let map: maplibregl.Map;
+    try {
+      map = new maplibregl.Map({
+        container: containerRef.current,
+        style: 'https://tiles.openfreemap.org/styles/liberty',
+        center: [start[1], start[0]],
+        zoom: 16,
+        attributionControl: false,
+      });
+    } catch (err) {
+      // e.g. WebGL unavailable/blocked on this device or browser — this never gets as far as 'error' below.
+      console.error('PinDropPicker: could not create the map:', err);
+      setMapError(true);
+      return;
+    }
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
 
     const resolveAddress = async (lat: number, lng: number) => {
@@ -72,6 +80,7 @@ export default function PinDropPicker({ initial, onConfirm, onClose }: Props) {
       if (seq === geocodeSeq.current) { setAddress(addr); setResolving(false); }
     };
 
+    let loaded = false;
     map.on('movestart', () => setDragging(true));
     map.on('moveend', () => {
       setDragging(false);
@@ -79,16 +88,18 @@ export default function PinDropPicker({ initial, onConfirm, onClose }: Props) {
       centerRef.current = [c.lat, c.lng];
       resolveAddress(c.lat, c.lng);
     });
-    map.on('load', () => { setMapError(false); resolveAddress(start[0], start[1]); });
+    map.on('load', () => { loaded = true; setMapError(false); resolveAddress(start[0], start[1]); });
     map.on('error', e => { console.error('PinDropPicker map error:', e?.error || e); setMapError(true); });
 
     // The container's final size can land a frame after the map is constructed. A couple of follow-up
     // resizes make sure the canvas always matches it instead of staying the wrong size (or blank).
     requestAnimationFrame(() => map.resize());
     const resizeTimer = setTimeout(() => map.resize(), 300);
+    // A stalled tile/style fetch doesn't always fire 'error' — surface it after a reasonable wait either way.
+    const loadTimeout = setTimeout(() => { if (!loaded) setMapError(true); }, 8000);
 
     mapRef.current = map;
-    return () => { clearTimeout(resizeTimer); map.remove(); mapRef.current = null; };
+    return () => { clearTimeout(resizeTimer); clearTimeout(loadTimeout); map.remove(); mapRef.current = null; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

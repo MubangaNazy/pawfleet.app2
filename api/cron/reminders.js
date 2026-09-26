@@ -34,10 +34,15 @@ export default async function handler(req, res) {
   const service = clean(process.env.SUPABASE_SERVICE_ROLE_KEY);
   if (!url || !service) return res.status(503).json({ error: 'Not configured.' });
 
+  // Writes with Prefer: return=minimal come back 201/204 with an empty body — r.json() would throw
+  // on that, so only parse when there's actually something to parse.
   const admin = (path, opts = {}) => fetch(`${url}${path}`, {
     ...opts,
     headers: { apikey: service, Authorization: `Bearer ${service}`, 'Content-Type': 'application/json', ...(opts.headers || {}) },
-  }).then(r => r.json());
+  }).then(async r => {
+    const text = await r.text();
+    return text ? JSON.parse(text) : null;
+  });
 
   const summary = { walkReminders: 0, goOnlineNudges: 0, pendingFollowups: 0, paymentReminders: 0, errors: [] };
 

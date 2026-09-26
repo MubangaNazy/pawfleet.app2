@@ -1,0 +1,19 @@
+name: Reminders cron
+
+# Vercel's Hobby plan only allows a cron job to run once a day, which isn't often enough for the
+# "starting in ~30 minutes" reminder to actually catch bookings through the day. This runs it every
+# 15 minutes for free instead, hitting the same endpoint Vercel's own cron would have called.
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch: {}
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call reminders endpoint
+        run: |
+          curl --fail --silent --show-error \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "https://www.pawfleetapp.com/api/cron/reminders"

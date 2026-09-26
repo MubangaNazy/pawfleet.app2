@@ -1,11 +1,15 @@
-// Scheduled reminders, run periodically by Vercel Cron (see vercel.json).
-// One pass, three jobs. Dedup is done by checking the `notifications` table for a row already sent
-// for that walk/user (by type + a reference id in `data`) rather than adding tracking columns
-// everywhere — this app's notifications table already is the record of "did we tell them".
+// Scheduled reminders. Triggered two ways:
+//  - Vercel Cron (see vercel.json), once a day — that's the most Vercel's Hobby plan allows.
+//  - .github/workflows/reminders-cron.yml, every 15 minutes for free — this is what actually makes
+//    the "starting in ~30 minutes" reminder work through the day; the daily Vercel one is just a
+//    harmless backup in case that ever stops running.
+// One pass, four jobs each call. Dedup is done by checking the `notifications` table for a row
+// already sent for that walk/user (by type + a reference id in `data`) rather than adding tracking
+// columns everywhere — this app's notifications table already is the record of "did we tell them".
 //
-// Needs one env var Vercel sets automatically when CRON_SECRET is configured on the project:
-// Vercel Cron then sends `Authorization: Bearer <CRON_SECRET>` on every invocation, which we check
-// below so this endpoint can't be triggered by anyone else hitting the URL.
+// Both triggers send `Authorization: Bearer <CRON_SECRET>` (Vercel does this automatically once the
+// env var is set; the GitHub workflow does it explicitly from a repo secret of the same name/value),
+// which we check below so this endpoint can't be triggered by anyone else hitting the URL.
 
 import { randomUUID } from 'crypto';
 

@@ -18,6 +18,10 @@ const TYPE_META: Record<string, { icon: React.ReactNode; color: string; bg: stri
   walker_approved: { icon: <CheckCircle className="w-4 h-4" />, color: '#059669', bg: '#ECFDF5' },
   walker_rejected: { icon: <XCircle className="w-4 h-4" />,     color: '#EF4444', bg: '#FEF2F2' },
   achievement:     { icon: <Star className="w-4 h-4" />,        color: '#D97706', bg: '#FFFBEB' },
+  walk_reminder:            { icon: <Bell className="w-4 h-4" />,       color: '#2B8A50', bg: '#EBF5EF' },
+  go_online_nudge:          { icon: <UserPlus className="w-4 h-4" />,   color: '#F59E0B', bg: '#FFFBEB' },
+  booking_pending_followup: { icon: <MapPin className="w-4 h-4" />,     color: '#F59E0B', bg: '#FFFBEB' },
+  payment_reminder:         { icon: <CreditCard className="w-4 h-4" />, color: '#7C3AED', bg: '#F5F3FF' },
 };
 
 function parseAchievementNotif(notif: AppNotification) {

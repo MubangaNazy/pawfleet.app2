@@ -68,6 +68,16 @@ const TEMPLATES = {
       { badge: '🦮', title: 'Application Received' },
     ),
   }),
+  password_reset: (d) => ({
+    subject: 'Reset your PawFleet password',
+    html: shell(
+      P(`Hi <strong>${esc(d.name)}</strong>, we got a request to reset your PawFleet password.`) +
+      BOX('#FFFBEB', '#F59E0B', "If this wasn't you, you can ignore this email — your password stays the same unless you tap the button below.") +
+      `<div style="text-align:center">${CTA(d.resetLink, 'Reset my password')}</div>` +
+      P(`<span style="font-size:12px;color:#9CA3AF">This link works once and expires in 30 minutes.</span>`),
+      { badge: '🔒', title: 'Reset Your Password' },
+    ),
+  }),
   account_created: (d) => ({
     subject: `Your PawFleet ${esc(d.roleLabel)} account is ready`,
     html: shell(

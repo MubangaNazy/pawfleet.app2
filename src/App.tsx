@@ -85,6 +85,8 @@ const DirectMessage     = lazy(() => import('./pages/DirectMessage'));
 const Community         = lazy(() => import('./pages/Community'));
 const PrivacyPolicy     = lazy(() => import('./pages/PrivacyPolicy'));
 const DeleteAccountPage = lazy(() => import('./pages/DeleteAccount'));
+const ForgotPassword    = lazy(() => import('./pages/ForgotPassword'));
+const ResetPassword     = lazy(() => import('./pages/ResetPassword'));
 
 // ── Splash screen shown while Supabase connects ──────────────────────────────
 function WalkingFigureSVG() {
@@ -350,6 +352,8 @@ function AppRoutes() {
       <Route path="/landing"        element={<Landing />} />
       <Route path="/privacy-policy" element={<PrivacyPolicy />} />
       <Route path="/delete-account" element={<DeleteAccountPage />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password"  element={<ResetPassword />} />
       <Route path="/"               element={<RoleRedirect />} />
 
       {/* ── Admin ── */}

@@ -37,9 +37,14 @@ export function useMyLocation(autoAsk = true) {
     return true;
   }, []);
 
+  /** Set an exact point directly, e.g. from a "drop a pin" picker. */
+  const setPoint = useCallback((point: LatLng) => {
+    setPos(point); setSource('typed'); setStatus('ok');
+  }, []);
+
   useEffect(() => {
     if (autoAsk && !asked.current) { asked.current = true; request(); }
   }, [autoAsk, request]);
 
-  return { pos, status, source, lookingUp, request, setFromText };
+  return { pos, status, source, lookingUp, request, setFromText, setPoint };
 }

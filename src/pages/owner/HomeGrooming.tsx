@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, CheckCircle, Loader2, MapPin, MessageCircle } from 'lucide-react';
+import { ArrowLeft, CheckCircle, Loader2, MapPin, MessageCircle, Pin } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useWalkersLive } from '../../lib/liveTracking';
+import PinDropPicker from '../../components/map/PinDropPicker';
 import { geocodeAddress, reverseGeocode } from '../../lib/geocode';
 import { LatLng, formatKm, haversineKm, isValidCoord } from '../../lib/geo';
 import { GROOM_PACKAGES as PACKAGES, GROOM_PLANS, planPrice, type PlanId } from '../../lib/groomingPackages';
@@ -36,6 +37,7 @@ export default function HomeGrooming() {
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [bookingError, setBookingError] = useState('');
+  const [showPinPicker, setShowPinPicker] = useState(false);
 
   const selectedPkg = PACKAGES.find(p => p.id === pkg)!;
   const isVetGrooming = selectedPkg?.isVet;
@@ -373,13 +375,20 @@ export default function HomeGrooming() {
 
         {/* Where */}
         <div>
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center justify-between mb-2 gap-2">
             <label className="text-sm font-bold text-ink">Where should the groomer go?</label>
-            <button type="button" onClick={useMyLocation} disabled={gpsLoading}
-              className="flex items-center gap-1 text-xs font-bold disabled:opacity-50" style={{ color: '#2B8A50' }}>
-              {gpsLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MapPin className="w-3.5 h-3.5" />}
-              Use my location
-            </button>
+            <div className="flex items-center gap-3 shrink-0">
+              <button type="button" onClick={() => setShowPinPicker(true)}
+                className="flex items-center gap-1 text-xs font-bold" style={{ color: '#2B8A50' }}>
+                <Pin className="w-3.5 h-3.5" />
+                Drop a pin
+              </button>
+              <button type="button" onClick={useMyLocation} disabled={gpsLoading}
+                className="flex items-center gap-1 text-xs font-bold disabled:opacity-50" style={{ color: '#2B8A50' }}>
+                {gpsLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MapPin className="w-3.5 h-3.5" />}
+                Use my location
+              </button>
+            </div>
           </div>
           <input type="text" value={address} placeholder="e.g. Plot 15, Kabulonga, Lusaka"
             onChange={e => { setAddress(e.target.value); setCoords(null); setGeoStatus('idle'); }}
@@ -483,6 +492,19 @@ export default function HomeGrooming() {
           {submitting ? 'Sending…' : `Book ${isVetGrooming ? 'Vet Clinic Grooming' : 'Home Grooming'} · K${totalPrice}`}
         </button>
       </div>
+
+      {showPinPicker && (
+        <PinDropPicker
+          initial={coords}
+          onConfirm={result => {
+            setCoords([result.lat, result.lng]);
+            setAddress(result.address);
+            setGeoStatus('found');
+            setShowPinPicker(false);
+          }}
+          onClose={() => setShowPinPicker(false)}
+        />
+      )}
     </div>
   );
 }

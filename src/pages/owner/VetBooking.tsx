@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Check, ChevronRight, ExternalLink, Loader2, MapPin, MessageCircle, Navigation, Phone, Search } from 'lucide-react';
+import { ArrowLeft, Check, ChevronRight, ExternalLink, Loader2, MapPin, MessageCircle, Navigation, Phone, Pin as PinIcon, Search } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import LiveRouteMap, { MapMarker } from '../../components/map/LiveRouteMap';
+import PinDropPicker from '../../components/map/PinDropPicker';
 import { useMyLocation } from '../../hooks/useMyLocation';
 import { scanVetClinics, type OsmPlace } from '../../lib/nearbyPlaces';
 import { LatLng, formatKm, haversineKm, isValidCoord } from '../../lib/geo';
@@ -68,6 +69,7 @@ export default function VetBooking() {
   const [radius,          setRadius]         = useState<number | 'all'>('all');
   const [areaText,        setAreaText]       = useState('');
   const [areaMissing,     setAreaMissing]    = useState(false);
+  const [showPinPicker,   setShowPinPicker]  = useState(false);
   const [isAggressive,    setIsAggressive]   = useState(false);
   const [needsTransport,  setNeedsTransport] = useState(false);
   const [bookingDate,     setBookingDate]    = useState('');
@@ -405,12 +407,20 @@ export default function VetBooking() {
         <div>
           <div className="flex items-center justify-between mb-3">
             <p className="text-xs font-bold text-ink-muted uppercase tracking-wider">Vets near you</p>
-            <button type="button" onClick={() => { loc.request(); setFitTick(t => t + 1); }}
-              className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-xl transition-colors"
-              style={{ color: '#0891B2', background: '#F0FDFA', border: '1px solid #A5F3FC' }}>
-              <Navigation className="w-3 h-3" />
-              {loc.status === 'asking' ? 'Locating…' : loc.pos ? (loc.source === 'typed' ? 'Use GPS instead' : '✓ Located') : 'Use My Location'}
-            </button>
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={() => setShowPinPicker(true)}
+                className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-xl transition-colors"
+                style={{ color: '#0891B2', background: '#F0FDFA', border: '1px solid #A5F3FC' }}>
+                <PinIcon className="w-3 h-3" />
+                Drop a pin
+              </button>
+              <button type="button" onClick={() => { loc.request(); setFitTick(t => t + 1); }}
+                className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-xl transition-colors"
+                style={{ color: '#0891B2', background: '#F0FDFA', border: '1px solid #A5F3FC' }}>
+                <Navigation className="w-3 h-3" />
+                {loc.status === 'asking' ? 'Locating…' : loc.pos ? (loc.source === 'typed' ? 'Use GPS instead' : '✓ Located') : 'Use My Location'}
+              </button>
+            </div>
           </div>
 
           {/* Status of the scan */}
@@ -553,6 +563,18 @@ export default function VetBooking() {
         {!bookingDate && ownerPets.length > 0 && <p className="text-center text-xs text-ink-muted -mt-3">Pick a date to continue</p>}
 
       </div>
+
+      {showPinPicker && (
+        <PinDropPicker
+          initial={loc.pos}
+          onConfirm={result => {
+            loc.setPoint([result.lat, result.lng]);
+            setFitTick(t => t + 1);
+            setShowPinPicker(false);
+          }}
+          onClose={() => setShowPinPicker(false)}
+        />
+      )}
     </div>
   );
 }

@@ -1,6 +1,8 @@
 // Send payment receipt email via Resend
 // POST /api/send-receipt  { to, name, amount, description, reference, operator }
 
+import { logEmail } from './_lib/logEmail.js';
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
@@ -65,6 +67,8 @@ export default async function handler(req, res) {
 </body>
 </html>`;
 
+  const subject = `Payment Confirmed — K${Number(amount).toLocaleString()} received`;
+
   try {
     const r = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -75,17 +79,22 @@ export default async function handler(req, res) {
       body: JSON.stringify({
         from: 'PawFleet <receipts@mail.pawfleetapp.com>',
         to: [to],
-        subject: `Payment Confirmed — K${Number(amount).toLocaleString()} received`,
+        subject,
         html,
         // "from" is a send-only technical address; a reply routes to a real inbox instead.
         reply_to: 'pawfleetapp@gmail.com',
       }),
     });
     const d = await r.json();
-    if (!r.ok) return res.status(r.status).json({ error: d.message || 'Resend error' });
+    if (!r.ok) {
+      logEmail({ to, template: 'payment_receipt', subject, status: 'failed', error: d.message || 'Resend error' });
+      return res.status(r.status).json({ error: d.message || 'Resend error' });
+    }
+    logEmail({ to, template: 'payment_receipt', subject, status: 'sent', resendId: d.id });
     return res.status(200).json({ ok: true, id: d.id });
   } catch (err) {
     console.error('send-receipt error:', err);
+    logEmail({ to, template: 'payment_receipt', subject, status: 'failed', error: err.message });
     return res.status(500).json({ error: err.message });
   }
 }

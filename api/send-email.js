@@ -2,6 +2,8 @@
 // POST /api/send-email  { to, template, data }
 // Never blocks anything else: the app fires this and moves on regardless of the result.
 
+import { logEmail } from './_lib/logEmail.js';
+
 const FROM = 'PawFleet <notifications@mail.pawfleetapp.com>';
 const SUPPORT_EMAIL = 'pawfleetapp@gmail.com';
 
@@ -110,7 +112,12 @@ export default async function handler(req, res) {
       body: JSON.stringify({ from: FROM, to: [to], subject, html, reply_to: SUPPORT_EMAIL }),
     });
     const d = await r.json();
-    if (!r.ok) { console.error('send-email (Resend):', d); return res.status(r.status).json({ error: d.message || 'Resend error' }); }
+    if (!r.ok) {
+      console.error('send-email (Resend):', d);
+      logEmail({ to, template, subject, status: 'failed', error: d.message || 'Resend error' });
+      return res.status(r.status).json({ error: d.message || 'Resend error' });
+    }
+    logEmail({ to, template, subject, status: 'sent', resendId: d.id });
     return res.status(200).json({ ok: true, id: d.id });
   } catch (err) {
     console.error('send-email error:', err);

@@ -22,6 +22,7 @@ const adminNav = [
   { to: '/admin/payments',    icon: CreditCard,      label: 'Payments' },
   { to: '/admin/shop',        icon: ShoppingBag,     label: 'Shop Manager' },
   { to: '/admin/partners',    icon: Stethoscope,     label: 'Vets & Shop Owners' },
+  { to: '/admin/history',     icon: History,         label: 'Notification & Email History' },
   { to: '/admin/analytics',   icon: Activity,        label: 'Analytics' },
   { to: '/admin/profit',      icon: TrendingUp,      label: 'Profit Management' },
 ];

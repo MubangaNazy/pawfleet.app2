@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Crosshair, Footprints, MessageCircle, Scissors } from 'lucide-react';
+import { ArrowLeft, Crosshair, Footprints, MessageCircle, Navigation, Scissors, ShoppingBag } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import LiveRouteMap, { MapMarker } from '../../components/map/LiveRouteMap';
 import GoOnlineCard from '../../components/walker/GoOnlineCard';
@@ -8,7 +8,7 @@ import { useWalkerOnline, useWalkersLive } from '../../lib/liveTracking';
 import { LatLng, LUSAKA, formatKm, haversineKm, isValidCoord } from '../../lib/geo';
 import type { User, WalkerPricing } from '../../types';
 
-type Service = 'walk' | 'grooming';
+type Service = 'walk' | 'grooming' | 'shops';
 const DURATIONS = [20, 30, 40, 60] as const;
 
 interface Entry {
@@ -33,7 +33,8 @@ export default function WalkerMap() {
   const isWalker = role === 'walker';
   const canBook = role === 'owner';
 
-  const service: Service = params.get('service') === 'grooming' ? 'grooming' : 'walk';
+  const serviceParam = params.get('service');
+  const service: Service = serviceParam === 'grooming' ? 'grooming' : serviceParam === 'shops' ? 'shops' : 'walk';
   const urlDuration = Number(params.get('duration'));
   const [duration, setDuration] = useState<number>(DURATIONS.includes(urlDuration as any) ? urlDuration : 30);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -90,10 +91,26 @@ export default function WalkerMap() {
 
   const liveCount = entries.filter(e => e.live).length;
 
+  // Shops registered on PawFleet that have set a location — any role can navigate to one.
+  const shops = useMemo(() => {
+    return data.users
+      .filter(u => u.role === 'shopowner' && isValidCoord(u.serviceLat, u.serviceLng))
+      .map(u => {
+        const pos: LatLng = [u.serviceLat!, u.serviceLng!];
+        return { user: u, pos, distKm: myPos ? haversineKm(myPos, pos) : null };
+      })
+      .sort((a, b) => (a.distKm ?? 1e9) - (b.distKm ?? 1e9));
+  }, [data.users, myPos]);
+
   const markers: MapMarker[] = useMemo(() => {
     const out: MapMarker[] = [];
     if (myPos) out.push({ id: 'me', lat: myPos[0], lng: myPos[1], kind: 'me', title: 'You' });
-    if (isWalker) {
+    if (service === 'shops') {
+      shops.forEach(s => out.push({
+        id: s.user.id, lat: s.pos[0], lng: s.pos[1], kind: 'shop',
+        selected: s.user.id === selectedId, title: s.user.businessName || s.user.name,
+      }));
+    } else if (isWalker) {
       jobs.forEach(j => out.push({ id: `job:${j.walk.id}`, lat: j.pos[0], lng: j.pos[1], kind: 'job', title: 'Open job' }));
     } else {
       entries.forEach(e => {
@@ -106,10 +123,12 @@ export default function WalkerMap() {
       });
     }
     return out;
-  }, [entries, jobs, myPos, isWalker, service, selectedId]);
+  }, [entries, jobs, shops, myPos, isWalker, service, selectedId]);
 
   const fitKey = `${service}|${myPos ? 'me' : ''}|${markers.length > 0 ? 'data' : ''}|${fitTick}`;
-  const center: LatLng = myPos ?? entries.find(e => e.pos)?.pos ?? LUSAKA;
+  const center: LatLng = myPos
+    ?? (service === 'shops' ? shops.find(s => s.pos)?.pos : entries.find(e => e.pos)?.pos)
+    ?? LUSAKA;
 
   const priceFor = (u: User): number | undefined =>
     service === 'grooming' ? u.pricing?.grooming : u.pricing?.[`walk_${duration}` as keyof WalkerPricing];
@@ -117,7 +136,7 @@ export default function WalkerMap() {
   const base = role === 'admin' ? '/admin' : `/${role ?? 'owner'}`;
   const setService = (s: Service) => {
     const next = new URLSearchParams(params);
-    if (s === 'grooming') next.set('service', 'grooming'); else next.delete('service');
+    if (s === 'grooming' || s === 'shops') next.set('service', s); else next.delete('service');
     setParams(next, { replace: true });
     setSelectedId(null);
   };
@@ -137,10 +156,10 @@ export default function WalkerMap() {
         <div className="flex-1 min-w-0">
           <p className="text-[10px] text-ink-muted font-bold uppercase tracking-wider">PawFleet live map</p>
           <p className="text-sm font-bold text-ink truncate">
-            {isWalker ? 'Jobs near you' : service === 'grooming' ? 'Groomers nearby' : 'Walkers nearby'}
+            {service === 'shops' ? 'Shops nearby' : isWalker ? 'Jobs near you' : service === 'grooming' ? 'Groomers nearby' : 'Walkers nearby'}
           </p>
         </div>
-        {!isWalker && (
+        {!isWalker && service !== 'shops' && (
           <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#EBF5EF]">
             <span className={`w-2 h-2 rounded-full ${liveCount > 0 ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
             <span className="text-xs font-bold" style={{ color: '#1B4332' }}>{liveCount} live</span>
@@ -149,17 +168,18 @@ export default function WalkerMap() {
       </div>
 
       {/* Service switch */}
-      {!isWalker && (
-        <div className="px-4 py-2 bg-white shrink-0 z-[1001] flex gap-2">
-          {([['walk', 'Dog walkers', Footprints], ['grooming', 'Groomers', Scissors]] as const).map(([key, label, Icon]) => (
-            <button key={key} type="button" onClick={() => setService(key)}
-              className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-bold transition-all ${service === key ? 'text-white shadow' : 'bg-[#F4F9F6] text-ink-muted'}`}
-              style={service === key ? { background: 'linear-gradient(135deg,#1B4332,#2B8A50)' } : {}}>
-              <Icon className="w-3.5 h-3.5" /> {label}
-            </button>
-          ))}
-        </div>
-      )}
+      <div className="px-4 py-2 bg-white shrink-0 z-[1001] flex gap-2">
+        {(isWalker
+          ? ([['walk', 'Jobs', Footprints], ['shops', 'Shops', ShoppingBag]] as const)
+          : ([['walk', 'Dog walkers', Footprints], ['grooming', 'Groomers', Scissors], ['shops', 'Shops', ShoppingBag]] as const)
+        ).map(([key, label, Icon]) => (
+          <button key={key} type="button" onClick={() => setService(key)}
+            className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-bold transition-all ${service === key ? 'text-white shadow' : 'bg-[#F4F9F6] text-ink-muted'}`}
+            style={service === key ? { background: key === 'shops' ? 'linear-gradient(135deg,#B45309,#F59E0B)' : 'linear-gradient(135deg,#1B4332,#2B8A50)' } : {}}>
+            <Icon className="w-3.5 h-3.5" /> {label}
+          </button>
+        ))}
+      </div>
 
       {/* Map */}
       <div className="flex-1 relative overflow-hidden" style={{ minHeight: 0 }}>
@@ -203,8 +223,51 @@ export default function WalkerMap() {
             </div>
           )}
 
+          {/* Shops on the map */}
+          {service === 'shops' && (
+            shops.length === 0 ? (
+              <div className="text-center py-5">
+                <p className="text-3xl mb-1">🛍️</p>
+                <p className="text-sm font-bold text-ink">No shops on the map yet</p>
+                <p className="text-xs text-ink-muted mt-1 max-w-xs mx-auto leading-relaxed">
+                  Shops appear here once their owner sets a location in Admin &gt; Vets &amp; Shop Owners.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {shops.map(s => (
+                  <div key={s.user.id}
+                    onClick={() => setSelectedId(s.user.id)}
+                    className={`flex items-center gap-3 p-3 rounded-2xl border transition-all ${s.user.id === selectedId ? 'border-primary bg-[#FFFBEB]' : 'border-surface-border bg-white'}`}>
+                    <div className="relative w-11 h-11 rounded-full overflow-hidden flex items-center justify-center text-white font-bold shrink-0"
+                      style={{ background: 'linear-gradient(135deg,#B45309,#F59E0B)' }}>
+                      {s.user.imageUrl ? <img src={s.user.imageUrl} alt="" className="w-full h-full object-cover" /> : (s.user.businessName || s.user.name)[0]?.toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-ink truncate">{s.user.businessName || s.user.name}</p>
+                      <p className="text-[11px] font-medium text-ink-muted truncate">
+                        {s.user.businessAddress || 'Pet shop'}{s.distKm != null ? ` · ${formatKm(s.distKm)} away` : ''}
+                      </p>
+                    </div>
+                    <a href={`https://www.google.com/maps/dir/?api=1&destination=${s.pos[0]},${s.pos[1]}`}
+                      target="_blank" rel="noopener noreferrer" aria-label={`Directions to ${s.user.businessName || s.user.name}`}
+                      onClick={ev => ev.stopPropagation()}
+                      className="w-9 h-9 rounded-xl flex items-center justify-center bg-[#FFFBEB] shrink-0 active:scale-95">
+                      <Navigation className="w-4 h-4" style={{ color: '#B45309' }} />
+                    </a>
+                    <button type="button" aria-label={`Message ${s.user.businessName || s.user.name}`}
+                      onClick={ev => { ev.stopPropagation(); navigate(`${base}/dm/${s.user.id}`); }}
+                      className="w-9 h-9 rounded-xl flex items-center justify-center bg-[#EBF5EF] shrink-0 active:scale-95">
+                      <MessageCircle className="w-4 h-4" style={{ color: '#2B8A50' }} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )
+          )}
+
           {/* Walker: open jobs */}
-          {isWalker && (
+          {isWalker && service !== 'shops' && (
             jobs.length === 0 ? (
               <p className="text-xs text-ink-muted text-center py-4">No open jobs with a pickup location right now. Stay online and new requests will ring on your phone.</p>
             ) : (
@@ -227,7 +290,7 @@ export default function WalkerMap() {
           )}
 
           {/* Owner & others: walkers / groomers */}
-          {!isWalker && (
+          {!isWalker && service !== 'shops' && (
             entries.length === 0 ? (
               <div className="text-center py-5">
                 <p className="text-3xl mb-1">{service === 'grooming' ? '✂️' : '🦮'}</p>
@@ -297,7 +360,7 @@ export default function WalkerMap() {
             )
           )}
 
-          {canBook && (
+          {canBook && service !== 'shops' && (
             <button type="button" onClick={() => navigate(service === 'grooming' ? '/owner/grooming' : `/owner/request?duration=${duration}`)}
               className="w-full mt-3 py-3 rounded-2xl text-sm font-extrabold text-white active:scale-[0.98]"
               style={{ background: '#1B4332' }}>

@@ -337,6 +337,14 @@ export default function Register() {
               </div>
             )}
 
+            {/* Terms & Privacy */}
+            <p className="text-xs text-gray-500 text-center leading-relaxed px-2">
+              By creating an account, you agree to PawFleet's{' '}
+              <Link to="/privacy-policy#terms" className="font-semibold hover:underline" style={{ color: '#2B8A50' }}>Terms of Service</Link>
+              {' '}and{' '}
+              <Link to="/privacy-policy#privacy" className="font-semibold hover:underline" style={{ color: '#2B8A50' }}>Privacy Policy</Link>.
+            </p>
+
             {/* Submit */}
             <button type="submit" disabled={loading}
               className="w-full h-14 rounded-2xl text-white font-bold text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-60 mt-1"

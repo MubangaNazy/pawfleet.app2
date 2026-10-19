@@ -5,6 +5,7 @@ import { useApp } from '../../context/AppContext';
 import type { WalkerPricing } from '../../types';
 import DeleteAccountRow from '../../components/account/DeleteAccount';
 import ChangePasswordRow from '../../components/account/ChangePassword';
+import PrivacyTermsRow from '../../components/account/PrivacyTermsRow';
 
 async function resizePhoto(file: File, maxDim = 512, q = 0.78): Promise<string> {
   return new Promise(resolve => {
@@ -377,6 +378,7 @@ export default function WalkerProfile() {
         </div>
 
         <ChangePasswordRow />
+        <PrivacyTermsRow />
         <DeleteAccountRow />
 
         {/* Logout */}

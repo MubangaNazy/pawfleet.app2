@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import DeleteAccountRow from '../../components/account/DeleteAccount';
 import ChangePasswordRow from '../../components/account/ChangePassword';
+import PrivacyTermsRow from '../../components/account/PrivacyTermsRow';
 
 const SHOP_TYPES = ['Pet Supplies', 'Dog Food & Treats', 'Dog Accessories', 'Grooming Products', 'Veterinary Supplies', 'Mixed / General'];
 
@@ -202,6 +203,7 @@ export default function ShopOwnerProfile() {
         )}
 
         <ChangePasswordRow />
+        <PrivacyTermsRow />
         <DeleteAccountRow />
 
         {/* Sign out */}

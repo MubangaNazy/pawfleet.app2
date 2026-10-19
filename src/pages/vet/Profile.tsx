@@ -4,6 +4,7 @@ import { LogOut, Stethoscope, Camera, Upload, Check, X, Pencil, MapPin, Clock } 
 import { useApp } from '../../context/AppContext';
 import DeleteAccountRow from '../../components/account/DeleteAccount';
 import ChangePasswordRow from '../../components/account/ChangePassword';
+import PrivacyTermsRow from '../../components/account/PrivacyTermsRow';
 
 async function resizePhoto(file: File, maxDim = 512, q = 0.78): Promise<string> {
   return new Promise(resolve => {
@@ -208,6 +209,7 @@ export default function VetProfile() {
         </button>
 
         <ChangePasswordRow />
+        <PrivacyTermsRow />
         <DeleteAccountRow />
 
         {/* Logout */}

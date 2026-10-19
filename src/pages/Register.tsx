@@ -181,7 +181,7 @@ export default function Register() {
           {/* Role toggle */}
           <div className="grid grid-cols-2 gap-2 mb-6">
             {([
-              { value: 'owner',  label: '🐾 Dog Owner', desc: 'Book walks & services' },
+              { value: 'owner',  label: '🐾 Pet Owner', desc: 'Book walks & services' },
               { value: 'walker', label: '🦮 Dog Walker', desc: 'Walk dogs & earn' },
             ] as const).map(r => (
               <button key={r.value} type="button" onClick={() => { setRole(r.value); setError(''); }}

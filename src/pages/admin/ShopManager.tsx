@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
-import { Plus, Pencil, Trash2, X, Search, ShoppingBag, Camera, Upload } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, Search, ShoppingBag, Camera, Upload, Sparkles, Loader2, Check, Copy } from 'lucide-react';
+import { supabase } from '../../lib/supabase';
 
 async function resizePhoto(file: File, maxDim = 800, q = 0.82): Promise<string> {
   return new Promise(resolve => {
@@ -48,6 +49,27 @@ export default function AdminShopManager() {
   const [form, setForm] = useState<FormState>(BLANK);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [error, setError] = useState('');
+  const [seeding, setSeeding] = useState(false);
+  const [seedResult, setSeedResult] = useState<{ email: string; password: string; productsAdded: number } | null>(null);
+  const [seedError, setSeedError] = useState('');
+  const [copied, setCopied] = useState(false);
+
+  const handleSeedDemoShop = async () => {
+    setSeeding(true);
+    setSeedError('');
+    try {
+      const { data: sess } = await supabase.auth.getSession();
+      const token = sess.session?.access_token;
+      if (!token) { setSeedError('Please log out, log back in, then try again.'); setSeeding(false); return; }
+      const res = await fetch('/api/admin-seed-demo-shop', { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) { setSeedError(json.error || 'Could not set up the demo shop. Please try again.'); setSeeding(false); return; }
+      setSeedResult({ email: json.email, password: json.password, productsAdded: json.productsAdded });
+    } catch {
+      setSeedError("We can't reach PawFleet right now. Check your connection and try again.");
+    }
+    setSeeding(false);
+  };
 
   const handlePhotoFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -115,6 +137,21 @@ export default function AdminShopManager() {
       </div>
 
       <div className="px-4 space-y-4">
+        {/* One-off: demo shop with sample accessories to review, delete individually or wipe later */}
+        <div className="flex items-center justify-between gap-3 bg-[#FFFBEB] border border-amber-200 rounded-2xl px-4 py-3">
+          <div className="min-w-0">
+            <p className="text-sm font-bold text-ink">Demo shop & sample products</p>
+            <p className="text-xs text-ink-muted">Creates (or restocks) a demo shop account with a few accessories — leash, collar, carrier.</p>
+          </div>
+          <button onClick={handleSeedDemoShop} disabled={seeding}
+            className="flex items-center gap-1.5 text-xs font-bold px-3.5 py-2.5 rounded-xl text-white shrink-0 disabled:opacity-60"
+            style={{ background: 'linear-gradient(135deg,#B45309,#F59E0B)' }}>
+            {seeding ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+            {seeding ? 'Setting up…' : 'Seed it'}
+          </button>
+        </div>
+        {seedError && <p className="text-xs font-medium text-danger px-1">{seedError}</p>}
+
         {/* Search + filter */}
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-2 bg-white border border-surface-border rounded-2xl px-4 py-3">
@@ -299,6 +336,32 @@ export default function AdminShopManager() {
                 Delete
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Demo shop seeded: show credentials */}
+      {seedResult && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
+          <div className="w-full max-w-sm bg-white rounded-3xl p-6 shadow-2xl">
+            <div className="w-14 h-14 rounded-full bg-green-50 flex items-center justify-center mx-auto mb-4">
+              <Check className="w-7 h-7" style={{ color: '#2B8A50' }} />
+            </div>
+            <h3 className="font-bold text-ink text-center mb-1">Demo shop ready</h3>
+            <p className="text-sm text-ink-muted text-center mb-4">{seedResult.productsAdded} products added. Log in as this account any time to delete them, or delete the account itself from its own Profile.</p>
+            <div className="rounded-2xl bg-surface-secondary p-4 text-sm space-y-1 mb-2">
+              <p><span className="text-ink-muted">Email:</span> <strong>{seedResult.email}</strong></p>
+              <p><span className="text-ink-muted">Password:</span> <strong>{seedResult.password}</strong></p>
+            </div>
+            <button type="button"
+              onClick={() => { navigator.clipboard?.writeText(`${seedResult.email} / ${seedResult.password}`).catch(() => {}); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-2xl border border-surface-border text-sm font-semibold text-ink-secondary mb-3">
+              {copied ? <><Check className="w-4 h-4" /> Copied</> : <><Copy className="w-4 h-4" /> Copy login</>}
+            </button>
+            <button type="button" onClick={() => window.location.reload()}
+              className="w-full py-3 rounded-2xl text-sm font-bold text-white" style={{ background: '#1B4332' }}>
+              Done — show me the products
+            </button>
           </div>
         </div>
       )}

@@ -90,6 +90,9 @@ for name, src in zip(NAMES, sys.argv[1:6]):
     scale = min(1, 900 / max(cut.size))
     cut = cut.resize((round(cut.width * scale), round(cut.height * scale)), Image.LANCZOS)
     cut.save(f'{out}/{name}.webp', quality=86, exact=True, method=6)
+    # Phones get a much smaller copy.
+    k = 480 / max(cut.size)
+    cut.resize((round(cut.width * k), round(cut.height * k)), Image.LANCZOS).save(f'{out}/{name}-sm.webp', quality=78, exact=True, method=6)
     dep = Image.fromarray((d[y0:y1, x0:x1] * 255).astype(np.uint8), 'L')
     dep.resize((cut.width // 3, cut.height // 3), Image.BICUBIC).save(f'{out}/{name}-depth.png', optimize=True)
     print(f"{name}: {{ x: {x0}, y: {y0}, w: {x1 - x0}, h: {y1 - y0} }}")

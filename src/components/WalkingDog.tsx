@@ -112,7 +112,7 @@ export default function WalkingDog() {
     };
 
     img.onload = start;
-    img.src = '/landing/side.webp';
+    img.src = innerWidth < 760 ? '/landing/side-sm.webp' : '/landing/side.webp';
     return () => {
       stopped = true;
       cancelAnimationFrame(raf);

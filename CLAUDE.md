@@ -40,7 +40,7 @@
 - **Colors only**: `#1B4332` (dark), `#2B8A50` (primary), `#52B788` (light), `#EBF5EF` (bg). Amber = warnings/pending, red = danger/error. Vets get teal (`#0F766E`/`#0891B2`), shops get amber/gold (`#B45309`/`#F59E0B`) as secondary accents.
 - Logo component: `src/components/ui/PawFleetLogo.tsx` — do NOT change SVG paths.
 - No cats — the platform is dogs (and other pets via "Add pet") only; cat references were deliberately removed everywhere.
-- Landing page (`/landing`) only: palette is sampled from the puppy photo (mint, gold, caramel, cream, forest), by the owner's request. The 3D puppy is five photos (front, side, back, three-quarter, top) on sculpted meshes that cross-fade as it turns (`src/components/landing/puppyScene.ts`, textures in `public/landing/`, rebuilt by `scripts/landing/make_puppy_assets.py`). Its spot per chapter and the map route live in `src/components/landing/puppyPath.ts`. The dog walks across the screen following the scroll on a clock-driven walk, and finishes the walk by itself if scrolling stops (owner's call: it must stay on screen, never walk off and back in). The map route and gold line are locked to the scroll. three.js loads only on this page via dynamic import.
+- Landing page (`/landing`) only: palette is sampled from the puppy photo (mint, gold, caramel, cream, forest), by the owner's request. The 3D puppy is five photos (front, side, back, three-quarter, top) on sculpted meshes that cross-fade as it turns (`src/components/landing/puppyScene.ts`, textures in `public/landing/`, rebuilt by `scripts/landing/make_puppy_assets.py`). Its spot per chapter and the map route live in `src/components/landing/puppyPath.ts`. The dog walks across the screen following the scroll on a clock-driven walk, and finishes the walk by itself if scrolling stops (owner's call: it must stay on screen, never walk off and back in). The map route and gold line are locked to the scroll. three.js loads only on this page via dynamic import. Performance: the canvas is only a box around the dog, moved with a CSS transform; phones and machines with 4 or fewer CPU cores use `*-sm.webp` and a lighter shader.
 
 ---
 
@@ -107,7 +107,7 @@ See `docs/REALIGNMENT.md` for the diagnosis, system map and two-phone test.
 ## Pending / Known Issues
 - [ ] iOS: needs a Mac + an **active** Apple Developer account ($99/yr) before `npx cap add ios` + Xcode work can start
 - [ ] WhatsApp OTP: needs the owner to set up a WhatsApp Business API account first
-- [ ] Main JS bundle (~994 KB) and the MapLibre GL chunk (~1.05 MB) are both over Vite's 500 KB warning threshold — not yet code-split
+- [ ] Main JS bundle (~575 KB, after making Firebase, PostHog and Layout load on demand) and the MapLibre GL chunk (~1.05 MB) are both over Vite's 500 KB warning threshold
 - [ ] `android/` folder not committed to git (too large; build locally with Android Studio, `npx cap sync android` before each build)
 - [ ] Google Play submission not yet done (APK has been built and tested locally, not published)
 - [x] Everything in "Security & data-integrity incidents" above

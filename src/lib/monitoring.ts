@@ -1,5 +1,8 @@
 import * as Sentry from '@sentry/react';
-import posthog from 'posthog-js';
+import type { PostHog } from 'posthog-js';
+
+// PostHog loads a moment after the page does; anything logged before then waits for it.
+let posthogReady: Promise<PostHog | null> = Promise.resolve(null);
 
 export function initMonitoring() {
   const sentryDsn = import.meta.env.VITE_SENTRY_DSN;
@@ -17,25 +20,31 @@ export function initMonitoring() {
   }
 
   if (posthogKey) {
-    posthog.init(posthogKey, {
-      api_host: posthogHost,
-      person_profiles: 'identified_only',
-      capture_pageview: true,
-      capture_pageleave: true,
-    });
+    posthogReady = new Promise(done => setTimeout(done, 3000))
+      .then(() => import('posthog-js'))
+      .then(({ default: posthog }) => {
+        posthog.init(posthogKey, {
+          api_host: posthogHost,
+          person_profiles: 'identified_only',
+          capture_pageview: true,
+          capture_pageleave: true,
+        });
+        return posthog;
+      })
+      .catch(() => null);
   }
 }
 
 export function identifyUser(id: string, name: string, role: string) {
-  posthog.identify(id, { name, role });
+  posthogReady.then(p => p?.identify(id, { name, role }));
   Sentry.setUser({ id, username: name });
 }
 
 export function clearUser() {
-  posthog.reset();
+  posthogReady.then(p => p?.reset());
   Sentry.setUser(null);
 }
 
 export function trackEvent(event: string, props?: Record<string, unknown>) {
-  posthog.capture(event, props);
+  posthogReady.then(p => p?.capture(event, props));
 }

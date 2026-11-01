@@ -168,7 +168,7 @@ const CSS = `
 .pfl.on-dark .badge b{color:#F2C879}
 .pfl .badge svg{width:18px;height:18px;fill:currentColor}
 
-.pfl #pup{position:fixed;inset:0;z-index:20;width:100%;height:100%;pointer-events:none;opacity:0;transition:opacity 1.2s ease}
+.pfl #pup{position:fixed;left:0;top:0;z-index:20;pointer-events:none;opacity:0;transition:opacity 1.2s ease;will-change:transform}
 .pfl #pup.ready{opacity:1}
 .pfl .pup-fallback{display:none}
 .pfl.no3d #pup{display:none}
@@ -177,7 +177,7 @@ const CSS = `
 .pfl .chap{position:relative;height:calc(var(--vh)*1.75)}
 .pfl .chap--end{height:calc(var(--vh)*1.5)}
 .pfl .chap--long{height:calc(var(--vh)*3.2)}
-.pfl .chap>section{position:sticky;top:0;height:var(--vh);min-height:560px;overflow:hidden}
+.pfl .chap>section{position:sticky;top:0;height:var(--vh);min-height:560px;overflow:hidden;contain:layout paint}
 .pfl .flower{position:absolute;pointer-events:none;user-select:none;will-change:transform}
 .pfl .flower svg{width:100%;height:auto;display:block;filter:drop-shadow(0 14px 22px rgba(90,60,10,.25))}
 .pfl .ghost{position:absolute;white-space:nowrap;font-weight:800;font-size:clamp(120px,24vw,420px);letter-spacing:-.05em;line-height:1;color:var(--ghost);opacity:.45;pointer-events:none;will-change:transform;user-select:none}
@@ -353,6 +353,8 @@ const CSS = `
   .pfl .s-track::before{background:linear-gradient(180deg,rgba(13,59,44,.97) 0%,rgba(13,59,44,.88) 42%,rgba(13,59,44,0) 56%)}
   .pfl .s-track .stats{margin-top:12px}
   .pfl .livecard{display:none}
+  .pfl .flower svg{filter:none}
+  .pfl .ghost{will-change:auto}
   .pfl .pin{font-size:11px;padding:5px 8px}
   .pfl .prices{grid-template-columns:repeat(2,1fr);gap:7px;margin-top:11px}
   .pfl .prices div{padding:8px 10px;display:flex;align-items:center;justify-content:space-between;gap:6px}
@@ -423,7 +425,8 @@ export default function Landing() {
   const [routeEnds, setRouteEnds] = useState(() => [routeAt(0), routeAt(1)]);
 
   useEffect(() => {
-    Promise.all([
+    // Not needed for first paint: let the page settle before asking for these.
+    const later = setTimeout(() => Promise.all([
       supabase.from('walks').select('id', { count: 'exact', head: true }).eq('status', 'completed'),
       supabase.from('users').select('id', { count: 'exact', head: true }).eq('role', 'walker').eq('walker_status', 'active'),
       supabase.from('walks').select('rating').eq('status', 'completed').not('rating', 'is', null),
@@ -439,7 +442,8 @@ export default function Landing() {
         walkers: walkersCount > 0 ? String(walkersCount) : '50+',
         rating:  avgRating ?? '4.9',
       });
-    }).catch(() => {});
+    }).catch(() => {}), 1500);
+    return () => clearTimeout(later);
   }, []);
 
   // Poppins, for this page only.
@@ -457,6 +461,7 @@ export default function Landing() {
   useEffect(() => {
     const root = rootRef.current!;
     const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const small = innerWidth < 760;
     const wraps = Array.from(root.querySelectorAll<HTMLElement>('.chap'));
     const chapters = wraps.map((wrap, i) => {
       const sec = wrap.firstElementChild as HTMLElement;
@@ -465,12 +470,16 @@ export default function Landing() {
         sec,
         first: i === 0,
         last: i === wraps.length - 1,
-        chars: Array.from(sec.querySelectorAll<HTMLElement>('.ch')),
+        // Phones move whole words: far fewer pieces to restyle on every scroll step.
+        chars: Array.from(sec.querySelectorAll<HTMLElement>(small ? '.wd' : '.ch')),
         words: Array.from(sec.querySelectorAll<HTMLElement>('.w')),
         items: Array.from(sec.querySelectorAll<HTMLElement>('.sc')),
         steps: Array.from(sec.querySelectorAll<HTMLElement>('.st')),
-        ghosts: Array.from(sec.querySelectorAll<HTMLElement>('.ghost')),
+        ghosts: small ? [] : Array.from(sec.querySelectorAll<HTMLElement>('.ghost')),
         bubbles: Array.from(sec.querySelectorAll<HTMLElement>('.bubble')),
+        lastEnter: -1,
+        lastLeave: -1,
+        lastHold: -1,
       };
     });
     const movers = Array.from(root.querySelectorAll<HTMLElement>('[data-speed]'));
@@ -509,6 +518,20 @@ export default function Landing() {
         const leave = c.last ? 0 : clamp01((h - r.bottom) / (h * 0.6));
         const hold = n === stage.i ? stage.hold : n < stage.i ? 1 : 0;
 
+        // While a chapter is resting nothing has changed, so leave the page alone.
+        const q = c.steps.length || 1;
+        if (hold !== c.lastHold && c.steps.length) {
+          c.lastHold = hold;
+          c.steps.forEach((el, i) => {
+            const a = ease(clamp01((hold * 1.15 - i / q) * q));
+            el.style.transform = `translate3d(0,${(1 - a) * 16}px,0) scale(${0.92 + a * 0.08})`;
+            el.style.opacity = String(a * (1 - leave));
+          });
+        }
+        if (enter === c.lastEnter && leave === c.lastLeave) return;
+        c.lastEnter = enter;
+        c.lastLeave = leave;
+
         const total = c.chars.length || 1;
         c.chars.forEach((ch, i) => {
           const o = i / total;
@@ -525,13 +548,6 @@ export default function Landing() {
         c.items.forEach((el, i) => {
           const a = ease(clamp01((enter - 0.55) / 0.36 - i * 0.05));
           el.style.transform = `translate3d(0,${(1 - a) * 34 - leave * 50}px,0)`;
-          el.style.opacity = String(a * (1 - leave));
-        });
-        // Steps appear one at a time during the pause: chat messages, passport stamps.
-        const q = c.steps.length || 1;
-        c.steps.forEach((el, i) => {
-          const a = ease(clamp01((hold * 1.15 - i / q) * q));
-          el.style.transform = `translate3d(0,${(1 - a) * 16}px,0) scale(${0.92 + a * 0.08})`;
           el.style.opacity = String(a * (1 - leave));
         });
         for (const g of c.ghosts) g.style.transform = `translate3d(${(r.top / h - 0.5) * 22}vw,0,0)`;

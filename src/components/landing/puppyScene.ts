@@ -86,7 +86,7 @@ function tubTexture(front: boolean) {
     g.beginPath();
     g.ellipse(500, 150, 470, 92, 0, 0, Math.PI * 2);
     g.fill();
-    return new THREE.CanvasTexture(c);
+    return c;
   }
   // Gold feet, white body, gold rim, then a line of foam over the rim.
   g.fillStyle = '#C8922F';
@@ -117,8 +117,9 @@ function tubTexture(front: boolean) {
     g.arc(x, 130 - ((i * 53) % 24), r, 0, Math.PI * 2);
     g.fill();
   }
-  return new THREE.CanvasTexture(c);
+  return c;
 }
+
 function shadowTexture() {
   const c = document.createElement('canvas');
   c.width = c.height = 128;
@@ -160,7 +161,11 @@ const VERT = /* glsl */`
     vNormalMat = normalMatrix;
     vec2 p = uCrop.xy + vec2(uv.x, 1.0 - uv.y) * uCrop.zw;
     vec2 src = p;
+    #ifdef LITE
+    float z = 0.0;
+    #else
     float z = texture2D(uDepth, uv).r * uRelief;
+    #endif
 
     float tail = smoothstep(-6.0, 34.0, side(src, uTailLine.xy, uTailLine.zw));
     tail *= smoothstep(10.0, 170.0, distance(src, uTailPivot.xy));
@@ -200,18 +205,25 @@ const FRAG = /* glsl */`
   void main() {
     vec4 c = texture2D(uMap, vUv);
     if (c.a < 0.03) discard;
+    #ifdef LITE
+    gl_FragColor = vec4(c.rgb, c.a * uOpacity);
+    #else
     // Light the relief so the fur turns with the model.
     float dx = texture2D(uDepth, vUv + vec2(uTexel.x, 0.0)).r - texture2D(uDepth, vUv - vec2(uTexel.x, 0.0)).r;
     float dy = texture2D(uDepth, vUv + vec2(0.0, uTexel.y)).r - texture2D(uDepth, vUv - vec2(0.0, uTexel.y)).r;
     vec3 n = normalize(vNormalMat * vec3(-dx * 7.0, -dy * 7.0, 1.0));
     float light = dot(n, normalize(vec3(0.25, 0.55, 0.8)));
     gl_FragColor = vec4(c.rgb * mix(0.84, 1.08, clamp(light, 0.0, 1.0)), c.a * uOpacity);
+    #endif
   }
 `;
 
 export async function createPuppyScene(canvas: HTMLCanvasElement, wraps: HTMLElement[], onWalked: (route: number) => void): Promise<() => void> {
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 1.75));
+  // Phones and slower machines get smaller photos, a coarser mesh and no relief.
+  const lite = isPhone() || (navigator.hardwareConcurrency ?? 8) <= 4;
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: !lite, alpha: true, powerPreference: 'high-performance' });
+  let pixelRatio = Math.min(devicePixelRatio, lite ? 1.25 : 1.75);
+  renderer.setPixelRatio(pixelRatio);
   // The photos are already display-ready, so they bypass colour management.
   renderer.toneMapping = THREE.NoToneMapping;
 
@@ -234,20 +246,24 @@ export async function createPuppyScene(canvas: HTMLCanvasElement, wraps: HTMLEle
   const materials: Record<string, THREE.ShaderMaterial> = {};
   await Promise.all(Object.entries(RIGS).map(async ([name, rig]) => {
     const [map, depth] = await Promise.all([
-      loader.loadAsync(`/landing/${name}.webp`),
-      loader.loadAsync(`/landing/${name}-depth.png`),
+      loader.loadAsync(`/landing/${name}${lite ? '-sm' : ''}.webp`),
+      lite ? null : loader.loadAsync(`/landing/${name}-depth.png`),
     ]);
-    map.colorSpace = depth.colorSpace = THREE.NoColorSpace;
+    map.colorSpace = THREE.NoColorSpace;
     map.generateMipmaps = false;
     map.minFilter = THREE.LinearFilter;
-    textures.push(map, depth);
+    textures.push(map);
+    if (depth) {
+      depth.colorSpace = THREE.NoColorSpace;
+      textures.push(depth);
+    }
     materials[name] = new THREE.ShaderMaterial({
       uniforms: {
         ...shared,
         uMap: { value: map },
         uDepth: { value: depth },
         uOpacity: { value: 1 },
-        uTexel: { value: new THREE.Vector2(3 / depth.image.width, 3 / depth.image.height) },
+        uTexel: { value: depth ? new THREE.Vector2(3 / depth.image.width, 3 / depth.image.height) : new THREE.Vector2() },
         uCrop: { value: new THREE.Vector4(...rig.crop) },
         uTailLine: { value: new THREE.Vector4(...rig.tail[0], ...rig.tail[1]) },
         uTailPivot: { value: new THREE.Vector3(...rig.tail[2], 0) },
@@ -256,12 +272,13 @@ export async function createPuppyScene(canvas: HTMLCanvasElement, wraps: HTMLEle
         uTonguePos: { value: new THREE.Vector2(...rig.tongue) },
         uLegs: { value: rig.legs.map(l => new THREE.Vector4(...l)) },
       },
+      defines: lite ? { LITE: 1 } : {},
       vertexShader: VERT, fragmentShader: FRAG,
       transparent: true, toneMapped: false, depthTest: false, depthWrite: false,
     });
   }));
 
-  const geometry = new THREE.PlaneGeometry(1, 1, 110, 110);
+  const geometry = new THREE.PlaneGeometry(1, 1, lite ? 48 : 110, lite ? 48 : 110);
   const makeMesh = (name: string, mirror: boolean) => {
     const material = mirror ? materials[name].clone() : materials[name];
     if (mirror) {
@@ -311,10 +328,23 @@ export async function createPuppyScene(canvas: HTMLCanvasElement, wraps: HTMLEle
   shadow.renderOrder = -1;
   flight.add(shadow);
 
+  // The canvas is only a box around the dog, slid across the page with a CSS
+  // transform, so the phone isn't redrawing the whole screen for one small dog.
+  const halfHeight = Math.tan((camera.fov * D2R) / 2) * camera.position.z;
+  const box = { w: 0, h: 0 };
   const resize = () => {
-    renderer.setSize(innerWidth, innerHeight, false);
     camera.aspect = innerWidth / innerHeight;
-    camera.updateProjectionMatrix();
+    const fit = Math.min(halfHeight * 1.16, halfHeight * camera.aspect * 1.5);
+    const tallest = fit * Math.max(...poses().map(p => p.s)) * (innerHeight / (2 * halfHeight));
+    const w = Math.ceil(tallest * 2.1), h = Math.ceil(tallest * 1.5);
+    // Phone address bars resize the page while scrolling: only touch the canvas if the box changed.
+    if (w !== box.w || h !== box.h) {
+      box.w = w;
+      box.h = h;
+      renderer.setSize(w, h, false);
+      canvas.style.width = `${w}px`;
+      canvas.style.height = `${h}px`;
+    }
   };
   resize();
   addEventListener('resize', resize);
@@ -327,16 +357,14 @@ export async function createPuppyScene(canvas: HTMLCanvasElement, wraps: HTMLEle
   };
   addEventListener('pointermove', onMove, { passive: true });
 
-  // The bathtub in the grooming chapter. It lives in the 3D scene so the dog can
-  // stand between its back and front.
-  const tubBack = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 0.78), new THREE.MeshBasicMaterial({ map: tubTexture(false), transparent: true, depthTest: false, depthWrite: false, toneMapped: false }));
-  const tubFront = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 0.78), new THREE.MeshBasicMaterial({ map: tubTexture(true), transparent: true, depthTest: false, depthWrite: false, toneMapped: false }));
-  tubBack.renderOrder = -2;
-  tubFront.renderOrder = 5;
-  const tub = new THREE.Group();
-  tub.add(tubBack, tubFront);
-  tub.visible = false;
-  scene.add(tub);
+  // The bathtub in the grooming chapter: two page layers either side of the dog's
+  // canvas, so it can stand between the tub's back and front.
+  const tubLayers = [tubTexture(false), tubTexture(true)];
+  tubLayers.forEach((layer, i) => {
+    layer.style.cssText = `position:fixed;left:0;top:0;z-index:${i ? 21 : 19};display:none;pointer-events:none;will-change:transform`;
+    canvas.after(layer);
+  });
+  let tubShown = false;
 
   // Follows the scroll the whole way down: it strolls slowly through each pinned
   // section and walks on to the next, so there's no point where scrolling leaves it
@@ -357,6 +385,8 @@ export async function createPuppyScene(canvas: HTMLCanvasElement, wraps: HTMLEle
   };
   const clock = new THREE.Clock();
   let raf = 0;
+  let frame = 0;
+  let slowTime = 0;
 
   const tick = () => {
     raf = requestAnimationFrame(tick);
@@ -439,12 +469,25 @@ export async function createPuppyScene(canvas: HTMLCanvasElement, wraps: HTMLEle
     const groomAt = K.findIndex(p => p.stops);
     const groomStop = K[groomAt].stops!.find(s => s.tub)!;
     const groomTop = (wraps[groomAt].firstElementChild as HTMLElement).getBoundingClientRect().top;
-    tub.visible = Math.abs(groomTop) < innerHeight;
+    const tubOn = Math.abs(groomTop) < innerHeight;
     const tubBase = fit * K[groomAt].s;
-    tub.position.set(groomStop.x * halfW, groomStop.y * halfH - tubBase * 0.26 + (groomTop / innerHeight) * 2 * halfH, 0);
-    tub.scale.setScalar(tubBase);
+    if (tubOn !== tubShown) {
+      tubShown = tubOn;
+      tubLayers.forEach(layer => { layer.style.display = tubOn ? 'block' : 'none'; });
+    }
+    if (tubOn) {
+      const perWorld = innerHeight / (2 * halfH);
+      const w = 1.5 * tubBase * perWorld, h = 0.78 * tubBase * perWorld;
+      const left = ((1 + groomStop.x) / 2) * innerWidth - w / 2;
+      const top = innerHeight / 2 - (groomStop.y * halfH - tubBase * 0.26) * perWorld - h / 2 + groomTop;
+      for (const layer of tubLayers) {
+        layer.style.width = `${w}px`;
+        layer.style.height = `${h}px`;
+        layer.style.transform = `translate3d(${left}px,${top}px,0)`;
+      }
+    }
     const nearRim = Math.abs(Math.abs(cur.x - groomStop.x) * halfW / tubBase - 0.72);
-    const climb = tub.visible && !cur.map ? Math.exp(-nearRim * nearRim * 30) * 0.09 * tubBase : 0;
+    const climb = tubOn && !cur.map ? Math.exp(-nearRim * nearRim * 30) * 0.09 * tubBase : 0;
 
     flight.scale.setScalar(base);
     flight.position.set(cur.x * halfW, cur.y * halfH - base / 2 + climb, 0);
@@ -488,12 +531,12 @@ export async function createPuppyScene(canvas: HTMLCanvasElement, wraps: HTMLEle
     (topMesh.material as THREE.ShaderMaterial).uniforms.uOpacity.value = cur.map;
 
     // Wriggles in the bath while the page passes the tub.
-    const tubTime = tub.visible && !cur.map && Math.abs(cur.x - groomStop.x) * halfW < tubBase * 0.3;
+    const tubTime = tubOn && !cur.map && Math.abs(cur.x - groomStop.x) * halfW < tubBase * 0.3;
     hopper.position.y = Math.abs(Math.sin(cur.gait)) * 0.016 * cur.stride;
     hopper.rotation.z = Math.sin(cur.gait * 2) * 0.008 * cur.stride + (tubTime ? Math.sin(t * 7) * 0.025 : 0);
     hopper.scale.y = 1 + Math.sin(t * 2.6) * 0.005 * (1 - cur.stride);
 
-    const inTub = tub.visible && Math.abs(cur.x - groomStop.x) * halfW < tubBase * 0.72;
+    const inTub = tubOn && Math.abs(cur.x - groomStop.x) * halfW < tubBase * 0.72;
     shadow.visible = standing > 0.01 && !inTub;
     shadow.scale.set(width * 0.8 + 0.2, 1, 1);
     (shadow.material as THREE.MeshBasicMaterial).opacity = standing;
@@ -505,6 +548,23 @@ export async function createPuppyScene(canvas: HTMLCanvasElement, wraps: HTMLEle
     shared.uHeadNod.value = (Math.sin(t * 1.1) * 0.03 - mouse.sy * 0.07) * idle + Math.sin(cur.gait * 2) * 0.018 * cur.stride;
     shared.uHeadTurn.value = (Math.sin(t * 0.8) * 0.12 + mouse.sx * 0.45) * idle;
 
+    // Slide the box to the dog and draw just that part of the view.
+    const boxX = Math.round(((1 + cur.x) / 2) * innerWidth - box.w / 2);
+    const boxY = Math.round(((1 - cur.y) / 2) * innerHeight - box.h / 2);
+    canvas.style.transform = `translate3d(${boxX}px,${boxY}px,0)`;
+
+    // Waiting dogs only need half the frames; if it still struggles, soften the image once.
+    frame++;
+    if (lite && !walking && !scrolling && cur.map === 0 && frame % 2) return;
+    slowTime += dt;
+    if (frame % 90 === 0) {
+      if (slowTime / 90 > 0.03 && pixelRatio > 1) {
+        pixelRatio = 1;
+        renderer.setPixelRatio(1);
+      }
+      slowTime = 0;
+    }
+    camera.setViewOffset(innerWidth, innerHeight, boxX, boxY, box.w, box.h);
     renderer.render(scene, camera);
   };
   tick();
@@ -516,6 +576,7 @@ export async function createPuppyScene(canvas: HTMLCanvasElement, wraps: HTMLEle
     geometry.dispose();
     Object.values(materials).forEach(m => m.dispose());
     textures.forEach(tex => tex.dispose());
+    tubLayers.forEach(layer => layer.remove());
     renderer.dispose();
   };
 }

@@ -4,7 +4,6 @@ import { AppProvider, useApp } from './context/AppContext';
 import { CartProvider } from './context/CartContext';
 import { ShopProvider } from './context/ShopContext';
 import { ToastProvider } from './components/ui/Toast';
-import { Layout } from './components/layout/Layout';
 import SplashScreen from './components/SplashScreen';
 import WalkingDog from './components/WalkingDog';
 // Login / Register / Landing are needed immediately — keep static
@@ -13,6 +12,7 @@ import Register from './pages/Register';
 import Landing from './pages/Landing';
 
 // ── Lazy-loaded pages (split into separate chunks) ──────────────────────────
+const Layout = lazy(() => import('./components/layout/Layout').then(m => ({ default: m.Layout })));
 const AdminDashboard   = lazy(() => import('./pages/admin/Dashboard'));
 const AdminWalks       = lazy(() => import('./pages/admin/Walks'));
 const AdminCreateWalk  = lazy(() => import('./pages/admin/CreateWalk'));
@@ -217,7 +217,14 @@ function AppContent() {
   const [minDone, setMinDone] = React.useState(false);
   React.useEffect(() => {
     const t = setTimeout(() => setMinDone(true), 2900);
-    return () => clearTimeout(t);
+    // Get the landing puppy ready behind the splash, so it's there on arrival.
+    const ready = setTimeout(() => {
+      if (!['/', '/landing'].includes(location.pathname)) return;
+      import('./components/landing/puppyScene').catch(() => {});
+      const suffix = innerWidth < 760 ? '-sm' : '';
+      for (const view of ['front', 'side', 'back', 'quarter', 'top']) new Image().src = `/landing/${view}${suffix}.webp`;
+    }, 800);
+    return () => { clearTimeout(t); clearTimeout(ready); };
   }, []);
 
   if (loading || !minDone) return <AppLoadingScreen />;

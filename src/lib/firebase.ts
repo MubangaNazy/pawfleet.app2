@@ -1,6 +1,5 @@
 import { Capacitor } from '@capacitor/core';
-import { initializeApp, getApps } from 'firebase/app';
-import { getMessaging, getToken, isSupported, onMessage, type Messaging } from 'firebase/messaging';
+import type { Messaging } from 'firebase/messaging';
 
 const firebaseConfig = {
   apiKey: 'AIzaSyBm9p1VveDaDf0Lsyr0qVtyxgsznDCC0fk',
@@ -13,16 +12,22 @@ const firebaseConfig = {
 
 const VAPID_KEY = 'BE3l3cJwUaDkln9WVjnd1WkuFIT5jSw6jPZlpJB_Tcp9YnCqX6ng1SFGS4ewIUw2MIbrXmmrL8tRrVPQu_J7fhw';
 
-const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
 const native = (): boolean => { try { return Capacitor.isNativePlatform(); } catch { return false; } };
 
 let messaging: Messaging | null = null;
 // Web push needs service workers, the Push API and Notifications. Many in-app browsers and older phones
 // lack them, and calling Firebase there throws "messaging/unsupported-browser". Check first and stay quiet
 // if unsupported. Not used at all on native — the Android app registers for push a different way, below.
-const messagingReady: Promise<boolean> = native()
+// Firebase itself is only downloaded the first time it's needed, so visitors who never sign in skip it.
+let messagingLoad: Promise<boolean> | null = null;
+const messagingReady = (): Promise<boolean> => (messagingLoad ??= native()
   ? Promise.resolve(false)
-  : isSupported().then(ok => { if (ok) messaging = getMessaging(app); return ok; }).catch(() => false);
+  : Promise.all([import('firebase/app'), import('firebase/messaging')]).then(async ([fb, fm]) => {
+      if (!(await fm.isSupported())) return false;
+      const app = fb.getApps().length ? fb.getApps()[0] : fb.initializeApp(firebaseConfig);
+      messaging = fm.getMessaging(app);
+      return true;
+    }).catch(() => false));
 
 /**
  * Real Android push, delivered by the OS even when the app is fully closed — unlike the web path below,
@@ -50,10 +55,11 @@ async function nativePushToken(): Promise<string | null> {
 
 export async function requestNotificationPermission(): Promise<string | null> {
   if (native()) return nativePushToken();
-  if (!(await messagingReady) || !messaging || !('Notification' in window) || !('serviceWorker' in navigator)) return null;
+  if (!(await messagingReady()) || !messaging || !('Notification' in window) || !('serviceWorker' in navigator)) return null;
   try {
     const permission = await Notification.requestPermission();
     if (permission !== 'granted') return null;
+    const { getToken } = await import('firebase/messaging');
     const token = await getToken(messaging, {
       vapidKey: VAPID_KEY,
       serviceWorkerRegistration: await navigator.serviceWorker.register('/firebase-messaging-sw.js'),
@@ -72,8 +78,10 @@ export function onForegroundMessage(handler: (payload: { notification?: { title?
   }
   let unsub: () => void = () => {};
   let cancelled = false;
-  messagingReady.then(ok => {
+  messagingReady().then(async ok => {
     if (!ok || !messaging || cancelled) return;
+    const { onMessage } = await import('firebase/messaging');
+    if (cancelled) return;
     try { unsub = onMessage(messaging, handler); } catch { /* unsupported */ }
   });
   return () => { cancelled = true; unsub(); };

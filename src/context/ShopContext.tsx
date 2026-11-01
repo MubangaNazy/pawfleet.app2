@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { uploadDataUrlToStorage } from '../lib/image';
 import type { Purchase, ShopNotification } from '../types';
 
 export interface ShopProduct {
@@ -106,28 +107,48 @@ export function ShopProvider({ children }: { children: React.ReactNode }) {
     const id = `prod_${Date.now()}`;
     const newProd: ShopProduct = { ...p, id };
     setCustomProducts(prev => [...prev, newProd]);
-    supabase.from('shop_products').insert({
-      id, name: p.name, price: p.price, badge: p.badge ?? null,
-      img: p.img, category: p.category, description: p.description ?? null,
-      brand: p.brand ?? null, specs: p.specs ?? null,
-      shop_owner_id: p.shopOwnerId ?? null,
-    }).then(({ error }) => { if (error) console.error('addProduct:', error); });
+    (async () => {
+      // A photo straight from a picker is a data: URL — host it properly instead of inlining the
+      // whole image into the row. An un-hosted photo is both what was making the Shop page heavy to
+      // load and, on a slow connection, a plausible reason an insert could time out or silently fail.
+      let img = p.img;
+      if (img.startsWith('data:')) {
+        const hosted = await uploadDataUrlToStorage('shop-images', `${id}.jpg`, img);
+        if (hosted) img = hosted;
+      }
+      const { error } = await supabase.from('shop_products').insert({
+        id, name: p.name, price: p.price, badge: p.badge ?? null,
+        img, category: p.category, description: p.description ?? null,
+        brand: p.brand ?? null, specs: p.specs ?? null,
+        shop_owner_id: p.shopOwnerId ?? null,
+      });
+      if (error) console.error('addProduct:', error);
+      else if (img !== p.img) setCustomProducts(prev => prev.map(x => x.id === id ? { ...x, img } : x));
+    })();
   };
 
   const updateProduct = (id: string, updates: Partial<Omit<ShopProduct, 'id'>>) => {
     // Only custom products can be edited
     setCustomProducts(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p));
-    const db: Record<string, any> = {};
-    if (updates.name !== undefined)        db.name = updates.name;
-    if (updates.price !== undefined)       db.price = updates.price;
-    if (updates.badge !== undefined)       db.badge = updates.badge;
-    if (updates.img !== undefined)         db.img = updates.img;
-    if (updates.category !== undefined)    db.category = updates.category;
-    if (updates.description !== undefined) db.description = updates.description;
-    if (updates.brand !== undefined)       db.brand = updates.brand;
-    if (updates.specs !== undefined)       db.specs = updates.specs;
-    supabase.from('shop_products').update(db).eq('id', id)
-      .then(({ error }) => { if (error) console.error('updateProduct:', error); });
+    (async () => {
+      let img = updates.img;
+      if (img?.startsWith('data:')) {
+        const hosted = await uploadDataUrlToStorage('shop-images', `${id}.jpg`, img);
+        if (hosted) img = hosted;
+      }
+      const db: Record<string, any> = {};
+      if (updates.name !== undefined)        db.name = updates.name;
+      if (updates.price !== undefined)       db.price = updates.price;
+      if (updates.badge !== undefined)       db.badge = updates.badge;
+      if (img !== undefined)                 db.img = img;
+      if (updates.category !== undefined)    db.category = updates.category;
+      if (updates.description !== undefined) db.description = updates.description;
+      if (updates.brand !== undefined)       db.brand = updates.brand;
+      if (updates.specs !== undefined)       db.specs = updates.specs;
+      const { error } = await supabase.from('shop_products').update(db).eq('id', id);
+      if (error) console.error('updateProduct:', error);
+      else if (img && img !== updates.img) setCustomProducts(prev => prev.map(p => p.id === id ? { ...p, img: img! } : p));
+    })();
   };
 
   const removeProduct = (id: string) => {

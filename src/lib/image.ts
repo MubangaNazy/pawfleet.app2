@@ -3,6 +3,7 @@
  * Every photo that leaves a picker goes through here: it is turned upright (phones store
  * sideways photos with a rotation note), scaled down, and saved as a small JPEG that every phone can show.
  */
+import { supabase } from './supabase';
 
 export class UnsupportedImageError extends Error {
   constructor() { super('This photo type is not supported. Please choose a JPG or PNG photo.'); }
@@ -75,4 +76,26 @@ export function prepareImage(file: File, opts: PrepareOptions = {}): Promise<str
 export async function shrinkDataUrl(dataUrl: string, opts: PrepareOptions = {}): Promise<string> {
   const blob = await (await fetch(dataUrl)).blob();
   return encode(blob, opts.maxDim ?? 768, opts.quality ?? 0.8, opts.maxBytes ?? 150_000);
+}
+
+/**
+ * A data: URL to a hosted file in a public Supabase Storage bucket, returning its permanent URL.
+ * Used anywhere a photo used to be saved straight into a database row or chat message as inline
+ * base64 — that bloats every row/page that has to carry it around and makes the content un-cacheable
+ * by the browser, which is the usual cause of "this is slow to load" and "I added it but can't see
+ * it elsewhere" reports. Returns null (caller should fall back to the original data URL) on failure,
+ * e.g. the bucket not existing yet.
+ */
+export async function uploadDataUrlToStorage(bucket: string, path: string, dataUrl: string): Promise<string | null> {
+  try {
+    const blob = await (await fetch(dataUrl)).blob();
+    const { data, error } = await supabase.storage.from(bucket).upload(path, blob, {
+      contentType: blob.type || 'image/jpeg', cacheControl: '31536000', upsert: true,
+    });
+    if (error) { console.error(`uploadDataUrlToStorage (${bucket}):`, error); return null; }
+    return supabase.storage.from(bucket).getPublicUrl(data.path).data.publicUrl;
+  } catch (err) {
+    console.error(`uploadDataUrlToStorage (${bucket}):`, err);
+    return null;
+  }
 }

@@ -654,6 +654,27 @@ export default function AdminWalkers() {
                   )}
 
                   {isPending && (
+                    <div className="px-4 pb-2">
+                      {walker.nrcImageUrl ? (
+                        <div className="rounded-2xl overflow-hidden cursor-pointer group relative" style={{ height: 160 }}
+                          onClick={() => setPhotoModal({ url: walker.nrcImageUrl!, name: `${walker.name} — NRC Card` })}>
+                          <img src={walker.nrcImageUrl} alt="NRC card" className="w-full h-full object-cover" />
+                          <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                            <ZoomIn className="w-5 h-5 text-white" />
+                            <span className="text-white text-sm font-semibold">Zoom</span>
+                          </div>
+                          <span className="absolute bottom-2 left-2 text-[10px] font-bold text-white bg-black/50 px-2 py-0.5 rounded-full">NRC Card</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs text-amber-700"
+                          style={{ background: '#FFFBEB', border: '1px solid #FDE68A' }}>
+                          <span>⚠️</span> No NRC photo submitted — review carefully before approving.
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {isPending && (
                     <div className="px-4 py-4 flex gap-2">
                       <button
                         onClick={() => approveWalker(walker.id)}

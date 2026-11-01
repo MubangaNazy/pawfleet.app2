@@ -244,7 +244,7 @@ export default function Chat() {
             return (
               <div key={msg.id} className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-[78%] flex flex-col ${isMine ? 'items-end' : 'items-start'} gap-1`}>
-                  {msg.text.startsWith('data:image') ? (
+                  {(msg.text.startsWith('data:image') || /\.(jpe?g|png|webp)(\?|$)/i.test(msg.text)) ? (
                     <div
                       className={`overflow-hidden transition-all ${isSelected ? 'opacity-70 scale-95' : ''} ${isMine ? 'rounded-3xl rounded-br-lg' : 'rounded-3xl rounded-bl-lg'}`}
                       style={{ maxWidth: 240, border: '2px solid rgba(0,0,0,0.07)' }}

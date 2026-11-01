@@ -10,6 +10,7 @@ import GuidanceBanner from '../../components/map/GuidanceBanner';
 import { useTurnByTurn } from '../../hooks/useTurnByTurn';
 import { getVoicePref, primeVoice, setVoicePref, voiceSupported } from '../../lib/voice';
 import { isValidCoord } from '../../lib/geo';
+import { uploadDataUrlToStorage } from '../../lib/image';
 
 type LatLng = [number, number];
 const LUSAKA: LatLng = [-15.4167, 28.2833];
@@ -254,11 +255,15 @@ export default function WalkerLiveWalk() {
     setSendingPhoto(true);
     try {
       const dataUrl = await compressImage(file);
+      const msgId = crypto.randomUUID();
+      // Host the photo properly instead of inlining it into the message row — a chat full of
+      // embedded base64 photos is slow to load and re-downloads every photo on every open.
+      const hosted = await uploadDataUrlToStorage('chat-images', `${walkId}/${msgId}.jpg`, dataUrl);
       await supabase.from('messages').insert({
-        id: crypto.randomUUID(),
+        id: msgId,
         walk_id: walkId,
         sender_id: currentUser.id,
-        text: dataUrl,
+        text: hosted || dataUrl,
       });
       if (owner) {
         sendNotification(

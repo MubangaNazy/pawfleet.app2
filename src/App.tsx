@@ -6,6 +6,7 @@ import { ShopProvider } from './context/ShopContext';
 import { ToastProvider } from './components/ui/Toast';
 import { Layout } from './components/layout/Layout';
 import SplashScreen from './components/SplashScreen';
+import WalkingDog from './components/WalkingDog';
 // Login / Register / Landing are needed immediately — keep static
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -90,116 +91,6 @@ const ForgotPassword    = lazy(() => import('./pages/ForgotPassword'));
 const ResetPassword     = lazy(() => import('./pages/ResetPassword'));
 
 // ── Splash screen shown while Supabase connects ──────────────────────────────
-function WalkingFigureSVG() {
-  return (
-    <svg width="264" height="116" viewBox="0 0 264 116" fill="none" xmlns="http://www.w3.org/2000/svg">
-      {/* Ground shadow */}
-      <ellipse cx="132" cy="113" rx="120" ry="4" fill="rgba(0,0,0,0.15)" />
-
-      {/* ── PERSON (centered at x=65) ── */}
-
-      {/* Afro — full round natural hair above the head */}
-      <ellipse cx="65" cy="6" rx="16" ry="14" fill="rgba(255,255,255,0.88)" />
-
-      {/* Head */}
-      <circle cx="65" cy="16" r="12" fill="rgba(255,255,255,0.96)" />
-
-      {/* Torso — shirt-shaped body, not a stick */}
-      <path d="M53 28 Q57 25 65 26 Q73 25 77 28 L80 54 Q65 59 50 54 Z" fill="rgba(255,255,255,0.93)" />
-
-      {/* Left arm — swings backward when left leg is forward */}
-      <line x1="56" y1="33" x2="44" y2="53" stroke="rgba(255,255,255,0.93)" strokeWidth="8" strokeLinecap="round">
-        <animateTransform attributeName="transform" type="rotate"
-          values="20 56 33;-20 56 33;20 56 33"
-          keyTimes="0;0.5;1" dur="0.75s" repeatCount="indefinite" />
-      </line>
-
-      {/* Right arm — swings forward, holds leash */}
-      <line x1="74" y1="33" x2="87" y2="53" stroke="rgba(255,255,255,0.93)" strokeWidth="8" strokeLinecap="round">
-        <animateTransform attributeName="transform" type="rotate"
-          values="-20 74 33;20 74 33;-20 74 33"
-          keyTimes="0;0.5;1" dur="0.75s" repeatCount="indefinite" />
-      </line>
-
-      {/* Left leg — starts forward */}
-      <line x1="60" y1="54" x2="51" y2="88" stroke="rgba(255,255,255,0.93)" strokeWidth="10" strokeLinecap="round">
-        <animateTransform attributeName="transform" type="rotate"
-          values="-22 60 54;22 60 54;-22 60 54"
-          keyTimes="0;0.5;1" dur="0.75s" repeatCount="indefinite" />
-      </line>
-
-      {/* Right leg — starts backward */}
-      <line x1="70" y1="54" x2="79" y2="88" stroke="rgba(255,255,255,0.93)" strokeWidth="10" strokeLinecap="round">
-        <animateTransform attributeName="transform" type="rotate"
-          values="22 70 54;-22 70 54;22 70 54"
-          keyTimes="0;0.5;1" dur="0.75s" repeatCount="indefinite" />
-      </line>
-
-      {/* Leash — curve from right hand to dog collar */}
-      <path d="M87 53 Q148 26 180 61" stroke="rgba(255,255,255,0.50)" strokeWidth="2.5" strokeLinecap="round" fill="none" />
-
-      {/* ── DOG (golden retriever silhouette, x≈200) ── */}
-
-      {/* Body */}
-      <ellipse cx="200" cy="76" rx="32" ry="17" fill="rgba(255,255,255,0.93)" />
-
-      {/* Neck */}
-      <path d="M218 65 Q225 69 225 77" stroke="rgba(255,255,255,0.93)" strokeWidth="14" strokeLinecap="round" fill="none" />
-
-      {/* Head — round */}
-      <ellipse cx="223" cy="59" rx="18" ry="16" fill="rgba(255,255,255,0.93)" />
-
-      {/* Floppy ear */}
-      <path d="M229 48 Q240 43 241 55 Q240 66 230 65 Q222 62 222 57 Z" fill="rgba(255,255,255,0.74)" />
-
-      {/* Muzzle */}
-      <ellipse cx="236" cy="65" rx="11" ry="7" fill="rgba(255,255,255,0.93)" />
-
-      {/* Nose */}
-      <ellipse cx="243" cy="62" rx="5" ry="3.2" fill="rgba(8,38,22,0.78)" />
-
-      {/* Eye */}
-      <circle cx="226" cy="54" r="3.2" fill="rgba(8,38,22,0.78)" />
-      <circle cx="225" cy="53" r="1.1" fill="rgba(255,255,255,0.60)" />
-
-      {/* Tail — wags joyfully */}
-      <path d="M168 71 Q155 54 162 39" stroke="rgba(255,255,255,0.93)" strokeWidth="6.5" strokeLinecap="round" fill="none">
-        <animateTransform attributeName="transform" type="rotate"
-          values="-20 168 71;27 168 71;-20 168 71"
-          keyTimes="0;0.5;1" dur="0.44s" repeatCount="indefinite" />
-      </path>
-
-      {/* Dog front-left leg */}
-      <line x1="209" y1="92" x2="205" y2="111" stroke="rgba(255,255,255,0.93)" strokeWidth="8" strokeLinecap="round">
-        <animateTransform attributeName="transform" type="rotate"
-          values="-18 209 92;18 209 92;-18 209 92"
-          keyTimes="0;0.5;1" dur="0.75s" repeatCount="indefinite" />
-      </line>
-
-      {/* Dog front-right leg */}
-      <line x1="220" y1="92" x2="226" y2="111" stroke="rgba(255,255,255,0.93)" strokeWidth="8" strokeLinecap="round">
-        <animateTransform attributeName="transform" type="rotate"
-          values="18 220 92;-18 220 92;18 220 92"
-          keyTimes="0;0.5;1" dur="0.75s" repeatCount="indefinite" />
-      </line>
-
-      {/* Dog back-left leg */}
-      <line x1="180" y1="91" x2="174" y2="111" stroke="rgba(255,255,255,0.93)" strokeWidth="8" strokeLinecap="round">
-        <animateTransform attributeName="transform" type="rotate"
-          values="18 180 91;-18 180 91;18 180 91"
-          keyTimes="0;0.5;1" dur="0.75s" repeatCount="indefinite" />
-      </line>
-
-      {/* Dog back-right leg */}
-      <line x1="193" y1="92" x2="197" y2="111" stroke="rgba(255,255,255,0.93)" strokeWidth="8" strokeLinecap="round">
-        <animateTransform attributeName="transform" type="rotate"
-          values="-18 193 92;18 193 92;-18 193 92"
-          keyTimes="0;0.5;1" dur="0.75s" repeatCount="indefinite" />
-      </line>
-    </svg>
-  );
-}
-
 function AppLoadingScreen() {
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 50, overflow: 'hidden', background: 'white' }}>
@@ -214,10 +105,6 @@ function AppLoadingScreen() {
           from { opacity: 0; transform: translateY(18px); }
           to   { opacity: 1; transform: translateY(0); }
         }
-        @keyframes pf-walker-appear {
-          from { opacity: 0; transform: translateY(14px) scale(0.95); }
-          to   { opacity: 1; transform: translateY(0) scale(1); }
-        }
         @keyframes pf-green-exit {
           0%,55%  { transform: translateY(0); }
           100%    { transform: translateY(-108%); }
@@ -225,7 +112,6 @@ function AppLoadingScreen() {
         .pf-logo-pop   { animation: pf-logo-pop 0.85s cubic-bezier(0.34,1.56,0.64,1) 0.3s both; }
         .pf-text       { animation: pf-fade-up 0.5s ease 1.05s both; }
         .pf-tag        { animation: pf-fade-up 0.5s ease 1.28s both; }
-        .pf-walker     { animation: pf-walker-appear 0.6s cubic-bezier(0.34,1.56,0.64,1) 1.5s both; }
         .pf-green-exit { animation: pf-green-exit 1s cubic-bezier(0.76,0,0.24,1) 2.8s both; }
       `}</style>
 
@@ -251,9 +137,7 @@ function AppLoadingScreen() {
         </div>
 
         {/* Person + dog walking in place — centered at the bottom */}
-        <div className="pf-walker" style={{ position: 'absolute', bottom: 18, left: 0, right: 0, display: 'flex', justifyContent: 'center' }}>
-          <WalkingFigureSVG />
-        </div>
+        <WalkingDog />
       </div>
     </div>
   );

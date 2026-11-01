@@ -40,6 +40,7 @@
 - **Colors only**: `#1B4332` (dark), `#2B8A50` (primary), `#52B788` (light), `#EBF5EF` (bg). Amber = warnings/pending, red = danger/error. Vets get teal (`#0F766E`/`#0891B2`), shops get amber/gold (`#B45309`/`#F59E0B`) as secondary accents.
 - Logo component: `src/components/ui/PawFleetLogo.tsx` — do NOT change SVG paths.
 - No cats — the platform is dogs (and other pets via "Add pet") only; cat references were deliberately removed everywhere.
+- Landing page (`/landing`) only: palette is sampled from the puppy photo (mint, gold, caramel, cream, forest), by the owner's request. The 3D puppy is five photos (front, side, back, three-quarter, top) on sculpted meshes that cross-fade as it turns (`src/components/landing/puppyScene.ts`, textures in `public/landing/`, rebuilt by `scripts/landing/make_puppy_assets.py`). Its spot per chapter and the map route live in `src/components/landing/puppyPath.ts`. The dog walks across the screen following the scroll on a clock-driven walk, and finishes the walk by itself if scrolling stops (owner's call: it must stay on screen, never walk off and back in). The map route and gold line are locked to the scroll. three.js loads only on this page via dynamic import.
 
 ---
 

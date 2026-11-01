@@ -1,196 +1,426 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Bone, Dog, MapPin, MessageCircle, Scissors, ShieldCheck, ShoppingBag, Sparkles, Stethoscope, Store, UsersRound, UtensilsCrossed } from 'lucide-react';
 import PawFleetLogo from '../components/ui/PawFleetLogo';
+import { routeAt, routeSamples, scrollStage } from '../components/landing/puppyPath';
+import { GROOM_PACKAGES } from '../lib/groomingPackages';
 import { supabase } from '../lib/supabase';
 
-// ── Illustrated characters ───────────────────────────────────────
-function OwnerCharacter() {
+// ── Scroll-story landing. Each chapter pins for a moment while its text builds,
+// then the 3D puppy (three.js, lazy-loaded) walks to the next one. Colours are
+// sampled from the puppy photos: mint backdrop, golden fur, cream chest, green
+// collar, gold tag.
+
+const PAW = 'M12 13.2c-2.9 0-5.6 2.5-5.6 5 0 1.6 1.2 2.4 2.7 2.4 1.2 0 1.9-.5 2.9-.5s1.7.5 2.9.5c1.5 0 2.7-.8 2.7-2.4 0-2.5-2.7-5-5.6-5zM5.2 8.4c-1.3.3-1.9 1.8-1.4 3.3s1.8 2.5 3.1 2.2 1.9-1.8 1.4-3.3-1.8-2.5-3.1-2.2zm13.6 0c-1.3-.3-2.6.7-3.1 2.2s.1 3 1.4 3.3 2.6-.7 3.1-2.2-.1-3-1.4-3.3zM9.3 3.2C8 3.4 7.2 4.9 7.5 6.6s1.5 2.9 2.8 2.7 2.1-1.7 1.8-3.4-1.5-2.9-2.8-2.7zm5.4 0c-1.3-.2-2.5 1-2.8 2.7s.5 3.2 1.8 3.4 2.5-1 2.8-2.7-.5-3.2-1.8-3.4z';
+
+function Chevron() {
   return (
-    <svg width="160" height="220" viewBox="0 0 160 220" fill="none">
-      {/* Shadow */}
-      <ellipse cx="80" cy="216" rx="44" ry="5" fill="rgba(0,0,0,0.08)" />
-      {/* Legs */}
-      <path d="M62 148 L54 200 Q53 208 62 208 L68 208 Q74 206 72 198 L72 148" fill="#1E3A5F" />
-      <path d="M78 148 L90 200 Q92 208 100 206 L106 204 Q110 200 106 194 L88 148" fill="#1E3A5F" />
-      {/* Shoes */}
-      <rect x="48" y="200" width="26" height="10" rx="5" fill="#F5F5F5" />
-      <rect x="92" y="196" width="26" height="10" rx="5" fill="#F5F5F5" />
-      {/* Dress/outfit — warm coral top */}
-      <path d="M46 80 C40 84 36 96 36 112 L36 152 Q66 160 104 152 L104 112 C104 96 100 84 94 80 Q72 70 46 80 Z" fill="#FF6B6B" />
-      {/* Pattern stripes on dress */}
-      <path d="M42 88 Q40 108 40 128" stroke="rgba(255,255,255,0.2)" strokeWidth="8" strokeLinecap="round" />
-      <path d="M52 84 Q50 106 52 128" stroke="rgba(255,255,255,0.12)" strokeWidth="5" strokeLinecap="round" />
-      {/* Collar */}
-      <path d="M58 80 Q70 86 82 80" stroke="rgba(255,255,255,0.4)" strokeWidth="3" fill="none" strokeLinecap="round" />
-      {/* Left arm (down) */}
-      <path d="M40 96 Q22 108 18 128" stroke="#7B4A2C" strokeWidth="12" strokeLinecap="round" />
-      <ellipse cx="17" cy="130" rx="7" ry="6.5" fill="#7B4A2C" />
-      {/* Right arm (holding phone up) */}
-      <path d="M100 96 Q116 100 122 86" stroke="#7B4A2C" strokeWidth="12" strokeLinecap="round" />
-      <ellipse cx="123" cy="83" rx="7" ry="6.5" fill="#7B4A2C" />
-      {/* Phone in hand */}
-      <rect x="114" y="55" width="22" height="36" rx="4" fill="#1B4332" />
-      <rect x="116" y="58" width="18" height="28" rx="2" fill="#52B788" opacity="0.8" />
-      <circle cx="125" cy="87" r="2" fill="#2B8A50" />
-      {/* Neck */}
-      <rect x="65" y="64" width="12" height="20" rx="6" fill="#8B5A34" />
-      {/* Head */}
-      <circle cx="71" cy="48" r="28" fill="#8B5A34" />
-      {/* Afro hair — rich and full */}
-      <ellipse cx="71" cy="30" rx="26" ry="20" fill="#2A1200" />
-      <ellipse cx="46" cy="42" rx="12" ry="10" fill="#2A1200" />
-      <ellipse cx="96" cy="42" rx="12" ry="10" fill="#2A1200" />
-      <ellipse cx="71" cy="20" rx="18" ry="12" fill="#3A1E00" />
-      {/* Hair accessory — green clip */}
-      <rect x="82" y="20" width="12" height="5" rx="2.5" fill="#2B8A50" />
-      {/* Ears */}
-      <ellipse cx="43" cy="50" rx="6" ry="7" fill="#7B4A2C" />
-      <ellipse cx="99" cy="50" rx="6" ry="7" fill="#7B4A2C" />
-      {/* Earrings */}
-      <circle cx="43" cy="56" r="3.5" fill="#FFD700" />
-      <circle cx="99" cy="56" r="3.5" fill="#FFD700" />
-      {/* Eyes */}
-      <ellipse cx="62" cy="48" rx="6" ry="6.5" fill="white" />
-      <ellipse cx="80" cy="48" rx="6" ry="6.5" fill="white" />
-      <circle cx="63" cy="49" r="4.5" fill="#3A1E00" />
-      <circle cx="81" cy="49" r="4.5" fill="#3A1E00" />
-      <circle cx="63" cy="49" r="2.5" fill="#0A0400" />
-      <circle cx="81" cy="49" r="2.5" fill="#0A0400" />
-      <circle cx="61.5" cy="47.5" r="1.5" fill="white" />
-      <circle cx="79.5" cy="47.5" r="1.5" fill="white" />
-      {/* Eyebrows */}
-      <path d="M57 41 Q62 38 67 41" stroke="#2A1200" strokeWidth="3" strokeLinecap="round" fill="none" />
-      <path d="M75 41 Q80 38 85 41" stroke="#2A1200" strokeWidth="3" strokeLinecap="round" fill="none" />
-      {/* Nose */}
-      <ellipse cx="71" cy="55" rx="3.5" ry="2.5" fill="#6B3A1C" />
-      {/* Big smile */}
-      <path d="M62 61 Q71 70 80 61" stroke="#6B3A1C" strokeWidth="3" strokeLinecap="round" fill="none" />
-      {/* Cheek blush */}
-      <ellipse cx="56" cy="58" rx="6" ry="3.5" fill="rgba(220,80,60,0.18)" />
-      <ellipse cx="86" cy="58" rx="6" ry="3.5" fill="rgba(220,80,60,0.18)" />
+    <svg viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M3 1l4 4-4 4" /></svg>
+  );
+}
+
+// The gold tag from the puppy's collar, used as the page's decoration.
+function PawTag({ id }: { id: string }) {
+  return (
+    <svg viewBox="0 0 100 100" aria-hidden="true">
+      <defs>
+        <linearGradient id={id} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#F8DD97" />
+          <stop offset=".55" stopColor="#DDA94A" />
+          <stop offset="1" stopColor="#A9742A" />
+        </linearGradient>
+      </defs>
+      <circle cx="50" cy="50" r="46" fill={`url(#${id})`} />
+      <circle cx="50" cy="50" r="39" fill="none" stroke="rgba(255,255,255,.35)" strokeWidth="1.5" />
+      <path d={PAW} transform="translate(17 17) scale(2.75)" fill="#6B4518" />
     </svg>
   );
 }
 
-function DogCharacter() {
+// The clinic the puppy walks up to in the vets chapter.
+function VetClinic() {
   return (
-    <svg width="140" height="130" viewBox="0 0 140 130" fill="none">
-      {/* Shadow */}
-      <ellipse cx="72" cy="126" rx="40" ry="4.5" fill="rgba(0,0,0,0.08)" />
-      {/* Tail */}
-      <path d="M30 70 Q10 45 18 25 Q24 12 32 18" stroke="#C4722A" strokeWidth="9" strokeLinecap="round" fill="none" />
-      <circle cx="34" cy="16" r="7" fill="#EDAA58" />
-      {/* Body */}
-      <ellipse cx="70" cy="88" rx="38" ry="24" fill="#D4842A" />
-      <ellipse cx="68" cy="80" rx="28" ry="16" fill="#EDAA58" opacity="0.4" />
-      {/* Neck */}
-      <path d="M82 65 Q96 72 96 84" stroke="#D4842A" strokeWidth="20" strokeLinecap="round" />
-      <path d="M84 67 Q96 74 96 84" stroke="#EDAA58" strokeWidth="9" strokeLinecap="round" opacity="0.35" />
-      {/* Head */}
-      <ellipse cx="100" cy="56" rx="28" ry="26" fill="#D4842A" />
-      <ellipse cx="98" cy="44" rx="20" ry="14" fill="#EDAA58" opacity="0.4" />
-      {/* Left ear */}
-      <path d="M76 48 C65 34 57 44 60 62 Q64 76 76 72 Q84 68 80 52 Z" fill="#B05818" />
-      {/* Right ear */}
-      <path d="M118 46 C128 33 136 44 132 62 Q128 76 116 72 Q106 68 110 52 Z" fill="#B05818" />
-      {/* Snout */}
-      <ellipse cx="119" cy="64" rx="15" ry="11" fill="#C47030" />
-      {/* Nose */}
-      <ellipse cx="127" cy="58" rx="6" ry="5" fill="#180800" />
-      <ellipse cx="125" cy="56" rx="2" ry="1.5" fill="rgba(255,255,255,0.45)" />
-      {/* Mouth */}
-      <path d="M120 67 L126 72 L131 67" stroke="#8B3A00" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-      {/* Tongue */}
-      <path d="M122 72 Q123 82 120 86" stroke="#E8708A" strokeWidth="8" strokeLinecap="round" />
-      <path d="M125 72 Q126 82 123 86" stroke="#E8708A" strokeWidth="8" strokeLinecap="round" opacity="0.65" />
-      {/* Eye */}
-      <circle cx="95" cy="50" r="8" fill="white" />
-      <circle cx="96" cy="51" r="5.5" fill="#3A1E00" />
-      <circle cx="96" cy="51" r="3" fill="#0A0400" />
-      <circle cx="94" cy="49" r="2" fill="white" />
-      <path d="M88 44 Q95 40 102 44" stroke="#2A1200" strokeWidth="2" fill="none" strokeLinecap="round" />
-      {/* Collar */}
-      <path d="M82 70 Q100 62 118 70" stroke="#E84040" strokeWidth="6" strokeLinecap="round" />
-      <circle cx="100" cy="65" r="4" fill="#FFD700" />
-      {/* Legs */}
-      <path d="M62 110 L54 126" stroke="#C4722A" strokeWidth="11" strokeLinecap="round" />
-      <path d="M76 112 L84 126" stroke="#C4722A" strokeWidth="11" strokeLinecap="round" />
-      <path d="M44 104 L34 120" stroke="#B05818" strokeWidth="11" strokeLinecap="round" />
-      <path d="M56 106 L68 120" stroke="#B05818" strokeWidth="11" strokeLinecap="round" />
-      {/* Paws */}
-      <ellipse cx="52" cy="127" rx="9" ry="5.5" fill="#9A4810" />
-      <ellipse cx="85" cy="127" rx="9" ry="5.5" fill="#9A4810" />
-      <ellipse cx="33" cy="121" rx="9" ry="5.5" fill="#9A4810" />
-      <ellipse cx="69" cy="121" rx="9" ry="5.5" fill="#9A4810" />
+    <svg className="clinicart sc" viewBox="0 0 480 340" aria-label="A PawFleet partner vet clinic">
+      <ellipse cx="240" cy="326" rx="236" ry="13" fill="rgba(15,118,110,.2)" />
+      <circle cx="46" cy="232" r="42" fill="#52B788" />
+      <circle cx="26" cy="262" r="30" fill="#2B8A50" />
+      <rect x="42" y="262" width="9" height="62" rx="3" fill="#8B5E34" />
+      <rect x="66" y="112" width="360" height="212" rx="6" fill="#FFF8EA" />
+      <rect x="66" y="296" width="360" height="28" fill="#EFE0C2" />
+      <path d="M50 118 L246 34 L442 118Z" fill="#0F766E" />
+      <path d="M50 118 L442 118 L442 130 L50 130Z" fill="#0B5E58" />
+      <circle cx="246" cy="86" r="24" fill="#fff" />
+      <path d="M239 70h14v9h9v14h-9v9h-14v-9h-9V79h9z" fill="#0F766E" />
+      <rect x="150" y="146" width="192" height="30" rx="8" fill="#0F766E" />
+      <text x="246" y="167" textAnchor="middle" fontFamily="Poppins, sans-serif" fontWeight="700" fontSize="17" letterSpacing="2" fill="#fff">VET CLINIC</text>
+      <rect x="92" y="196" width="130" height="84" rx="8" fill="#BFE9E2" stroke="#0F766E" strokeWidth="5" />
+      <path d="M157 196v84M92 238h130" stroke="#0F766E" strokeWidth="4" />
+      <path d="M104 268l36-44M170 268l30-38" stroke="#fff" strokeWidth="7" opacity=".55" />
+      <rect x="290" y="192" width="100" height="132" rx="8" fill="#0F766E" />
+      <rect x="302" y="206" width="76" height="62" rx="5" fill="#BFE9E2" />
+      <path d="M340 216c-8 0-15 7-15 14 0 5 3 7 8 7 3 0 5-1 7-1s4 1 7 1c5 0 8-2 8-7 0-7-7-14-15-14z" fill="#0F766E" transform="translate(0 12)" />
+      <circle cx="378" cy="296" r="5" fill="#F2C879" />
+      <path d="M272 186h136l14 22H258z" fill="#DDA94A" />
+      <path d="M272 186h34l-10 22h-38zm68 0h34l14 22h-38z" fill="#F8DD97" />
     </svg>
   );
 }
 
-function WalkerCharacter() {
+// A little puppy shop window for the "Find a new dog" tile.
+function PuppyShop() {
   return (
-    <svg width="130" height="200" viewBox="0 0 130 200" fill="none">
-      {/* Shadow */}
-      <ellipse cx="65" cy="196" rx="36" ry="4" fill="rgba(0,0,0,0.08)" />
-      {/* Legs in stride */}
-      <path d="M52 136 L44 180 Q43 188 52 188 L58 188 Q64 186 62 178 L62 136" fill="#1E3A5F" />
-      <path d="M66 136 L78 178 Q80 186 88 184 L94 182 Q98 178 94 172 L76 136" fill="#1E3A5F" />
-      {/* Shoes */}
-      <rect x="37" y="180" width="24" height="9" rx="4.5" fill="#2A2A2A" />
-      <rect x="78" y="174" width="24" height="9" rx="4.5" fill="#2A2A2A" />
-      {/* Body — athletic jacket */}
-      <path d="M34 70 C28 74 24 86 24 100 L24 140 Q52 148 90 140 L90 100 C90 86 92 74 86 70 Q60 60 34 70 Z" fill="#1B4332" />
-      {/* Jacket stripes */}
-      <path d="M28 80 Q26 98 28 116" stroke="rgba(82,183,136,0.4)" strokeWidth="6" strokeLinecap="round" />
-      <path d="M82 80 Q84 98 82 116" stroke="rgba(82,183,136,0.4)" strokeWidth="6" strokeLinecap="round" />
-      {/* Jacket zipper */}
-      <path d="M57 70 L57 138" stroke="rgba(255,255,255,0.15)" strokeWidth="2" />
-      {/* Left arm (forward, waving) */}
-      <path d="M28 88 Q10 96 6 112" stroke="#7B4A2C" strokeWidth="11" strokeLinecap="round" />
-      <ellipse cx="5" cy="114" rx="7" ry="6" fill="#7B4A2C" />
-      {/* Right arm (down) */}
-      <path d="M86 88 Q102 96 106 110" stroke="#7B4A2C" strokeWidth="11" strokeLinecap="round" />
-      <ellipse cx="107" cy="112" rx="7" ry="6" fill="#7B4A2C" />
-      {/* Neck */}
-      <rect x="53" y="56" width="11" height="17" rx="5.5" fill="#8B5A34" />
-      {/* Head */}
-      <circle cx="58" cy="40" r="26" fill="#8B5A34" />
-      {/* Cap */}
-      <ellipse cx="58" cy="22" rx="28" ry="10" fill="#1B4332" />
-      <rect x="30" y="22" width="56" height="8" rx="0" fill="#1B4332" />
-      {/* Cap brim */}
-      <path d="M28 30 Q58 34 88 30" stroke="#2B8A50" strokeWidth="1.5" fill="none" />
-      <rect x="22" y="26" width="72" height="8" rx="4" fill="#1B4332" />
-      {/* Cap logo */}
-      <circle cx="58" cy="27" r="5" fill="#2B8A50" />
-      <path d="M55 27 Q58 24 61 27" stroke="white" strokeWidth="1.5" fill="none" />
-      {/* Ears */}
-      <ellipse cx="32" cy="44" rx="5.5" ry="6.5" fill="#7B4A2C" />
-      <ellipse cx="84" cy="44" rx="5.5" ry="6.5" fill="#7B4A2C" />
-      {/* Eyes */}
-      <ellipse cx="50" cy="42" rx="5.5" ry="6" fill="white" />
-      <ellipse cx="66" cy="42" rx="5.5" ry="6" fill="white" />
-      <circle cx="51" cy="43" r="4" fill="#3A1E00" />
-      <circle cx="67" cy="43" r="4" fill="#3A1E00" />
-      <circle cx="51" cy="43" r="2.2" fill="#0A0400" />
-      <circle cx="67" cy="43" r="2.2" fill="#0A0400" />
-      <circle cx="49.5" cy="41.5" r="1.3" fill="white" />
-      <circle cx="65.5" cy="41.5" r="1.3" fill="white" />
-      {/* Eyebrows */}
-      <path d="M45 35 Q50 33 55 35" stroke="#2A1200" strokeWidth="2.8" strokeLinecap="round" fill="none" />
-      <path d="M61 35 Q66 33 71 35" stroke="#2A1200" strokeWidth="2.8" strokeLinecap="round" fill="none" />
-      {/* Nose */}
-      <ellipse cx="58" cy="49" rx="3" ry="2.2" fill="#6B3A1C" />
-      {/* Friendly smile */}
-      <path d="M50 55 Q58 63 66 55" stroke="#6B3A1C" strokeWidth="2.8" strokeLinecap="round" fill="none" />
-      <ellipse cx="44" cy="52" rx="5" ry="3" fill="rgba(200,80,60,0.15)" />
-      <ellipse cx="72" cy="52" rx="5" ry="3" fill="rgba(200,80,60,0.15)" />
+    <svg className="shopart" viewBox="0 0 150 120" aria-hidden="true">
+      <defs><clipPath id="pfl-window"><rect x="26" y="40" width="98" height="72" rx="6" /></clipPath></defs>
+      <rect x="16" y="26" width="118" height="92" rx="9" fill="#FFF8EA" />
+      <rect x="26" y="40" width="98" height="72" rx="6" fill="#DAF2E6" />
+      <image href="/landing/front.webp" x="30" y="36" width="90" height="117" clipPath="url(#pfl-window)" preserveAspectRatio="xMidYMin slice" />
+      <path d="M8 8h134l8 26H0z" fill="#F8DD97" />
+      <path d="M8 8h27l-5 26H0zm54 0h27l5 26H62zm53 0h27l8 26h-30z" fill="#DDA94A" />
+      <path d="M0 34a15 9 0 0 0 30 0 16 9 0 0 0 31 0 15 9 0 0 0 30 0 15 9 0 0 0 30 0 15 9 0 0 0 29 0z" fill="#DDA94A" />
+      <path d="M125 58c-6-9-18-3-14 6 2 5 8 9 14 14 6-5 12-9 14-14 4-9-8-15-14-6z" fill="#E4572E" stroke="#fff" strokeWidth="3" />
     </svg>
   );
 }
+
+// The little town behind the puppy in the "for everyone" chapter.
+function Town() {
+  return (
+    <svg className="town" viewBox="0 0 1200 260" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
+      <path d="M0 214 C200 190 400 226 600 206 C800 188 1000 224 1200 200 V260 H0Z" fill="#1F8A4C" opacity=".45" />
+      <circle cx="96" cy="150" r="44" fill="#2B8A50" /><rect x="91" y="176" width="10" height="46" fill="#8B5E34" />
+      <rect x="160" y="130" width="120" height="92" rx="4" fill="#FFF8EA" />
+      <path d="M150 134 L220 84 L290 134Z" fill="#B3681F" /><rect x="206" y="172" width="28" height="50" fill="#B3681F" />
+      <rect x="176" y="150" width="24" height="24" fill="#BFE9E2" /><rect x="242" y="150" width="24" height="24" fill="#BFE9E2" />
+      <rect x="330" y="112" width="170" height="110" rx="4" fill="#FFF8EA" />
+      <path d="M318 112h194l10 30H308z" fill="#F8DD97" /><path d="M318 112h38l-8 30h-40zm78 0h38l8 30h-40zm76 0h40l10 30h-42z" fill="#DDA94A" />
+      <rect x="348" y="158" width="72" height="50" fill="#BFE9E2" /><rect x="440" y="158" width="40" height="64" fill="#0D3B2C" />
+      <rect x="700" y="116" width="170" height="106" rx="4" fill="#FFF8EA" />
+      <path d="M686 120 L785 62 L884 120Z" fill="#0F766E" /><circle cx="785" cy="100" r="15" fill="#fff" /><path d="M781 90h8v6h6v8h-6v6h-8v-6h-6v-8h6z" fill="#0F766E" />
+      <rect x="722" y="144" width="60" height="46" fill="#BFE9E2" /><rect x="806" y="152" width="40" height="70" fill="#0F766E" />
+      <rect x="920" y="132" width="120" height="90" rx="4" fill="#FFF8EA" />
+      <path d="M910 136 L980 88 L1050 136Z" fill="#B3681F" /><rect x="966" y="174" width="28" height="48" fill="#B3681F" />
+      <circle cx="1110" cy="150" r="48" fill="#2B8A50" /><rect x="1104" y="178" width="10" height="44" fill="#8B5E34" />
+    </svg>
+  );
+}
+
+// Text broken into letters / words for the scroll animation. Screen readers get
+// the plain sentence from the parent's aria-label.
+function Chars({ text }: { text: string }) {
+  return (
+    <>
+      {text.split(' ').map((word, i) => (
+        <span key={i}>
+          <span className="wd" aria-hidden="true">
+            {Array.from(word).map((c, j) => <span key={j} className="ch">{c}</span>)}
+          </span>
+          {' '}
+        </span>
+      ))}
+    </>
+  );
+}
+
+function Title({ lines }: { lines: string[] }) {
+  return (
+    <h2 className="title" aria-label={lines.join(' ')}>
+      {lines.map(l => <span key={l} className="ln"><Chars text={l} /></span>)}
+    </h2>
+  );
+}
+
+function Copy({ text }: { text: string }) {
+  return (
+    <p className="copy" aria-label={text}>
+      {text.split(' ').map((w, i) => <span key={i} className="w" aria-hidden="true">{w} </span>)}
+    </p>
+  );
+}
+
+function Join({ onClick, children }: { onClick: () => void; children: ReactNode }) {
+  return <button className="join sc" onClick={onClick}><i><Chevron /></i>{children}</button>;
+}
+
+const CSS = `
+.pfl{--ink:#10332A;--muted:#47655A;--mint:#DAF2E6;--mint2:#C9EBDA;--cream:#FBF2DF;--gold:#DDA94A;--caramel:#B3681F;--ghost:#BFE5D2;--forest:#0D3B2C;--collar:#1F8A4C;--pad:clamp(18px,3.2vw,46px);--vh:100vh;
+  font-family:"Poppins",system-ui,sans-serif;color:var(--ink);background:var(--mint);overflow-x:clip;-webkit-font-smoothing:antialiased}
+@supports(height:100svh){.pfl{--vh:100svh}}
+.pfl *{box-sizing:border-box;margin:0;padding:0}
+.pfl a,.pfl button{color:inherit;text-decoration:none;background:none;border:0;font:inherit;cursor:pointer}
+
+.pfl .nav{position:fixed;z-index:30;top:0;left:0;right:0;display:flex;align-items:center;padding:18px var(--pad) 0;pointer-events:none;transition:color .5s ease}
+.pfl .nav>*{pointer-events:auto}
+.pfl .logo{display:flex;align-items:center;gap:10px;margin-right:clamp(24px,4vw,56px);font-weight:700;font-size:19px;letter-spacing:-.02em}
+.pfl .logo>span:first-child{transition:transform .6s cubic-bezier(.2,.8,.2,1);display:grid}
+.pfl .logo:hover>span:first-child{transform:rotate(-12deg) scale(1.06)}
+.pfl .nav__links{display:flex;gap:clamp(18px,3vw,42px);font-size:15px}
+.pfl .nav__links a{position:relative}
+.pfl .nav__links a::after{content:"";position:absolute;left:0;right:0;bottom:-3px;height:1.5px;background:currentColor;transform:scaleX(0);transform-origin:left;transition:transform .35s ease}
+.pfl .nav__links a:hover::after{transform:scaleX(1)}
+.pfl .nav__cta{margin-left:auto;white-space:nowrap;display:flex;align-items:center;gap:18px;font-weight:600;font-size:15px}
+.pfl .pill{padding:10px 20px;border-radius:999px;background:var(--ink);color:#fff !important;transition:transform .3s ease,background .3s}
+.pfl .pill:hover{transform:translateY(-2px);background:var(--caramel)}
+.pfl.on-dark .nav,.pfl.on-dark .badge{color:#fff}
+.pfl.on-dark .pill{background:var(--gold);color:#2B1C08 !important}
+
+.pfl .badge{position:fixed;z-index:30;right:var(--pad);bottom:20px;display:flex;align-items:center;gap:7px;font-size:12.5px;font-weight:500;color:var(--ink);transition:color .5s ease}
+.pfl .badge b{font-weight:700;color:var(--caramel)}
+.pfl.on-dark .badge b{color:#F2C879}
+.pfl .badge svg{width:18px;height:18px;fill:currentColor}
+
+.pfl #pup{position:fixed;inset:0;z-index:20;width:100%;height:100%;pointer-events:none;opacity:0;transition:opacity 1.2s ease}
+.pfl #pup.ready{opacity:1}
+.pfl .pup-fallback{display:none}
+.pfl.no3d #pup{display:none}
+.pfl.no3d .pup-fallback{display:block;position:absolute;left:50%;bottom:4vh;height:52vh;transform:translateX(-50%)}
+
+.pfl .chap{position:relative;height:calc(var(--vh)*1.75)}
+.pfl .chap--end{height:calc(var(--vh)*1.5)}
+.pfl .chap--long{height:calc(var(--vh)*3.2)}
+.pfl .chap>section{position:sticky;top:0;height:var(--vh);min-height:560px;overflow:hidden}
+.pfl .flower{position:absolute;pointer-events:none;user-select:none;will-change:transform}
+.pfl .flower svg{width:100%;height:auto;display:block;filter:drop-shadow(0 14px 22px rgba(90,60,10,.25))}
+.pfl .ghost{position:absolute;white-space:nowrap;font-weight:800;font-size:clamp(120px,24vw,420px);letter-spacing:-.05em;line-height:1;color:var(--ghost);opacity:.45;pointer-events:none;will-change:transform;user-select:none}
+
+.pfl .hero{background:radial-gradient(55% 45% at 50% 62%,rgba(255,255,255,.65),transparent 72%),radial-gradient(40% 30% at 50% 92%,rgba(133,205,170,.5),transparent 75%),var(--mint)}
+.pfl .hero h1{position:absolute;left:var(--pad);right:var(--pad);top:13vh;text-align:center;font-weight:800;font-size:clamp(40px,6.6vw,118px);line-height:1.03;letter-spacing:-.035em;z-index:2}
+.pfl .hero h1 .line{display:block;overflow:hidden;padding-bottom:.08em}
+.pfl .hero h1 .line>span{display:inline-block;transform:translateY(110%)}
+.pfl .hero h1 .line:nth-child(2){color:var(--caramel)}
+.pfl.loaded .hero h1 .line>span{animation:rise 1.1s cubic-bezier(.2,.8,.15,1) forwards}
+.pfl .hero h1 .line:nth-child(2)>span{animation-delay:.12s}
+@keyframes rise{to{transform:translateY(0)}}
+.pfl .hero__side{position:absolute;right:clamp(24px,6vw,110px);top:60vh;width:min(270px,80vw);z-index:2;opacity:0}
+.pfl.loaded .hero__side{animation:fade 1s .7s ease forwards}
+.pfl .hero__side p{font-size:clamp(15px,1.3vw,19px);line-height:1.38;color:var(--muted)}
+.pfl .hero__left{position:absolute;left:clamp(24px,6vw,110px);top:66vh;z-index:2;display:flex;gap:28px;opacity:0}
+.pfl.loaded .hero__left{animation:fade 1s .85s ease forwards}
+.pfl .hero__left b{display:block;font-size:clamp(22px,2.2vw,32px);font-weight:700;color:var(--caramel)}
+.pfl .hero__left span{font-size:12.5px;color:var(--muted)}
+@keyframes fade{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+.pfl .join{display:inline-flex;align-items:center;gap:14px;margin-top:24px;font-weight:600;font-size:clamp(15px,1.3vw,18px)}
+.pfl .join i{width:25px;height:32px;border:1.8px solid currentColor;border-radius:10px;display:grid;place-items:center;transition:transform .35s ease}
+.pfl .join i svg{width:9px;height:9px}
+.pfl .join:hover i{transform:translateX(4px)}
+.pfl .hero .tag-a{width:clamp(56px,7vw,120px);left:9vw;top:38vh;z-index:1}
+.pfl .hero .tag-b{width:clamp(36px,4vw,70px);right:12vw;top:40vh;z-index:1}
+
+.pfl .eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--caramel);margin-bottom:12px}
+.pfl .eyebrow svg{width:17px;height:17px}
+.pfl .title{font-weight:700;font-size:clamp(30px,3.5vw,58px);line-height:1.1;letter-spacing:-.02em}
+.pfl .ln{display:block}
+.pfl .wd{display:inline-block;white-space:nowrap}
+.pfl .ch{display:inline-block}
+.pfl .copy{margin-top:16px;font-size:clamp(14px,1.08vw,16.5px);line-height:1.6;color:var(--muted);max-width:470px}
+.pfl .text{position:absolute;top:50%;transform:translateY(-50%);width:min(520px,42vw);z-index:3}
+.pfl .text--r{left:50vw}
+.pfl .text--l{left:6vw}
+
+.pfl .ticks{margin-top:16px;display:grid;gap:8px;font-size:14px;font-weight:500}
+.pfl .ticks span{display:flex;align-items:center;gap:10px}
+.pfl .ticks span::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--gold);box-shadow:0 0 0 4px rgba(221,169,74,.22);flex:none}
+.pfl .card{background:rgba(255,255,255,.72);border:1px solid rgba(16,51,42,.08);border-radius:16px;box-shadow:0 10px 26px rgba(16,51,42,.08)}
+
+.pfl .s-walk{background:linear-gradient(180deg,var(--mint),var(--mint2))}
+.pfl .s-walk .ghost{left:0;top:8vh}
+
+.pfl .s-track{background:var(--forest);color:#fff}
+.pfl .s-track .eyebrow{color:#F2C879}
+.pfl .s-track .copy{color:rgba(232,245,238,.86)}
+.pfl .s-track .text{left:6vw;width:min(440px,38vw)}
+.pfl .mapbg{position:absolute;inset:0;width:100%;height:100%}
+.pfl .mapbg .street{stroke:rgba(149,213,178,.16);fill:none;vector-effect:non-scaling-stroke;stroke-width:9}
+.pfl .mapbg .lane{stroke:rgba(149,213,178,.09);fill:none;vector-effect:non-scaling-stroke;stroke-width:3}
+.pfl .mapbg .park{fill:rgba(31,138,76,.24)}
+.pfl .mapbg .way{stroke:rgba(242,200,121,.28);fill:none;vector-effect:non-scaling-stroke;stroke-width:4;stroke-dasharray:3 9;stroke-linecap:round}
+.pfl .mapbg .done{stroke:#F2C879;fill:none;vector-effect:non-scaling-stroke;stroke-width:5;stroke-linecap:round;stroke-linejoin:round}
+.pfl .s-track::before{content:"";position:absolute;inset:0;z-index:1;background:linear-gradient(90deg,rgba(13,59,44,.96) 0%,rgba(13,59,44,.8) 34%,rgba(13,59,44,0) 52%);pointer-events:none}
+.pfl .s-track .text{z-index:3}
+.pfl .pin{position:absolute;z-index:2;transform:translate(-50%,-120%);display:flex;align-items:center;gap:6px;background:#fff;color:var(--ink);font-size:12px;font-weight:600;padding:6px 10px;border-radius:999px;box-shadow:0 8px 20px rgba(0,0,0,.3);white-space:nowrap}
+.pfl .pin svg{width:13px;height:13px;color:var(--caramel)}
+.pfl .stats{display:flex;gap:28px;margin-top:22px}
+.pfl .stats b{display:block;font-size:clamp(22px,2vw,30px);font-weight:700;color:#F2C879}
+.pfl .stats span{font-size:12.5px;color:rgba(232,245,238,.68)}
+.pfl .livecard{position:absolute;z-index:4;right:6vw;top:15vh;padding:12px 16px;border-radius:16px;background:rgba(255,255,255,.12);border:1px solid rgba(242,200,121,.35);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);font-size:13px;min-width:190px}
+.pfl .livecard small{display:block;color:rgba(232,245,238,.72);margin-top:2px}
+.pfl .livecard i{display:block;height:5px;border-radius:9px;background:rgba(255,255,255,.15);margin-top:9px;overflow:hidden}
+.pfl .livecard i b{display:block;height:100%;width:100%;transform-origin:left;transform:scaleX(0);background:linear-gradient(90deg,#B3681F,#F2C879)}
+.pfl .live-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#F2C879;margin-right:8px;box-shadow:0 0 10px #F2C879}
+
+.pfl .s-groom{background:linear-gradient(180deg,var(--cream),#F6E8CC)}
+.pfl .s-groom .ghost{left:0;bottom:3vh;color:#EAD3A5}
+.pfl .bubble{position:absolute;border-radius:50%;background:radial-gradient(circle at 32% 28%,rgba(255,255,255,.95),rgba(255,255,255,.22) 42%,rgba(133,205,170,.22) 72%,rgba(255,255,255,.5));border:1px solid rgba(255,255,255,.7);pointer-events:none;will-change:transform}
+.pfl .prices{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-top:18px}
+.pfl .prices div{padding:11px 10px;position:relative}
+.pfl .prices b{display:block;font-size:12.5px;line-height:1.25;min-height:2.5em}
+.pfl .prices span{display:block;font-size:17px;font-weight:700;color:var(--caramel);margin-top:4px}
+.pfl .prices small{font-size:11px;color:var(--muted)}
+
+.pfl .s-vet{background:radial-gradient(45% 50% at 22% 70%,rgba(255,255,255,.7),transparent 70%),#CDEDE6}
+.pfl .s-vet .eyebrow{color:#0F766E}
+.pfl .clinicart{position:absolute;left:3vw;bottom:15vh;width:min(36vw,520px);height:auto;z-index:1}
+.pfl .clinic{margin-top:18px;padding:14px 16px;display:flex;align-items:center;gap:12px;max-width:440px}
+.pfl .clinic .ic{width:42px;height:42px;border-radius:12px;background:#0F766E;color:#fff;display:grid;place-items:center;flex:none}
+.pfl .clinic b{display:block;font-size:14px}
+.pfl .clinic small{font-size:12px;color:var(--muted)}
+.pfl .clinic em{margin-left:auto;font-style:normal;font-size:12px;font-weight:600;color:#fff;background:#0F766E;padding:7px 12px;border-radius:999px;white-space:nowrap}
+.pfl .chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}
+.pfl .chips span{font-size:12.5px;font-weight:500;padding:6px 12px;border-radius:999px;background:rgba(255,255,255,.7)}
+
+.pfl .s-market{background:linear-gradient(135deg,#FBF2DF 0%,#F4DFAF 100%)}
+.pfl .s-market .text{left:6vw;top:13vh;transform:none;width:min(430px,36vw)}
+.pfl .tiles{position:absolute;right:5vw;top:50%;transform:translateY(-50%);width:min(620px,52vw);display:grid;grid-template-columns:1fr 1fr;gap:12px;z-index:3}
+.pfl .tile{padding:16px;text-align:left;transition:transform .3s ease,box-shadow .3s ease;position:relative;overflow:hidden;background:#fff}
+.pfl .tile:hover{transform:translateY(-3px);box-shadow:0 16px 30px rgba(120,80,20,.16)}
+.pfl .tile--big{grid-column:1/-1;background:var(--forest);color:#fff;display:flex;align-items:center;gap:14px}
+.pfl .tile .ic{width:44px;height:44px;border-radius:13px;background:linear-gradient(135deg,#F8DD97,#DDA94A);color:#5C3A10;display:grid;place-items:center;flex:none;margin-bottom:10px}
+.pfl .shopart{width:112px;height:auto;flex:none}
+.pfl .tile b{display:block;font-size:15.5px;font-weight:700}
+.pfl .tile small{display:block;font-size:12.5px;line-height:1.4;color:var(--muted);margin-top:3px}
+.pfl .tile--big small{color:rgba(232,245,238,.8)}
+.pfl .tile u{position:absolute;right:14px;top:14px;text-decoration:none;font-size:11px;font-weight:600;color:#2B1C08;background:#F2C879;padding:4px 9px;border-radius:999px}
+
+.pfl .s-chat{background:linear-gradient(180deg,var(--mint2),var(--mint))}
+.pfl .phone{position:absolute;left:50vw;top:50%;transform:translateY(-50%);width:clamp(200px,20vw,270px);aspect-ratio:9/18.5;max-height:82vh;background:#10332A;border-radius:34px;padding:9px;box-shadow:0 30px 60px rgba(16,51,42,.32);z-index:3}
+.pfl .phone__in{height:100%;background:#EEF8F3;border-radius:26px;overflow:hidden;display:flex;flex-direction:column}
+.pfl .phone__bar{background:var(--forest);color:#fff;padding:18px 12px 10px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px}
+.pfl .phone__bar i{width:26px;height:26px;border-radius:50%;background:#F2C879 url(/landing/front.webp) 50% 8%/190% no-repeat;flex:none}
+.pfl .phone__bar small{display:block;font-size:10px;font-weight:400;opacity:.75}
+.pfl .phone__type{margin:0 8px 9px;padding:8px 12px;border-radius:999px;background:#fff;font-size:11.5px;color:var(--muted)}
+.pfl .bubbles{flex:1;padding:10px 8px;display:flex;flex-direction:column;gap:7px;justify-content:flex-end}
+.pfl .msg{padding:8px 11px;border-radius:14px 14px 14px 4px;background:#fff;font-size:12px;width:fit-content;max-width:88%;box-shadow:0 6px 16px rgba(16,51,42,.08)}
+.pfl .msg small{display:block;font-size:11px;font-weight:600;color:var(--caramel);margin-bottom:1px}
+.pfl .msg--me{align-self:flex-end;background:var(--collar);color:#fff;border-radius:14px 14px 4px 14px}
+
+.pfl .s-roles{background:var(--forest);color:#fff}
+.pfl .town{position:absolute;left:0;right:0;bottom:0;width:100%;height:30vh;z-index:1}
+.pfl .s-roles .wrap{position:absolute;left:0;right:0;top:13vh;text-align:center;padding:0 var(--pad);z-index:3}
+.pfl .s-roles .eyebrow{color:#F2C879}
+.pfl .roles{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;max-width:1120px;margin:24px auto 0;text-align:left}
+.pfl .role{padding:15px;border-radius:16px;background:rgba(255,255,255,.08);border:1px solid rgba(242,200,121,.22)}
+.pfl .role svg{width:22px;height:22px;color:#F2C879;margin-bottom:8px}
+.pfl .role b{display:block;font-size:14.5px}
+.pfl .role small{display:block;font-size:12.5px;line-height:1.4;color:rgba(232,245,238,.76);margin-top:3px}
+
+.pfl .s-pass{background:linear-gradient(180deg,#F6E8CC 0%,var(--mint) 55%)}
+.pfl .s-pass .text{top:12vh;transform:none;left:48vw;width:min(580px,46vw)}
+.pfl .passport{margin-top:18px;border-radius:20px;overflow:hidden;background:#fff;box-shadow:0 22px 50px rgba(16,51,42,.18);max-width:470px;font-size:13px}
+.pfl .passport header{background:var(--forest);color:#fff;padding:10px 16px;display:flex;justify-content:space-between;align-items:center;font-weight:600;font-size:12.5px;letter-spacing:.06em}
+.pfl .passport header span{color:#F2C879}
+.pfl .pbody{display:flex;gap:14px;padding:14px 16px;align-items:center}
+.pfl .pbody img{width:76px;height:76px;object-fit:cover;object-position:50% 0;border-radius:14px;background:var(--mint)}
+.pfl .pbody dl{display:grid;grid-template-columns:auto 1fr;gap:1px 10px;font-size:12.5px}
+.pfl .pbody dt{color:var(--muted)}
+.pfl .pbody dd{font-weight:600}
+.pfl .stamps{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;padding:0 16px 14px}
+.pfl .stamp{text-align:center;padding:7px 2px;border-radius:10px;border:1.5px dashed var(--gold);font-size:11px;font-weight:600;color:var(--caramel);line-height:1.2}
+.pfl .fbar{position:absolute;left:var(--pad);right:calc(var(--pad) + 140px);bottom:20px;display:flex;justify-content:space-between;align-items:flex-end;gap:24px;z-index:4;font-size:13px}
+.pfl .fbar strong{display:flex;align-items:center;gap:8px;font-size:17px;font-weight:700}
+.pfl .fbar .sub{color:var(--muted);font-size:12px}
+.pfl .cols{display:flex;gap:22px;font-weight:500}
+.pfl .cols a:hover{color:var(--caramel)}
+
+.pfl .loader{position:fixed;inset:0;z-index:50;background:var(--mint);display:grid;place-items:center;transition:opacity .8s ease,visibility .8s}
+.pfl .loader.done{opacity:0;visibility:hidden}
+.pfl .loader div{width:64px;animation:swing 1.3s ease-in-out infinite;transform-origin:50% -30%}
+@keyframes swing{0%,100%{transform:rotate(-16deg)}50%{transform:rotate(16deg)}}
+
+@media (max-width:980px){
+  .pfl .nav__links{display:none}
+}
+@media (max-width:760px){
+  .pfl .chap>section{min-height:600px}
+  .pfl .nav{padding-top:14px}
+  .pfl .nav__links,.pfl .nav__cta .signin,.pfl .badge{display:none}
+  .pfl .logo{margin-right:0}
+  .pfl .pill{padding:9px 17px;font-size:14px}
+  .pfl .ghost{font-size:44vw}
+  .pfl .hero h1{top:calc(70px + 2vh);font-size:10.8vw;line-height:1.06}
+  .pfl .hero__side{left:18px;right:18px;top:auto;bottom:calc(24px + 2vh);width:auto}
+  .pfl .hero__side p{font-size:15px;max-width:330px}
+  .pfl .join{margin-top:12px;font-size:16px}
+  .pfl .hero__left{left:18px;right:18px;top:auto;bottom:calc(142px + 3vh);gap:22px}
+  .pfl .hero__left b{font-size:20px}
+  .pfl .hero__left span{font-size:11.5px}
+  .pfl .hero .tag-a{left:auto;right:18px;top:30vh;width:44px}
+  .pfl .hero .tag-b{display:none}
+  .pfl .title{font-size:29px}
+  .pfl .copy{font-size:14px;margin-top:9px;line-height:1.5;max-width:none}
+  .pfl .eyebrow{margin-bottom:7px}
+  .pfl .ticks{margin-top:10px;gap:5px;font-size:13px}
+  .pfl .text,.pfl .text--l,.pfl .text--r,.pfl .s-market .text,.pfl .s-pass .text{left:18px;right:18px;width:auto;top:auto;bottom:calc(20px + 1.5vh);transform:none}
+  .pfl .s-track .text{top:78px;bottom:auto;width:auto;right:18px}
+  .pfl .s-track::before{background:linear-gradient(180deg,rgba(13,59,44,.97) 0%,rgba(13,59,44,.88) 42%,rgba(13,59,44,0) 56%)}
+  .pfl .s-track .stats{margin-top:12px}
+  .pfl .livecard{display:none}
+  .pfl .pin{font-size:11px;padding:5px 8px}
+  .pfl .prices{grid-template-columns:repeat(2,1fr);gap:7px;margin-top:11px}
+  .pfl .prices div{padding:8px 10px;display:flex;align-items:center;justify-content:space-between;gap:6px}
+  .pfl .prices b{min-height:0;font-size:12px}
+  .pfl .prices span{margin:0;font-size:14px}
+  .pfl .prices small{display:none}
+  .pfl .clinic{margin-top:11px;padding:10px 12px}
+  .pfl .chips{margin-top:9px;gap:5px}
+  .pfl .chips span{font-size:11.5px;padding:4px 10px}
+  .pfl .s-market .text{position:absolute;top:calc(60px + 1vh);bottom:auto;right:40vw}
+  .pfl .s-market .copy{display:none}
+  .pfl .tiles{left:18px;right:18px;width:auto;top:auto;bottom:calc(20px + 1.5vh);transform:none;gap:8px}
+  .pfl .tile{padding:10px 12px}
+  .pfl .tile .ic{width:32px;height:32px;border-radius:9px;margin-bottom:6px}
+  .pfl .tile .ic svg{width:17px;height:17px}
+  .pfl .shopart{width:78px}
+  .pfl .clinicart{left:14px;right:auto;top:calc(62px + 1vh);bottom:auto;width:52vw}
+  .pfl .tile b{font-size:14px}
+  .pfl .tile small{font-size:11.5px}
+  .pfl .phone{left:14px;top:calc(62px + 1vh);transform:none;width:44vw;max-width:170px;max-height:44vh;border-radius:24px;padding:6px}
+  .pfl .phone__in{border-radius:19px}
+  .pfl .phone__bar{padding:10px 8px 7px;font-size:10.5px}
+  .pfl .phone__bar i{width:18px;height:18px}
+  .pfl .phone__bar small{font-size:8px}
+  .pfl .phone__type{font-size:9px;padding:5px 8px;margin:0 5px 6px}
+  .pfl .bubbles{padding:5px;gap:4px}
+  .pfl .msg{font-size:9.5px;padding:5px 7px}
+  .pfl .msg small{font-size:8px}
+  .pfl .town{top:calc(52px + 1vh);bottom:auto;height:22vh}
+  .pfl .s-roles .wrap{top:auto;bottom:calc(20px + 1.5vh);padding:0 18px;text-align:left}
+  .pfl .s-roles .title{font-size:27px}
+  .pfl .roles{grid-template-columns:1fr 1fr;gap:7px;margin-top:12px}
+  .pfl .role{padding:9px 11px}
+  .pfl .role svg{width:17px;height:17px;margin-bottom:3px}
+  .pfl .role b{font-size:13px}
+  .pfl .role small{font-size:11px}
+  .pfl .role:first-child{grid-column:1/-1}
+  .pfl .s-pass .text{bottom:calc(84px + 1vh)}
+  .pfl .passport{margin-top:11px}
+  .pfl .pbody{padding:9px 12px;gap:10px}
+  .pfl .pbody img{width:58px;height:58px}
+  .pfl .stamps{padding:0 12px 10px;gap:5px}
+  .pfl .stamp{font-size:10px;padding:5px 1px}
+  .pfl .fbar{left:18px;right:18px;bottom:12px;flex-direction:row;align-items:center;gap:8px}
+  .pfl .fbar .sub{display:none}
+  .pfl .fbar strong{font-size:14px}
+  .pfl .cols{gap:10px;font-size:11.5px;white-space:nowrap}
+}
+@media (max-width:760px) and (max-height:700px){
+  .pfl .ticks,.pfl .hero__left,.pfl .chips,.pfl .s-pass .copy{display:none}
+  .pfl .title{font-size:25px}
+  .pfl .copy{font-size:13px}
+  .pfl .tile small{display:none}
+  .pfl .s-track .copy{font-size:13px}
+}
+`;
+
+const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
+const ease = (t: number) => 1 - Math.pow(1 - t, 3);
+const spots = (pts: [number, number][]) => pts.map(([x, y]) => `${x} ${-y}`).join(' L');
 
 export default function Landing() {
   const navigate = useNavigate();
+  const rootRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const loaderRef = useRef<HTMLDivElement>(null);
   const [liveStats, setLiveStats] = useState({ walks: '500+', walkers: '50+', rating: '4.9' });
+  const [routeEnds, setRouteEnds] = useState(() => [routeAt(0), routeAt(1)]);
 
   useEffect(() => {
     Promise.all([
@@ -212,392 +442,418 @@ export default function Landing() {
     }).catch(() => {});
   }, []);
 
-  return (
-    <div className="min-h-screen bg-white overflow-x-hidden" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
+  // Poppins, for this page only.
+  useEffect(() => {
+    const id = 'pfl-poppins';
+    if (document.getElementById(id)) return;
+    const link = document.createElement('link');
+    link.id = id;
+    link.rel = 'stylesheet';
+    link.href = 'https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap';
+    document.head.appendChild(link);
+  }, []);
 
-      {/* ── Nav ── */}
-      <nav className="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-gray-100">
-        <div className="max-w-6xl mx-auto flex items-center justify-between px-6 py-3.5">
-          <div className="flex items-center gap-2.5">
-            <PawFleetLogo size={34} />
-            <span className="text-lg font-extrabold tracking-tight" style={{ color: '#1B4332' }}>PawFleet</span>
-          </div>
-          <div className="hidden md:flex items-center gap-8">
-            {['Services', 'For Walkers', 'Pricing'].map(item => (
-              <span key={item} className="text-sm font-medium text-gray-500 hover:text-gray-900 cursor-pointer transition-colors">{item}</span>
-            ))}
-          </div>
-          <div className="flex items-center gap-3">
-            <button onClick={() => navigate('/login')}
-              className="text-sm font-semibold px-4 py-2 rounded-xl hover:bg-gray-50 transition-colors"
-              style={{ color: '#2B8A50' }}>
-              Sign In
-            </button>
-            <button onClick={() => navigate('/register')}
-              className="text-sm font-bold text-white px-5 py-2.5 rounded-xl shadow-sm transition-all hover:shadow-md active:scale-95"
-              style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)' }}>
-              Get Started →
-            </button>
-          </div>
+  // Scroll animation, nav theme, tracking map, loader and the 3D puppy.
+  useEffect(() => {
+    const root = rootRef.current!;
+    const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const wraps = Array.from(root.querySelectorAll<HTMLElement>('.chap'));
+    const chapters = wraps.map((wrap, i) => {
+      const sec = wrap.firstElementChild as HTMLElement;
+      return {
+        wrap,
+        sec,
+        first: i === 0,
+        last: i === wraps.length - 1,
+        chars: Array.from(sec.querySelectorAll<HTMLElement>('.ch')),
+        words: Array.from(sec.querySelectorAll<HTMLElement>('.w')),
+        items: Array.from(sec.querySelectorAll<HTMLElement>('.sc')),
+        steps: Array.from(sec.querySelectorAll<HTMLElement>('.st')),
+        ghosts: Array.from(sec.querySelectorAll<HTMLElement>('.ghost')),
+        bubbles: Array.from(sec.querySelectorAll<HTMLElement>('.bubble')),
+      };
+    });
+    const movers = Array.from(root.querySelectorAll<HTMLElement>('[data-speed]'));
+    const done = root.querySelector<SVGPathElement>('.done');
+    const way = root.querySelector<SVGPathElement>('.way');
+    const trackBar = root.querySelector<HTMLElement>('.livecard i b');
+    const trackIndex = wraps.findIndex(w => w.id === 'track');
+
+    // The route draws itself up to wherever the puppy has walked.
+    const drawWalked = (walked: number) => {
+      const pts = routeSamples();
+      done?.setAttribute('d', `M${spots(pts.slice(0, Math.max(2, Math.round(walked * (pts.length - 1)) + 1)))}`);
+      if (trackBar) trackBar.style.transform = `scaleX(${walked})`;
+    };
+    let puppyLive = false;
+
+    const render = () => {
+      const h = innerHeight;
+      for (const el of movers) {
+        const p = -el.closest('.chap')!.getBoundingClientRect().top / h;
+        const rot = parseFloat(el.dataset.rot ?? '0');
+        el.style.transform = `translate3d(0,${p * parseFloat(el.dataset.speed!) * h}px,0) rotate(${p * rot}deg)`;
+      }
+      const stage = scrollStage(wraps);
+      root.classList.toggle('on-dark', chapters[stage.i].sec.dataset.theme === 'dark' && stage.walk < 0.9);
+
+      way?.setAttribute('d', `M${spots(routeSamples())}`);
+      if (!puppyLive) drawWalked(stage.i > trackIndex ? 1 : stage.i === trackIndex ? stage.hold : 0);
+
+      chapters.forEach((c, n) => {
+        const r = c.wrap.getBoundingClientRect();
+        if (calm || r.bottom < -h * 0.2 || r.top > h * 1.1) return;
+        // enter: 0 as the chapter slides in, 1 once it has arrived.
+        // leave: 0 while it's pinned and being read, 1 once it's nearly gone.
+        const enter = c.first ? 1 : clamp01((h - r.top) / (h * 0.8));
+        const leave = c.last ? 0 : clamp01((h - r.bottom) / (h * 0.6));
+        const hold = n === stage.i ? stage.hold : n < stage.i ? 1 : 0;
+
+        const total = c.chars.length || 1;
+        c.chars.forEach((ch, i) => {
+          const o = i / total;
+          const a = ease(clamp01(enter * 1.6 - o * 0.6));
+          const b = ease(clamp01(leave * 1.6 - o * 0.6));
+          ch.style.transform = `translate3d(0,${(1 - a) - b}em,0) rotate(${(1 - a) * 9 - b * 6}deg) scale(${0.7 + a * 0.3})`;
+          ch.style.opacity = String(a * (1 - b));
+        });
+        const m = c.words.length || 1;
+        c.words.forEach((w, i) => {
+          const a = clamp01(((enter - 0.45) / 0.45) * 1.3 - (i / m) * 0.3);
+          w.style.opacity = String((0.12 + 0.88 * a) * (1 - leave));
+        });
+        c.items.forEach((el, i) => {
+          const a = ease(clamp01((enter - 0.55) / 0.36 - i * 0.05));
+          el.style.transform = `translate3d(0,${(1 - a) * 34 - leave * 50}px,0)`;
+          el.style.opacity = String(a * (1 - leave));
+        });
+        // Steps appear one at a time during the pause: chat messages, passport stamps.
+        const q = c.steps.length || 1;
+        c.steps.forEach((el, i) => {
+          const a = ease(clamp01((hold * 1.15 - i / q) * q));
+          el.style.transform = `translate3d(0,${(1 - a) * 16}px,0) scale(${0.92 + a * 0.08})`;
+          el.style.opacity = String(a * (1 - leave));
+        });
+        for (const g of c.ghosts) g.style.transform = `translate3d(${(r.top / h - 0.5) * 22}vw,0,0)`;
+        c.bubbles.forEach((b, i) => {
+          b.style.transform = `translate3d(0,${(r.top / h) * (160 + i * 90)}px,0)`;
+        });
+      });
+    };
+
+    let queued = false;
+    const onScroll = () => {
+      if (queued) return;
+      queued = true;
+      requestAnimationFrame(() => { queued = false; render(); });
+    };
+    const onResize = () => { setRouteEnds([routeAt(0), routeAt(1)]); onScroll(); };
+    render();
+    addEventListener('scroll', onScroll, { passive: true });
+    addEventListener('resize', onResize);
+
+    const reveal = () => {
+      loaderRef.current?.classList.add('done');
+      root.classList.add('loaded');
+    };
+    // The app's own splash has already been shown, so don't hold this one long.
+    const fallback = setTimeout(reveal, 2200);
+
+    let dispose: (() => void) | undefined;
+    let cancelled = false;
+    import('../components/landing/puppyScene')
+      .then(async ({ createPuppyScene }) => {
+        if (!canvasRef.current) return;
+        puppyLive = true;
+        const stop = await createPuppyScene(canvasRef.current, wraps, drawWalked);
+        if (cancelled) return stop();
+        dispose = stop;
+        canvasRef.current?.classList.add('ready');
+        reveal();
+      })
+      .catch(() => {
+        puppyLive = false;
+        root.classList.add('no3d');
+        reveal();
+      });
+
+    return () => {
+      cancelled = true;
+      clearTimeout(fallback);
+      removeEventListener('scroll', onScroll);
+      removeEventListener('resize', onResize);
+      dispose?.();
+    };
+  }, []);
+
+  const go = (path: string) => () => navigate(path);
+  const link = (path: string) => (e: MouseEvent) => { e.preventDefault(); navigate(path); };
+  const jump = (id: string) => (e: MouseEvent) => {
+    e.preventDefault();
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
+  };
+  const at = (p: { x: number; y: number }) => ({ left: `${((p.x + 1) / 2) * 100}%`, top: `${((1 - p.y) / 2) * 100}%` });
+
+  return (
+    <div className="pfl" ref={rootRef}>
+      <style>{CSS}</style>
+
+      <div className="loader" ref={loaderRef}><div><PawTag id="tag-loader" /></div></div>
+
+      <nav className="nav">
+        <a className="logo" href="#top" onClick={jump('top')} aria-label="PawFleet home">
+          <span><PawFleetLogo size={36} /></span>
+          <span>PawFleet</span>
+        </a>
+        <div className="nav__links">
+          <a href="#walks" onClick={jump('walks')}>Walks</a>
+          <a href="#groom" onClick={jump('groom')}>Grooming</a>
+          <a href="#vets" onClick={jump('vets')}>Vets</a>
+          <a href="#market" onClick={jump('market')}>Marketplace</a>
+          <a href="#passport" onClick={jump('passport')}>Passport</a>
+        </div>
+        <div className="nav__cta">
+          <button className="signin" onClick={go('/login')}>Sign in</button>
+          <button className="pill" onClick={go('/register')}>Get started</button>
         </div>
       </nav>
 
-      {/* ── Hero ── */}
-      <section className="relative overflow-hidden"
-        style={{ background: 'linear-gradient(135deg, #0A1F12 0%, #1B4332 45%, #2B8A50 100%)', minHeight: '94vh' }}>
+      <canvas id="pup" ref={canvasRef} />
 
-        {/* Decorative circles */}
-        <div style={{ position: 'absolute', top: -80, right: -80, width: 400, height: 400, borderRadius: '50%', background: 'rgba(82,183,136,0.08)', pointerEvents: 'none' }} />
-        <div style={{ position: 'absolute', bottom: -60, left: -60, width: 300, height: 300, borderRadius: '50%', background: 'rgba(82,183,136,0.06)', pointerEvents: 'none' }} />
-        <div style={{ position: 'absolute', top: '30%', left: '42%', width: 200, height: 200, borderRadius: '50%', background: 'rgba(255,255,255,0.03)', pointerEvents: 'none' }} />
-
-        <div className="max-w-6xl mx-auto px-6 pt-16 pb-20 flex flex-col lg:flex-row items-center gap-8 lg:gap-16">
-
-          {/* Left copy */}
-          <div className="flex-1 text-white text-center lg:text-left">
-            <div className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-bold mb-8"
-              style={{ background: 'rgba(82,183,136,0.18)', border: '1px solid rgba(82,183,136,0.35)', color: '#86EFAC' }}>
-              <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-              Live in Lusaka, Zambia 🇿🇲
-            </div>
-
-            <h1 className="font-extrabold leading-none mb-6"
-              style={{ fontSize: 'clamp(2.8rem,6vw,4.5rem)', letterSpacing: '-0.03em' }}>
-              Your dog deserves<br />
-              <span style={{ color: '#52B788' }}>the best walks</span>
+      <main>
+        <div className="chap" id="top">
+          <section className="hero" data-theme="light">
+            <h1 aria-label="Smarter dog walks. Simply managed.">
+              <span className="line"><span><Chars text="Smarter dog walks." /></span></span>
+              <span className="line"><span><Chars text="Simply managed." /></span></span>
             </h1>
-
-            <p className="text-lg leading-relaxed mb-10 max-w-lg mx-auto lg:mx-0"
-              style={{ color: 'rgba(255,255,255,0.78)', lineHeight: 1.7 }}>
-              PawFleet connects Lusaka's pet owners with trusted, verified walkers. Live GPS tracking, instant booking, and real-time chat — all in one app.
-            </p>
-
-            <div className="flex flex-col sm:flex-row gap-3 justify-center lg:justify-start mb-12">
-              <button onClick={() => navigate('/register')}
-                className="font-bold px-8 py-4 rounded-2xl text-base shadow-2xl active:scale-95 transition-all"
-                style={{ background: '#fff', color: '#1B4332', boxShadow: '0 12px 32px rgba(0,0,0,0.25)' }}>
-                Book a Walk →
-              </button>
-              <button onClick={() => navigate('/login')}
-                className="font-semibold px-8 py-4 rounded-2xl text-base transition-all"
-                style={{ background: 'rgba(255,255,255,0.12)', border: '1.5px solid rgba(255,255,255,0.28)', color: '#fff' }}>
-                Sign In
-              </button>
+            <div className="flower tag-a" data-speed="-0.4" data-rot="40"><PawTag id="tag-a" /></div>
+            <div className="flower tag-b" data-speed="0.3" data-rot="-50"><PawTag id="tag-b" /></div>
+            <div className="hero__left">
+              <div><b>{liveStats.walks}</b><span>Walks done</span></div>
+              <div><b>{liveStats.rating}★</b><span>Avg rating</span></div>
             </div>
-
-            {/* Trust badges */}
-            <div className="flex flex-wrap items-center gap-4 justify-center lg:justify-start">
-              {[
-                { v: liveStats.walks, l: 'Walks done' },
-                { v: liveStats.walkers, l: 'Walkers' },
-                { v: liveStats.rating + '★', l: 'Avg rating' },
-              ].map(s => (
-                <div key={s.l} className="flex items-baseline gap-1.5">
-                  <span className="text-xl font-extrabold text-white">{s.v}</span>
-                  <span className="text-xs font-medium" style={{ color: 'rgba(255,255,255,0.55)' }}>{s.l}</span>
-                </div>
-              ))}
+            <div className="hero__side">
+              <p>Walks, grooming, vets, food and friends for your dog — all in one app, right here in Lusaka.</p>
+              <button className="join" onClick={go('/register')}><i><Chevron /></i>Get started</button>
             </div>
-          </div>
+            <img className="pup-fallback" src="/landing/front.webp" alt="A happy golden puppy in a green PawFleet collar" />
+          </section>
+        </div>
 
-          {/* Right — character illustration */}
-          <div className="relative flex-shrink-0 flex items-end justify-center" style={{ width: 380, height: 400 }}>
-
-            {/* Backdrop glow */}
-            <div style={{ position: 'absolute', inset: '10%', borderRadius: '50%', background: 'radial-gradient(circle, rgba(82,183,136,0.18) 0%, transparent 70%)', filter: 'blur(20px)' }} />
-
-            {/* Ground */}
-            <div style={{ position: 'absolute', bottom: 0, left: '5%', right: '5%', height: 3, borderRadius: 99, background: 'rgba(255,255,255,0.12)' }} />
-
-            {/* Walker character (left) */}
-            <div style={{ position: 'absolute', left: 0, bottom: 8 }}>
-              <WalkerCharacter />
-            </div>
-
-            {/* Owner + dog (right) */}
-            <div style={{ position: 'absolute', right: 0, bottom: 8 }}>
-              <OwnerCharacter />
-            </div>
-            <div style={{ position: 'absolute', right: 16, bottom: 4 }}>
-              <DogCharacter />
-            </div>
-
-            {/* Floating stat card — live walk */}
-            <div style={{
-              position: 'absolute', top: 24, left: 10,
-              background: 'rgba(255,255,255,0.96)', backdropFilter: 'blur(12px)',
-              borderRadius: 16, padding: '12px 14px', boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
-              minWidth: 150,
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#10B981', flexShrink: 0 }} className="animate-pulse" />
-                <span style={{ fontSize: 11, fontWeight: 700, color: '#2B8A50', letterSpacing: '0.04em' }}>WALK IN PROGRESS</span>
+        <div className="chap" id="walks">
+          <section className="s-walk" data-theme="light">
+            <div className="ghost" aria-hidden="true">Walks</div>
+            <div className="text text--r">
+              <div className="eyebrow sc"><Dog /> Dog walking</div>
+              <Title lines={['Get your dog walked', 'by professional', 'walkers']} />
+              <Copy text="Every PawFleet walker passes NRC verification, a background check and a dog-handling assessment. Book instantly or schedule ahead, and we'll show you who's nearest." />
+              <div className="ticks">
+                <span className="sc">Instant or scheduled bookings</span>
+                <span className="sc">Pin-drop pickup, right at your gate</span>
+                <span className="sc">Rate every walk</span>
               </div>
-              <p style={{ fontSize: 13, fontWeight: 800, color: '#1B4332', marginBottom: 2 }}>Max is out with Chanda</p>
-              <p style={{ fontSize: 11, color: '#6B7280' }}>1.4km · 18 min · Kabulonga</p>
+              <Join onClick={go('/register')}>Book a walk</Join>
             </div>
+          </section>
+        </div>
 
-            {/* Floating rating card */}
-            <div style={{
-              position: 'absolute', top: 60, right: 2,
-              background: 'rgba(255,255,255,0.96)', backdropFilter: 'blur(12px)',
-              borderRadius: 16, padding: '10px 14px', boxShadow: '0 8px 28px rgba(0,0,0,0.15)',
-              display: 'flex', alignItems: 'center', gap: 8,
-            }}>
-              <div style={{ width: 36, height: 36, borderRadius: 10, background: '#FFF9E6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>⭐</div>
+        <div className="chap chap--long" id="track">
+          <section className="s-track" data-theme="dark">
+            <svg className="mapbg" viewBox="-1 -1 2 2" preserveAspectRatio="none" aria-hidden="true">
+              <path className="park" d="M.42 -.5 Q.8 -.62 .9 -.3 Q.7 -.12 .46 -.22Z" />
+              <path className="park" d="M-.2 .5 Q.1 .3 .3 .6 Q.1 .9 -.2 .8Z" />
+              <path className="street" d="M-1 .3 C-.3 .2 .3 .5 1 .2" />
+              <path className="street" d="M-.1 -1 C0 -.3 -.1 .3 .1 1" />
+              <path className="street" d="M.6 -1 C.5 -.4 .7 .3 .55 1" />
+              <path className="street" d="M-1 -.45 C-.2 -.5 .4 -.3 1 -.5" />
+              <path className="lane" d="M-.5 -1 L-.45 1" />
+              <path className="lane" d="M.28 -1 C.2 -.3 .32 .3 .3 1" />
+              <path className="lane" d="M.85 -1 L.8 1" />
+              <path className="lane" d="M-1 -.08 C-.2 -.14 .5 .02 1 -.1" />
+              <path className="lane" d="M-1 .68 C-.1 .6 .4 .75 1 .62" />
+              <path className="way" />
+              <path className="done" />
+            </svg>
+            <div className="pin" style={at(routeEnds[0])}><MapPin /> Home</div>
+            <div className="pin" style={at(routeEnds[1])}><MapPin /> Park</div>
+            <div className="text">
+              <div className="eyebrow sc"><MapPin /> Live tracking</div>
+              <Title lines={['Track your pet', 'on every walk']} />
+              <Copy text="Watch every step on a live map as it happens, chat with your walker and get a notification the moment they're home." />
+              <div className="stats">
+                <div className="sc"><b>{liveStats.walks}</b><span>Walks done</span></div>
+                <div className="sc"><b>{liveStats.walkers}</b><span>Active walkers</span></div>
+                <div className="sc"><b>{liveStats.rating}★</b><span>Avg rating</span></div>
+              </div>
+            </div>
+            <div className="livecard">
+              <span className="live-dot" /><b>Walk in progress</b>
+              <small>Your dog is out with their walker</small>
+              <i><b /></i>
+            </div>
+          </section>
+        </div>
+
+        <div className="chap chap--long" id="groom">
+          <section className="s-groom" data-theme="light">
+            <div className="ghost" aria-hidden="true">Groom</div>
+            <span className="bubble" style={{ width: 90, height: 90, left: '56vw', top: '20vh' }} />
+            <span className="bubble" style={{ width: 46, height: 46, left: '64vw', top: '62vh' }} />
+            <span className="bubble" style={{ width: 62, height: 62, left: '88vw', top: '16vh' }} />
+            <span className="bubble" style={{ width: 30, height: 30, left: '50vw', top: '70vh' }} />
+            <div className="text text--l">
+              <div className="eyebrow sc"><Scissors /> Professional grooming</div>
+              <Title lines={['Get your dog', 'groomed professionally']} />
+              <Copy text="From a quick nail trim to a full pamper spa, our groomers come to you. Pick a package, drop a pin and book." />
+              <div className="prices">
+                {GROOM_PACKAGES.filter(p => !p.isVet).map(p => (
+                  <div key={p.id} className="card sc">
+                    <b>{p.label}</b>
+                    <span>K{p.price}</span>
+                    <small>{p.minutes} mins</small>
+                  </div>
+                ))}
+              </div>
+              <Join onClick={go('/register')}>Book a groom</Join>
+            </div>
+          </section>
+        </div>
+
+        <div className="chap" id="vets">
+          <section className="s-vet" data-theme="light">
+            <VetClinic />
+            <div className="text text--r">
+              <div className="eyebrow sc"><Stethoscope /> Vet care</div>
+              <Title lines={['Find your nearest vet', 'and book online']} />
+              <Copy text="See the vet clinics closest to you on a map and book your visit in advance, without the phone calls." />
+              <div className="clinic card sc">
+                <div className="ic"><Stethoscope size={21} /></div>
+                <div><b>Your nearest clinic</b><small>Sorted by distance from you</small></div>
+                <em>Book</em>
+              </div>
+              <div className="chips">
+                {['General checkup', 'Vaccination', 'Dental care', 'Deworming', 'Emergency visit'].map(s => <span key={s} className="sc">{s}</span>)}
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <div className="chap" id="market">
+          <section className="s-market" data-theme="light">
+            <div className="text">
+              <div className="eyebrow sc"><ShoppingBag /> Marketplace</div>
+              <Title lines={['Everything your', 'dog needs, in', 'one market']} />
+              <Copy text="Looking for a new dog? Running low on food? Shop from pet stores near you, or find your next best friend." />
+            </div>
+            <div className="tiles">
+              <button className="tile tile--big card sc" onClick={go('/register')}>
+                <PuppyShop />
+                <span><b>Find a new dog</b><small>Browse listings with vaccination, deworming and microchip status shown up front.</small></span>
+              </button>
+              <button className="tile card sc" onClick={go('/register')}>
+                <span className="ic"><UtensilsCrossed size={21} /></span>
+                <b>Dog food</b><small>Meal plans and everyday food</small>
+              </button>
+              <button className="tile card sc" onClick={go('/register')}>
+                <span className="ic"><Bone size={21} /></span>
+                <b>Treats</b><small>Rewards for your good pup</small>
+              </button>
+              <button className="tile card sc" onClick={go('/register')}>
+                <span className="ic"><Sparkles size={21} /></span>
+                <b>Accessories & hygiene</b><small>Collars, leads, shampoo and more</small>
+              </button>
+              <button className="tile card sc" onClick={go('/register')}>
+                <span className="ic"><Store size={21} /></span>
+                <b>Shops near you</b><small>See local pet shops on the map</small>
+              </button>
+            </div>
+          </section>
+        </div>
+
+        <div className="chap" id="community">
+          <section className="s-chat" data-theme="light">
+            <div className="text text--l">
+              <div className="eyebrow sc"><MessageCircle /> Community</div>
+              <Title lines={['Chat with friends', 'who love dogs too']} />
+              <Copy text="Share photos, swap tips with other dog owners and message your walker, groomer or friends, all in one inbox." />
+            </div>
+            <div className="phone">
+              <div className="phone__in">
+                <div className="phone__bar"><i /><span>Dog park friends<small>12 owners online</small></span></div>
+                <div className="bubbles">
+                  <div className="msg st"><small>Natasha</small>Anyone at the park this Saturday?</div>
+                  <div className="msg msg--me st">We'll be there! Bringing the ball</div>
+                  <div className="msg st"><small>Your walker</small>On our way home, great walk today!</div>
+                </div>
+                <div className="phone__type">Message...</div>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <div className="chap" id="everyone">
+          <section className="s-roles" data-theme="dark">
+            <Town />
+            <div className="wrap">
+              <div className="eyebrow sc"><UsersRound /> For everyone</div>
+              <Title lines={['One home for everyone', 'who cares for dogs']} />
+              <div className="roles">
+                <div className="role sc"><Dog /><b>Dog owners</b><small>Book, track and care, all from your phone</small></div>
+                <div className="role sc"><MapPin /><b>Walkers</b><small>Set your hours and get paid to Mobile Money</small></div>
+                <div className="role sc"><Scissors /><b>Groomers</b><small>Fill your diary with nearby bookings</small></div>
+                <div className="role sc"><Stethoscope /><b>Vets</b><small>Get found and take bookings online</small></div>
+                <div className="role sc"><Store /><b>Shops</b><small>Sell to dog owners close to you</small></div>
+              </div>
+              <Join onClick={go('/register')}>Apply to walk</Join>
+            </div>
+          </section>
+        </div>
+
+        <div className="chap chap--end" id="passport">
+          <section className="s-pass" data-theme="light">
+            <div className="text">
+              <div className="eyebrow sc"><ShieldCheck /> Digital passport</div>
+              <Title lines={["Create your pet's", 'digital passport']} />
+              <Copy text="One home for your dog's profile, health journal, vet visits and walks. Always with you, always up to date." />
+              <div className="passport sc">
+                <header>PAWFLEET PET PASSPORT <span>ZM</span></header>
+                <div className="pbody">
+                  <img src="/landing/front.webp" alt="" />
+                  <dl>
+                    <dt>Name</dt><dd>Your best friend</dd>
+                    <dt>Breed</dt><dd>Golden Retriever</dd>
+                    <dt>Home</dt><dd>Lusaka, Zambia</dd>
+                  </dl>
+                </div>
+                <div className="stamps">
+                  <div className="stamp st">Health journal</div>
+                  <div className="stamp st">Vet visits</div>
+                  <div className="stamp st">Weight</div>
+                  <div className="stamp st">Walk history</div>
+                </div>
+              </div>
+              <Join onClick={go('/register')}>Create your pet's passport</Join>
+            </div>
+            <div className="fbar">
               <div>
-                <p style={{ fontSize: 16, fontWeight: 800, color: '#1B4332', lineHeight: 1 }}>4.9</p>
-                <p style={{ fontSize: 10, color: '#6B7280', marginTop: 2 }}>Avg. walker rating</p>
+                <strong><PawFleetLogo size={24} />PawFleet</strong>
+                <span className="sub">Walks, grooming and vet care · Lusaka, Zambia</span>
+              </div>
+              <div className="cols">
+                <a href="/login" onClick={link('/login')}>Sign in</a>
+                <a href="/privacy-policy" onClick={link('/privacy-policy')}>Privacy & Terms</a>
+                <a href="#top" onClick={jump('top')}>Back to top</a>
               </div>
             </div>
-          </div>
+          </section>
         </div>
-      </section>
+      </main>
 
-      {/* ── Features ── */}
-      <section className="max-w-6xl mx-auto px-6 py-24">
-        <div className="text-center mb-16">
-          <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: '#2B8A50' }}>Why PawFleet</p>
-          <h2 className="text-4xl font-extrabold mb-4" style={{ color: '#111827', letterSpacing: '-0.02em' }}>Everything your dog deserves</h2>
-          <p className="text-base max-w-md mx-auto" style={{ color: '#6B7280', lineHeight: 1.7 }}>
-            Built from the ground up for Zambia's pet owners and the professionals who care for their dogs.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {[
-            {
-              icon: (
-                <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-                  <circle cx="16" cy="16" r="14" fill="#EBF5EF" />
-                  <circle cx="16" cy="14" r="5" fill="#2B8A50" />
-                  <path d="M10 24 Q16 20 22 24" stroke="#2B8A50" strokeWidth="2.5" strokeLinecap="round" fill="none" />
-                  <circle cx="16" cy="14" r="2.5" fill="white" />
-                </svg>
-              ),
-              color: '#EBF5EF',
-              title: 'Verified Walkers',
-              desc: 'Every walker passes NRC verification, a background check, and a dog-handling assessment before joining.',
-            },
-            {
-              icon: (
-                <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-                  <circle cx="16" cy="16" r="14" fill="#FEF3C7" />
-                  <path d="M10 18 L13 21 L22 12" stroke="#F59E0B" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-                  <circle cx="24" cy="10" r="4" fill="#F59E0B" />
-                  <path d="M22 8 L24 6 L26 8 L24 10 Z" fill="white" />
-                </svg>
-              ),
-              color: '#FEF3C7',
-              title: 'Live GPS Tracking',
-              desc: 'Watch every step of your dog\'s walk on a live map. Know exactly where they are, in real-time.',
-            },
-            {
-              icon: (
-                <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-                  <circle cx="16" cy="16" r="14" fill="#EEF2FF" />
-                  <rect x="10" y="12" width="12" height="10" rx="2.5" fill="#6366F1" />
-                  <path d="M13 12 L13 10 Q13 8 16 8 Q19 8 19 10 L19 12" stroke="#6366F1" strokeWidth="2" fill="none" strokeLinecap="round" />
-                  <circle cx="16" cy="17" r="2" fill="white" />
-                </svg>
-              ),
-              color: '#EEF2FF',
-              title: 'Secure Payments',
-              desc: 'Pay via Mobile Money, cash, or bank transfer — all in Zambian Kwacha. No hidden fees, ever.',
-            },
-            {
-              icon: (
-                <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-                  <circle cx="16" cy="16" r="14" fill="#FFF1F2" />
-                  <path d="M10 14 Q10 10 16 10 Q22 10 22 14 L22 20 Q22 22 20 22 L12 22 Q10 22 10 20 Z" fill="#F43F5E" opacity="0.8" />
-                  <circle cx="13" cy="16" r="1.5" fill="white" />
-                  <circle cx="16" cy="16" r="1.5" fill="white" />
-                  <circle cx="19" cy="16" r="1.5" fill="white" />
-                </svg>
-              ),
-              color: '#FFF1F2',
-              title: 'Real-time Chat',
-              desc: 'Message your walker before, during and after the walk. Stay connected the whole time.',
-            },
-            {
-              icon: (
-                <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-                  <circle cx="16" cy="16" r="14" fill="#F0FDF4" />
-                  <path d="M16 8 L18 13 L23 13 L19.5 16.5 L21 22 L16 18.5 L11 22 L12.5 16.5 L9 13 L14 13 Z" fill="#22C55E" />
-                </svg>
-              ),
-              color: '#F0FDF4',
-              title: 'Instant Booking',
-              desc: 'Need a walker now? Book instantly and a verified walker will be at your door within the hour.',
-            },
-            {
-              icon: (
-                <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-                  <circle cx="16" cy="16" r="14" fill="#FDF4FF" />
-                  <path d="M12 12 Q16 8 20 12 Q24 16 20 20 Q16 24 12 20 Q8 16 12 12 Z" fill="#A855F7" opacity="0.8" />
-                  <circle cx="16" cy="16" r="3" fill="white" />
-                </svg>
-              ),
-              color: '#FDF4FF',
-              title: 'Pro Grooming',
-              desc: 'Add a bath, trim, or full grooming session to any walk booking with one tap.',
-            },
-          ].map(({ icon, color, title, desc }) => (
-            <div key={title}
-              className="group rounded-2xl p-6 border border-gray-100 transition-all hover:shadow-lg hover:-translate-y-0.5 cursor-default"
-              style={{ background: '#fff' }}>
-              <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4" style={{ background: color }}>
-                {icon}
-              </div>
-              <h3 className="font-extrabold text-base mb-2" style={{ color: '#111827' }}>{title}</h3>
-              <p className="text-sm leading-relaxed" style={{ color: '#6B7280', lineHeight: 1.7 }}>{desc}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* ── Testimonials ── */}
-      <section style={{ background: '#F0FDF4' }} className="py-24 px-6">
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-14">
-            <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: '#2B8A50' }}>What Lusaka says</p>
-            <h2 className="text-3xl font-extrabold" style={{ color: '#111827', letterSpacing: '-0.02em' }}>Trusted by pet owners across the city</h2>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {[
-              { name: 'Natasha M.', area: 'Kabulonga', role: 'Dog Owner', quote: "I used to worry sick when someone else walked Bella. With PawFleet's live tracking I can watch every step. Absolutely love it!", rating: 5, avatar: '#FF6B6B', initials: 'NM' },
-              { name: 'Chanda K.', area: 'Woodlands', role: 'Walker · 247 walks', quote: "PawFleet changed my life. I earn K4,000+ a week doing what I love — walking dogs. The app makes it so easy to manage bookings.", rating: 5, avatar: '#1B4332', initials: 'CK' },
-              { name: 'Sarah & Max', area: 'Chelstone', role: 'Dog Owner', quote: "Max loves his walker James so much. The in-app chat and ratings made it easy to find someone we trust completely.", rating: 5, avatar: '#2B8A50', initials: 'SM' },
-            ].map(t => (
-              <div key={t.name} className="bg-white rounded-2xl p-6 shadow-sm border border-green-100">
-                <div className="flex mb-2">
-                  {Array.from({ length: t.rating }).map((_, i) => (
-                    <span key={i} style={{ color: '#F59E0B', fontSize: 14 }}>★</span>
-                  ))}
-                </div>
-                <p className="text-sm leading-relaxed mb-5" style={{ color: '#374151', lineHeight: 1.7 }}>"{t.quote}"</p>
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0"
-                    style={{ background: t.avatar }}>
-                    {t.initials}
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold" style={{ color: '#111827' }}>{t.name}</p>
-                    <p className="text-xs" style={{ color: '#6B7280' }}>{t.role} · {t.area}</p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── How it works ── */}
-      <section className="py-24 px-6 bg-white">
-        <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-16">
-            <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: '#2B8A50' }}>Simple process</p>
-            <h2 className="text-3xl font-extrabold mb-3" style={{ color: '#111827', letterSpacing: '-0.02em' }}>Walking in 3 steps</h2>
-          </div>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-            {[
-              { n: '01', icon: '📅', title: 'Book a walk', desc: 'Choose instant or scheduled. Pick your dog, set duration, and select from walkers in your area.' },
-              { n: '02', icon: '✅', title: 'Walker heads over', desc: 'Your verified walker confirms and comes to you. You\'ll get a notification the moment they accept.' },
-              { n: '03', icon: '📍', title: 'Track live & rate', desc: 'Watch every step on the real-time map. Chat with your walker, then rate when complete.' },
-            ].map(({ n, icon, title, desc }) => (
-              <div key={n} className="flex flex-col items-center text-center">
-                <div className="relative mb-5">
-                  <div className="w-20 h-20 rounded-3xl flex items-center justify-center text-3xl shadow-md"
-                    style={{ background: 'linear-gradient(135deg,#1B4332,#2B8A50)' }}>
-                    {icon}
-                  </div>
-                  <div className="absolute -top-2 -right-2 w-7 h-7 rounded-full flex items-center justify-center text-xs font-black text-white"
-                    style={{ background: '#52B788' }}>
-                    {n}
-                  </div>
-                </div>
-                <h3 className="font-extrabold text-base mb-2" style={{ color: '#111827' }}>{title}</h3>
-                <p className="text-sm leading-relaxed max-w-xs" style={{ color: '#6B7280', lineHeight: 1.7 }}>{desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── For walkers CTA split ── */}
-      <section style={{ background: '#1B4332' }} className="py-20 px-6">
-        <div className="max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-          <div className="text-white">
-            <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: '#52B788' }}>For dog walkers</p>
-            <h2 className="text-3xl font-extrabold mb-4" style={{ letterSpacing: '-0.02em' }}>Turn your love of dogs into income</h2>
-            <p className="text-base mb-6" style={{ color: 'rgba(255,255,255,0.75)', lineHeight: 1.7 }}>
-              Join PawFleet as a walker and earn K2,500–K6,000 per week. Flexible hours, instant payouts, and a growing community of dog lovers.
-            </p>
-            <div className="space-y-3 mb-8">
-              {['Set your own schedule', 'Earn K150–K350 per walk', 'Get tips & bonuses', 'Free insurance coverage'].map(item => (
-                <div key={item} className="flex items-center gap-3">
-                  <div className="w-5 h-5 rounded-full flex items-center justify-center shrink-0" style={{ background: '#52B788' }}>
-                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 5 L4 7 L8 3" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                  </div>
-                  <span className="text-sm font-medium text-white">{item}</span>
-                </div>
-              ))}
-            </div>
-            <button onClick={() => navigate('/register')}
-              className="font-bold px-8 py-4 rounded-2xl text-sm active:scale-95 transition-all"
-              style={{ background: '#fff', color: '#1B4332', boxShadow: '0 8px 24px rgba(0,0,0,0.2)' }}>
-              Apply to Walk →
-            </button>
-          </div>
-          <div className="flex justify-center items-end gap-6">
-            <WalkerCharacter />
-            <DogCharacter />
-          </div>
-        </div>
-      </section>
-
-      {/* ── Final CTA ── */}
-      <section className="py-24 px-6 text-center"
-        style={{ background: 'linear-gradient(135deg, #0A1F12 0%, #1B4332 60%, #2B8A50 100%)' }}>
-        <div className="max-w-lg mx-auto">
-          <div className="flex justify-center mb-6">
-            <OwnerCharacter />
-          </div>
-          <h2 className="text-3xl font-extrabold text-white mb-3" style={{ letterSpacing: '-0.02em' }}>Ready to get started?</h2>
-          <p className="mb-10 text-base" style={{ color: 'rgba(255,255,255,0.72)', lineHeight: 1.7 }}>
-            Join Lusaka's growing community of pet owners and trusted walkers on PawFleet.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <button onClick={() => navigate('/register')}
-              className="font-bold px-10 py-4 rounded-2xl text-base shadow-2xl active:scale-95 transition-all"
-              style={{ background: '#fff', color: '#1B4332' }}>
-              Create Account →
-            </button>
-            <button onClick={() => navigate('/login')}
-              className="font-semibold px-10 py-4 rounded-2xl text-base transition-all"
-              style={{ background: 'rgba(255,255,255,0.1)', border: '1.5px solid rgba(255,255,255,0.28)', color: '#fff' }}>
-              Sign In
-            </button>
-          </div>
-        </div>
-      </section>
-
-      {/* ── Footer ── */}
-      <footer style={{ borderTop: '1px solid #e5e7eb' }}>
-        <div className="max-w-6xl mx-auto px-6 py-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2.5">
-            <PawFleetLogo size={26} />
-            <span className="text-sm font-extrabold" style={{ color: '#1B4332' }}>PawFleet</span>
-            <span className="text-xs" style={{ color: '#9CA3AF' }}>· Lusaka, Zambia</span>
-          </div>
-          <div className="flex items-center gap-6">
-            <button onClick={() => navigate('/privacy-policy')} className="text-xs hover:underline" style={{ color: '#2B8A50' }}>
-              Privacy & Terms
-            </button>
-            <p className="text-xs" style={{ color: '#9CA3AF' }}>© 2026 PawFleet</p>
-          </div>
-        </div>
-      </footer>
+      <div className="badge">
+        <svg viewBox="0 0 24 24"><path d={PAW} /></svg>
+        Made in <b>Lusaka</b>
+      </div>
     </div>
   );
 }

@@ -220,7 +220,7 @@ export default function OwnerDashboard() {
                 <p className="text-white font-extrabold text-[17px] leading-tight">Walk</p>
                 <p className="text-white/50 text-[11px] mt-0.5">Book a walker</p>
               </div>
-              <Dog size={108} strokeWidth={1.1} color="#fff" style={{ position: 'absolute', bottom: -14, right: -14, opacity: 0.16, transform: 'rotate(-8deg)' }} />
+              <Footprints size={108} strokeWidth={1.1} color="#fff" style={{ position: 'absolute', bottom: -14, right: -14, opacity: 0.16, transform: 'rotate(-8deg)' }} />
               {activeWalk && (
                 <span className="absolute top-3 right-3 z-10 flex items-center gap-1 text-[9px] font-bold text-white px-2 py-0.5 rounded-full" style={{ background: '#10B981' }}>
                   <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />LIVE
@@ -286,7 +286,7 @@ export default function OwnerDashboard() {
               <div className="p-3 relative z-10">
                 <p className="font-extrabold text-sm leading-tight" style={{ color: '#6EE7B7' }}>My Walk</p>
               </div>
-              <Footprints size={64} strokeWidth={1.1} color="#6EE7B7" style={{ position: 'absolute', bottom: -10, right: -10, opacity: 0.22 }} />
+              <Dog size={64} strokeWidth={1.1} color="#6EE7B7" style={{ position: 'absolute', bottom: -10, right: -10, opacity: 0.22 }} />
             </Link>
 
             {/* AI HEALTH — col-span-2 */}

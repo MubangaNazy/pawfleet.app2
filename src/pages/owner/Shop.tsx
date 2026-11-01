@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Search, ShoppingCart, Plus, X, Star, ShieldCheck, MapPin, ExternalLink } from 'lucide-react';
 import { useCart } from '../../context/CartContext';
 import { useShop, ShopProduct } from '../../context/ShopContext';
@@ -8,7 +8,10 @@ import LiveRouteMap, { MapMarker } from '../../components/map/LiveRouteMap';
 import { useMyLocation } from '../../hooks/useMyLocation';
 import { formatKm, haversineKm, isValidCoord } from '../../lib/geo';
 
-const GROOM_IMG = 'https://images.unsplash.com/photo-1597633544156-0a5e9d7a1285?w=400&q=80';
+// Local assets — the previous Unsplash grooming photo had gone 404 (confirmed), which is why that
+// card looked blank. Using images already proven to load elsewhere in the app instead of another guess.
+const GROOM_IMG = '/images/pf-groom-dog.png';
+const WALK_IMG = '/images/pf-walk-man.png';
 
 function ProductDetailModal({ item, onClose, onAdd }: { item: ShopProduct; onClose: () => void; onAdd: () => void }) {
   const specLines = item.specs ? item.specs.split('\n').filter(Boolean) : [];
@@ -199,20 +202,22 @@ export default function Shop() {
       {/* Hero cards */}
       {!search && (
         <div className="px-4 pb-5 grid grid-cols-2 gap-3">
-          <div className="relative rounded-2xl overflow-hidden h-36">
+          <Link to="/owner/grooming" className="relative rounded-2xl overflow-hidden h-20 block">
             <img src={GROOM_IMG} alt="Grooming" className="w-full h-full object-cover" />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-            <div className="absolute bottom-3 left-3">
-              <p className="text-white font-bold text-sm">Grooming</p>
-              <p className="text-white/80 text-xs">Book now</p>
+            <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/10 to-transparent" />
+            <div className="absolute bottom-2 left-3">
+              <p className="text-white font-bold text-xs leading-tight">Grooming</p>
+              <p className="text-white/80 text-[10px] leading-tight">Book now</p>
             </div>
-          </div>
+          </Link>
           <button type="button" onClick={() => navigate('/owner/request')}
-            className="rounded-2xl h-36 flex flex-col items-center justify-center gap-2 text-white"
-            style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)' }}>
-            <span className="text-4xl">🦮</span>
-            <p className="font-bold text-sm">Book a walk</p>
-            <p className="text-white/70 text-xs">Find a walker</p>
+            className="relative rounded-2xl overflow-hidden h-20 block text-left">
+            <img src={WALK_IMG} alt="Book a walk" className="w-full h-full object-cover" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/10 to-transparent" />
+            <div className="absolute bottom-2 left-3">
+              <p className="text-white font-bold text-xs leading-tight">Book a walk</p>
+              <p className="text-white/80 text-[10px] leading-tight">Find a walker</p>
+            </div>
           </button>
         </div>
       )}

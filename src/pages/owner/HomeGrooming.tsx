@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, CheckCircle, Loader2, MapPin, MessageCircle, Pin } from 'lucide-react';
+import { ArrowLeft, CheckCircle, Loader2, MapPin, MessageCircle, Pin, Stethoscope } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useWalkersLive } from '../../lib/liveTracking';
 import PinDropPicker from '../../components/map/PinDropPicker';
+import GroomIllustration from '../../components/ui/GroomIllustrations';
 import { geocodeAddress, reverseGeocode } from '../../lib/geocode';
 import { LatLng, formatKm, haversineKm, isValidCoord } from '../../lib/geo';
 import { GROOM_PACKAGES as PACKAGES, GROOM_PLANS, planPrice, type PlanId } from '../../lib/groomingPackages';
@@ -250,9 +251,10 @@ export default function HomeGrooming() {
                 className={`w-full flex items-center gap-4 p-4 rounded-2xl border-2 text-left transition-all ${
                   pkg === p.id ? 'border-primary bg-primary/5' : 'border-surface-border bg-white hover:bg-surface-hover'
                 }`}>
-                <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl shrink-0"
-                  style={{ background: pkg === p.id ? '#EBF5EF' : '#F9FAFB' }}>
-                  {p.icon}
+                <div className="w-14 h-14 rounded-2xl overflow-hidden shrink-0" style={{ background: '#F4F9F6' }}>
+                  {p.art ? <GroomIllustration kind={p.art} className="w-full h-full" /> : (
+                    <div className="w-full h-full flex items-center justify-center text-2xl">{p.icon}</div>
+                  )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className={`font-bold text-sm ${pkg === p.id ? 'text-primary' : 'text-ink'}`}>{p.label}</p>
@@ -277,9 +279,9 @@ export default function HomeGrooming() {
                 className={`w-full flex items-center gap-4 p-4 rounded-2xl border-2 text-left transition-all ${
                   pkg === p.id ? 'border-purple-500 bg-purple-50' : 'border-surface-border bg-white hover:bg-surface-hover'
                 }`}>
-                <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl shrink-0"
+                <div className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0"
                   style={{ background: pkg === p.id ? '#F5F3FF' : '#F9FAFB' }}>
-                  {p.icon}
+                  <Stethoscope className="w-6 h-6" style={{ color: pkg === p.id ? '#7C3AED' : '#9CA3AF' }} strokeWidth={1.6} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">

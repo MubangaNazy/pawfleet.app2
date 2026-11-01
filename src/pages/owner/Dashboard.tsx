@@ -2,7 +2,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { format } from 'date-fns';
-import { Navigation, MessageCircle, ChevronRight, Star, Users } from 'lucide-react';
+import { Navigation, MessageCircle, ChevronRight, Star, Users, Dog, Stethoscope, Target, MapPin, Footprints, Brain, Scissors } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import Onboarding from '../../components/ui/Onboarding';
 import { SkeletonOwnerDashboard } from '../../components/ui/Skeleton';
@@ -220,7 +220,7 @@ export default function OwnerDashboard() {
                 <p className="text-white font-extrabold text-[17px] leading-tight">Walk</p>
                 <p className="text-white/50 text-[11px] mt-0.5">Book a walker</p>
               </div>
-              <span style={{ position: 'absolute', bottom: -10, right: -8, fontSize: 96, lineHeight: 1, opacity: 0.97, transform: 'rotate(-8deg)', filter: 'drop-shadow(0 10px 20px rgba(0,0,0,0.55))' }}>🦮</span>
+              <Dog size={108} strokeWidth={1.1} color="#fff" style={{ position: 'absolute', bottom: -14, right: -14, opacity: 0.16, transform: 'rotate(-8deg)' }} />
               {activeWalk && (
                 <span className="absolute top-3 right-3 z-10 flex items-center gap-1 text-[9px] font-bold text-white px-2 py-0.5 rounded-full" style={{ background: '#10B981' }}>
                   <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />LIVE
@@ -236,7 +236,7 @@ export default function OwnerDashboard() {
               <div className="p-3 relative z-10">
                 <p className="font-extrabold text-sm leading-tight" style={{ color: '#7DD3FC' }}>Vet</p>
               </div>
-              <span style={{ position: 'absolute', bottom: -6, right: -6, fontSize: 54, lineHeight: 1, filter: 'drop-shadow(0 6px 14px rgba(0,0,0,0.50))' }}>🩺</span>
+              <Stethoscope size={64} strokeWidth={1.1} color="#7DD3FC" style={{ position: 'absolute', bottom: -10, right: -10, opacity: 0.22 }} />
             </Link>
 
             {/* TRAIN */}
@@ -247,7 +247,7 @@ export default function OwnerDashboard() {
               <div className="p-3 relative z-10">
                 <p className="font-extrabold text-sm leading-tight" style={{ color: '#FDE68A' }}>Train</p>
               </div>
-              <span style={{ position: 'absolute', bottom: -6, right: -6, fontSize: 54, lineHeight: 1, filter: 'drop-shadow(0 6px 14px rgba(0,0,0,0.50))' }}>🎯</span>
+              <Target size={64} strokeWidth={1.1} color="#FDE68A" style={{ position: 'absolute', bottom: -10, right: -10, opacity: 0.22 }} />
             </Link>
 
             {/* TRACK */}
@@ -259,7 +259,7 @@ export default function OwnerDashboard() {
                 <p className="font-extrabold text-sm leading-tight" style={{ color: activeWalk ? '#4ADE80' : '#86EFAC' }}>Track</p>
                 {activeWalk && <span className="flex items-center gap-1 text-[9px] font-bold mt-0.5" style={{ color: '#4ADE80' }}><span className="w-1 h-1 rounded-full bg-green-400 animate-pulse" />LIVE</span>}
               </div>
-              <span style={{ position: 'absolute', bottom: -6, right: -6, fontSize: 54, lineHeight: 1, filter: 'drop-shadow(0 6px 14px rgba(0,0,0,0.50))' }}>📍</span>
+              <MapPin size={64} strokeWidth={1.1} color={activeWalk ? '#4ADE80' : '#86EFAC'} style={{ position: 'absolute', bottom: -10, right: -10, opacity: 0.22 }} />
             </Link>
 
             {/* CHAT */}
@@ -270,7 +270,7 @@ export default function OwnerDashboard() {
               <div className="p-3 relative z-10">
                 <p className="font-extrabold text-sm leading-tight" style={{ color: '#C4B5FD' }}>Chat</p>
               </div>
-              <span style={{ position: 'absolute', bottom: -6, right: -6, fontSize: 54, lineHeight: 1, filter: 'drop-shadow(0 6px 14px rgba(0,0,0,0.50))' }}>💬</span>
+              <MessageCircle size={64} strokeWidth={1.1} color="#C4B5FD" style={{ position: 'absolute', bottom: -10, right: -10, opacity: 0.22 }} />
               {unreadChat > 0 && (
                 <span className="absolute top-2 right-2 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center z-20">
                   {unreadChat > 9 ? '9+' : unreadChat}
@@ -286,7 +286,7 @@ export default function OwnerDashboard() {
               <div className="p-3 relative z-10">
                 <p className="font-extrabold text-sm leading-tight" style={{ color: '#6EE7B7' }}>My Walk</p>
               </div>
-              <span style={{ position: 'absolute', bottom: -6, right: -8, fontSize: 54, lineHeight: 1, filter: 'drop-shadow(0 6px 14px rgba(0,0,0,0.50))' }}>🐕‍🦺</span>
+              <Footprints size={64} strokeWidth={1.1} color="#6EE7B7" style={{ position: 'absolute', bottom: -10, right: -10, opacity: 0.22 }} />
             </Link>
 
             {/* AI HEALTH — col-span-2 */}
@@ -298,7 +298,7 @@ export default function OwnerDashboard() {
                 <p className="font-extrabold text-sm leading-tight" style={{ color: '#C4B5FD' }}>AI Health</p>
                 <p className="text-white/40 text-[10px] mt-0.5">Journal & insights</p>
               </div>
-              <span style={{ position: 'absolute', bottom: -8, right: -6, fontSize: 62, lineHeight: 1, opacity: 0.97, filter: 'drop-shadow(0 8px 16px rgba(0,0,0,0.55))' }}>🐾</span>
+              <Brain size={72} strokeWidth={1.1} color="#C4B5FD" style={{ position: 'absolute', bottom: -12, right: -10, opacity: 0.22 }} />
             </Link>
 
             {/* GROOMING — col-span-1 matching small card style */}
@@ -309,7 +309,7 @@ export default function OwnerDashboard() {
               <div className="p-3 relative z-10">
                 <p className="font-extrabold text-sm leading-tight" style={{ color: '#6EE7B7' }}>Groom</p>
               </div>
-              <span style={{ position: 'absolute', bottom: -6, right: -6, fontSize: 54, lineHeight: 1, filter: 'drop-shadow(0 6px 14px rgba(0,0,0,0.50))' }}>✂️</span>
+              <Scissors size={64} strokeWidth={1.1} color="#6EE7B7" style={{ position: 'absolute', bottom: -10, right: -10, opacity: 0.22 }} />
             </Link>
 
           </div>
@@ -392,8 +392,8 @@ export default function OwnerDashboard() {
                 const groomer = data.users.find(u => u.id === w.walkerId);
                 return (
                   <div key={w.id} className="flex items-center gap-3 px-4 py-4">
-                    <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl shrink-0"
-                      style={{ background: '#0891B215' }}>✂️</div>
+                    <div className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0"
+                      style={{ background: '#0891B215' }}><Scissors className="w-5 h-5" style={{ color: '#0891B2' }} /></div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-0.5">
                         <span className="flex items-center gap-1 text-[10px] font-bold text-white bg-blue-500 px-2 py-0.5 rounded-full">
@@ -431,8 +431,8 @@ export default function OwnerDashboard() {
                 const clinic   = clinicLn ? clinicLn.replace('📍 Clinic: ', '') : null;
                 return (
                   <div key={w.id} className="flex items-center gap-3 px-4 py-4">
-                    <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl shrink-0"
-                      style={{ background: '#7C3AED15' }}>🏥</div>
+                    <div className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0"
+                      style={{ background: '#7C3AED15' }}><Stethoscope className="w-5 h-5" style={{ color: '#7C3AED' }} /></div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-0.5">
                         <span className="flex items-center gap-1 text-[10px] font-bold text-white bg-purple-500 px-2 py-0.5 rounded-full">
@@ -520,7 +520,7 @@ export default function OwnerDashboard() {
                 <div className="absolute top-0 right-0 w-20 h-20 rounded-full opacity-10"
                   style={{ background: 'radial-gradient(circle, white, transparent)', transform: 'translate(40%,-40%)' }} />
                 <div className="p-3.5">
-                  <span className="text-2xl">🦮</span>
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-white/15"><Dog className="w-5 h-5 text-white" strokeWidth={1.6} /></div>
                   <p className="text-white font-bold text-xs mt-2 leading-tight">Dog Walking</p>
                 </div>
                 <div className="px-3.5 pb-3 flex items-center justify-end">
@@ -537,7 +537,7 @@ export default function OwnerDashboard() {
                 <div className="absolute top-0 right-0 w-20 h-20 rounded-full opacity-10"
                   style={{ background: 'radial-gradient(circle, white, transparent)', transform: 'translate(40%,-40%)' }} />
                 <div className="p-3.5">
-                  <span className="text-2xl">🛁</span>
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-white/15"><Scissors className="w-5 h-5 text-white" strokeWidth={1.6} /></div>
                   <p className="text-white font-bold text-xs mt-2 leading-tight">Grooming</p>
                 </div>
                 <div className="px-3.5 pb-3 flex items-center justify-end">
@@ -554,7 +554,7 @@ export default function OwnerDashboard() {
                 <div className="absolute top-0 right-0 w-20 h-20 rounded-full opacity-10"
                   style={{ background: 'radial-gradient(circle, white, transparent)', transform: 'translate(40%,-40%)' }} />
                 <div className="p-3.5">
-                  <span className="text-2xl">🩺</span>
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-white/15"><Stethoscope className="w-5 h-5 text-white" strokeWidth={1.6} /></div>
                   <p className="text-white font-bold text-xs mt-2 leading-tight">Vetting</p>
                 </div>
                 <div className="px-3.5 pb-3 flex items-center justify-end">
@@ -634,7 +634,7 @@ export default function OwnerDashboard() {
                         <div className="w-10 h-10 rounded-xl overflow-hidden bg-[#EBF5EF] shrink-0">
                           {dog.imageUrl
                             ? <img src={dog.imageUrl} alt={dog.name} className="w-full h-full object-cover" />
-                            : <div className="w-full h-full flex items-center justify-center text-lg">🐕</div>}
+                            : <div className="w-full h-full flex items-center justify-center"><Dog className="w-5 h-5" style={{ color: '#2B8A50' }} strokeWidth={1.6} /></div>}
                         </div>
                         <div className="min-w-0">
                           <p className="font-bold text-ink text-sm truncate">{dog.name}</p>
@@ -644,7 +644,7 @@ export default function OwnerDashboard() {
 
                       <div className={`rounded-xl p-2.5 mb-2.5 ${groomDue ? 'bg-amber-50' : 'bg-[#F4F9F6]'}`}>
                         <div className="flex items-center gap-1.5 mb-0.5">
-                          <span className="text-xs">✂️</span>
+                          <Scissors className="w-3 h-3 text-ink-muted" strokeWidth={2} />
                           <p className="text-[10px] font-bold text-ink-muted uppercase tracking-wide">Grooming</p>
                         </div>
                         {daysUntil !== null ? (

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Plus, X, ChevronRight, Sparkles, Weight, Calendar, Activity, Mic, MicOff } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { supabase } from '../../lib/supabase';
 import type { Dog } from '../../types';
 
 // ── Types ──────────────────────────────────────────────────────
@@ -17,49 +18,30 @@ interface HealthEntry {
   createdAt: string;
 }
 
-// ── Gemini AI ─────────────────────────────────────────────────
-const GEMINI_KEY = (import.meta.env.VITE_GEMINI_API_KEY as string | undefined)?.trim();
-const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
+function toEntry(r: any): HealthEntry {
+  return {
+    id: r.id, dogId: r.dog_id, type: r.type, content: r.content,
+    weightKg: r.weight_kg != null ? Number(r.weight_kg) : undefined,
+    aiResponse: r.ai_response ?? undefined,
+    createdAt: r.created_at,
+  };
+}
 
+// ── AI assistant ─────────────────────────────────────────────
+// Runs server-side now (api/ai-health-insight.js) — the previous version called Gemini directly from
+// the browser with a key embedded in the public bundle, which anyone could lift and spend against.
 async function getAIInsight(text: string, dogName?: string): Promise<string> {
-  if (!GEMINI_KEY) {
-    // Fallback keyword responses when no API key is configured
-    const t = text.toLowerCase();
-    if (t.match(/letharg|tired|energy|slow|weak/)) return "Lethargy can stem from heat, fatigue, or early illness. If it lasts more than 24 hours or your dog refuses food/water, see a vet promptly.";
-    if (t.match(/vomit|sick|throw|puke|nausea/)) return "Occasional vomiting can be normal. Watch for more than 2–3 episodes, blood in vomit, bloating, or lethargy — those warrant a same-day vet call.";
-    if (t.match(/scratch|itch|skin|rash|fur|coat/)) return "Persistent scratching often signals allergies, fleas, or a skin infection. Check for flea dirt. If skin looks red or raw, a vet can help.";
-    if (t.match(/eat|appetite|food|hungry|refuse/)) return "A sudden drop in appetite can signal dental pain, stress, or illness. If your dog skips more than one full meal, contact your vet.";
-    if (t.match(/limp|leg|paw|walk|hurt/)) return "Check paw pads for cuts or debris. Rest them for 24 hours. If limping persists or they won't bear weight, get a vet check.";
-    if (t.match(/drink|water|thirst/)) return "Increased thirst can relate to diabetes or kidney issues. Track water intake and share this log with your vet.";
-    return "Thanks for logging this! Your vet will love having this history during check-ups. Get a free AI key at aistudio.google.com/app/apikey.";
-  }
-
-  const prompt = `You are PawFleet's friendly AI vet assistant. A pet owner just described their ${dogName ?? 'dog'}'s health observation: "${text}". Give a warm, helpful response in 2–3 short sentences. Mention if it needs urgent vet attention. Keep it under 80 words. Do not use markdown.`;
-
-  const res = await fetch(`${GEMINI_URL}?key=${GEMINI_KEY}`, {
+  const { data: sess } = await supabase.auth.getSession();
+  const token = sess.session?.access_token;
+  if (!token) throw new Error('Please log out, log back in, then try again.');
+  const res = await fetch('/api/ai-health-insight', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text, dogName }),
   });
-  if (!res.ok) {
-    const errBody = await res.text().catch(() => '');
-    throw new Error(`Gemini ${res.status}: ${errBody.slice(0, 120)}`);
-  }
-  const json = await res.json();
-  return json.candidates?.[0]?.content?.parts?.[0]?.text ?? 'No response from AI — try again.';
-}
-
-// ── Local storage helpers ──────────────────────────────────────
-const STORAGE_KEY = 'pawfleet_health_journal';
-
-function loadEntries(): HealthEntry[] {
-  try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-  } catch { return []; }
-}
-
-function saveEntries(entries: HealthEntry[]) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(entries)); } catch { /* quota */ }
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(json.error || 'Could not reach the AI assistant.');
+  return json.reply as string;
 }
 
 // ── Entry type config ──────────────────────────────────────────
@@ -90,7 +72,7 @@ export default function PetHealth() {
   const myDogs = data.dogs.filter(d => d.ownerId === currentUser?.id);
 
   const [selectedDog, setSelectedDog] = useState<Dog | null>(myDogs[0] ?? null);
-  const [entries, setEntries] = useState<HealthEntry[]>(loadEntries);
+  const [entries, setEntries] = useState<HealthEntry[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showAIModal, setShowAIModal] = useState(false);
   const [aiDraft, setAIDraft] = useState('');
@@ -101,6 +83,16 @@ export default function PetHealth() {
   const [addWeight, setAddWeight] = useState('');
   const [listening, setListening] = useState(false);
   const recognitionRef = useRef<any>(null);
+
+  // Real, synced journal — previously this lived only in localStorage on one device.
+  useEffect(() => {
+    if (!currentUser) return;
+    supabase.from('health_journal').select('*').eq('owner_id', currentUser.id).order('created_at', { ascending: false })
+      .then(({ data: rows, error }) => {
+        if (error) { console.error('health_journal load:', error); return; }
+        setEntries((rows || []).map(toEntry));
+      });
+  }, [currentUser]);
 
   const toggleMic = () => {
     const SR = (window as any).SpeechRecognition ?? (window as any).webkitSpeechRecognition;
@@ -126,8 +118,8 @@ export default function PetHealth() {
     Date.now() - new Date(w.scheduledDate).getTime() < 7 * 86400000
   ).length;
 
-  const addEntry = () => {
-    if (!selectedDog || (!addContent.trim() && addType !== 'weight')) return;
+  const addEntry = async () => {
+    if (!selectedDog || !currentUser || (!addContent.trim() && addType !== 'weight')) return;
     const entry: HealthEntry = {
       id: crypto.randomUUID(),
       dogId: selectedDog.id,
@@ -136,19 +128,22 @@ export default function PetHealth() {
       weightKg: addType === 'weight' ? parseFloat(addWeight) : undefined,
       createdAt: new Date().toISOString(),
     };
-    const next = [entry, ...entries];
-    setEntries(next);
-    saveEntries(next);
+    setEntries(prev => [entry, ...prev]);
     setAddContent('');
     setAddWeight('');
     setAddType('note');
     setShowAddModal(false);
+    const { error } = await supabase.from('health_journal').insert({
+      id: entry.id, dog_id: entry.dogId, owner_id: currentUser.id, type: entry.type,
+      content: entry.content, weight_kg: entry.weightKg ?? null,
+    });
+    if (error) console.error('health_journal insert:', error);
   };
 
-  const deleteEntry = (id: string) => {
-    const next = entries.filter(e => e.id !== id);
-    setEntries(next);
-    saveEntries(next);
+  const deleteEntry = async (id: string) => {
+    setEntries(prev => prev.filter(e => e.id !== id));
+    const { error } = await supabase.from('health_journal').delete().eq('id', id);
+    if (error) console.error('health_journal delete:', error);
   };
 
   const runAI = async () => {
@@ -165,8 +160,8 @@ export default function PetHealth() {
     }
   };
 
-  const saveAIEntry = () => {
-    if (!selectedDog || !aiResult) return;
+  const saveAIEntry = async () => {
+    if (!selectedDog || !currentUser || !aiResult) return;
     const entry: HealthEntry = {
       id: crypto.randomUUID(),
       dogId: selectedDog.id,
@@ -175,12 +170,15 @@ export default function PetHealth() {
       aiResponse: aiResult,
       createdAt: new Date().toISOString(),
     };
-    const next = [entry, ...entries];
-    setEntries(next);
-    saveEntries(next);
+    setEntries(prev => [entry, ...prev]);
     setAIDraft('');
     setAIResult('');
     setShowAIModal(false);
+    const { error } = await supabase.from('health_journal').insert({
+      id: entry.id, dog_id: entry.dogId, owner_id: currentUser.id, type: entry.type,
+      content: entry.content, ai_response: entry.aiResponse ?? null,
+    });
+    if (error) console.error('health_journal insert (AI):', error);
   };
 
   if (myDogs.length === 0) return (

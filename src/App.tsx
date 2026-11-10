@@ -86,6 +86,7 @@ const Chat              = lazy(() => import('./pages/Chat'));
 const DirectMessage     = lazy(() => import('./pages/DirectMessage'));
 const Community         = lazy(() => import('./pages/Community'));
 const PrivacyPolicy     = lazy(() => import('./pages/PrivacyPolicy'));
+const SharedPetHealth   = lazy(() => import('./pages/SharedPetHealth'));
 const DeleteAccountPage = lazy(() => import('./pages/DeleteAccount'));
 const ForgotPassword    = lazy(() => import('./pages/ForgotPassword'));
 const ResetPassword     = lazy(() => import('./pages/ResetPassword'));
@@ -243,6 +244,7 @@ function AppRoutes() {
       <Route path="/register"       element={<Register />} />
       <Route path="/landing"        element={<Landing />} />
       <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+      <Route path="/shared/pet-health/:token" element={<SharedPetHealth />} />
       <Route path="/delete-account" element={<DeleteAccountPage />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password"  element={<ResetPassword />} />

@@ -147,6 +147,64 @@ export default async function handler(req, res) {
       }
     }
 
+    // ── 5. Pet care reminders (wash/groom, vet checkup) newly overdue ─────────
+    {
+      summary.careReminders = 0;
+      const dedupSince = new Date(now - 14 * 24 * 3600000).toISOString();
+      const [dogs, completedWalks, journalEntries, sentFor] = await Promise.all([
+        admin('/rest/v1/dogs?select=id,name,owner_id,wash_interval_days,vet_interval_days'),
+        admin(`/rest/v1/walks?status=eq.completed&select=dog_id,scheduled_date,notes`),
+        admin('/rest/v1/health_journal?select=dog_id,type,created_at&type=in.(grooming,vet_visit)'),
+        alreadySent('pet_care_reminder', dedupSince, 'dogCategory'),
+      ]);
+      const walksByDog = new Map();
+      (Array.isArray(completedWalks) ? completedWalks : []).forEach(w => {
+        if (!walksByDog.has(w.dog_id)) walksByDog.set(w.dog_id, []);
+        walksByDog.get(w.dog_id).push(w);
+      });
+      const entriesByDog = new Map();
+      (Array.isArray(journalEntries) ? journalEntries : []).forEach(e => {
+        if (!entriesByDog.has(e.dog_id)) entriesByDog.set(e.dog_id, []);
+        entriesByDog.get(e.dog_id).push(e);
+      });
+
+      for (const dog of (Array.isArray(dogs) ? dogs : [])) {
+        if (!dog.owner_id) continue;
+        const dogWalks = walksByDog.get(dog.id) || [];
+        const dogJournal = entriesByDog.get(dog.id) || [];
+        const latest = (dates) => dates.filter(Boolean).sort().reverse()[0] ?? null;
+
+        const checks = [
+          {
+            category: 'wash', label: 'wash/groom', intervalDays: dog.wash_interval_days ?? 30,
+            lastAt: latest([
+              ...dogWalks.filter(w => /grooming/i.test(w.notes ?? '')).map(w => w.scheduled_date),
+              ...dogJournal.filter(e => e.type === 'grooming').map(e => e.created_at),
+            ]),
+          },
+          {
+            category: 'vet', label: 'vet checkup', intervalDays: dog.vet_interval_days ?? 180,
+            lastAt: latest([
+              ...dogWalks.filter(w => /^VET BOOKING:/.test(w.notes ?? '')).map(w => w.scheduled_date),
+              ...dogJournal.filter(e => e.type === 'vet_visit').map(e => e.created_at),
+            ]),
+          },
+        ];
+
+        for (const c of checks) {
+          if (!c.lastAt) continue; // never logged — nothing to be "overdue" relative to yet
+          const daysSince = Math.floor((now - new Date(c.lastAt).getTime()) / 86400000);
+          if (daysSince <= c.intervalDays) continue; // not overdue
+          const dedupKey = `${dog.id}:${c.category}`;
+          if (sentFor.has(dedupKey)) continue;
+          await notify(dog.owner_id, 'pet_care_reminder', `🔔 ${dog.name} is overdue`,
+            `It's been ${daysSince} days since ${dog.name}'s last ${c.label} — open Pet Health to log it or see details.`,
+            { dogCategory: dedupKey, dogId: dog.id });
+          summary.careReminders++;
+        }
+      }
+    }
+
     return res.status(200).json({ ok: true, ...summary });
   } catch (err) {
     console.error('cron/reminders failed:', err);

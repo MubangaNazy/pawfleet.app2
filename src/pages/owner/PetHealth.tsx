@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, X, ChevronRight, Sparkles, Weight, Calendar, Activity, Mic, MicOff, Footprints, Bath, Stethoscope, Check, Bell, NotebookPen, ClipboardList } from 'lucide-react';
+import { ArrowLeft, Plus, X, ChevronRight, Sparkles, Weight, Calendar, Activity, Mic, MicOff, Footprints, Bath, Stethoscope, Check, Bell, NotebookPen, ClipboardList, Syringe, Share2, Pencil, Copy, Loader2, Dog as DogIcon } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { supabase } from '../../lib/supabase';
 import type { Dog } from '../../types';
 
 // ── Types ──────────────────────────────────────────────────────
-type EntryType = 'note' | 'symptom' | 'vet_visit' | 'weight' | 'medication' | 'grooming';
+type EntryType = 'note' | 'symptom' | 'vet_visit' | 'weight' | 'medication' | 'grooming' | 'vaccination';
 
 interface HealthEntry {
   id: string;
@@ -15,6 +15,7 @@ interface HealthEntry {
   content: string;
   weightKg?: number;
   aiResponse?: string;
+  dueDate?: string;
   createdAt: string;
 }
 
@@ -23,6 +24,7 @@ function toEntry(r: any): HealthEntry {
     id: r.id, dogId: r.dog_id, type: r.type, content: r.content,
     weightKg: r.weight_kg != null ? Number(r.weight_kg) : undefined,
     aiResponse: r.ai_response ?? undefined,
+    dueDate: r.due_date ?? undefined,
     createdAt: r.created_at,
   };
 }
@@ -30,14 +32,15 @@ function toEntry(r: any): HealthEntry {
 // ── AI assistant ─────────────────────────────────────────────
 // Runs server-side now (api/ai-health-insight.js) — the previous version called Gemini directly from
 // the browser with a key embedded in the public bundle, which anyone could lift and spend against.
-async function getAIInsight(text: string, dogName?: string): Promise<string> {
+// Breed/age/recent entries are optional context so answers can actually be a little more specific.
+async function getAIInsight(text: string, dogName?: string, context?: { breed?: string; age?: number; recentEntries?: { type: string; content: string; createdAt: string }[] }): Promise<string> {
   const { data: sess } = await supabase.auth.getSession();
   const token = sess.session?.access_token;
   if (!token) throw new Error('Please log out, log back in, then try again.');
   const res = await fetch('/api/ai-health-insight', {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text, dogName }),
+    body: JSON.stringify({ text, dogName, ...context }),
   });
   const json = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(json.error || 'Could not reach the AI assistant.');
@@ -52,6 +55,7 @@ const ENTRY_TYPES: { value: EntryType; label: string; emoji: string; color: stri
   { value: 'weight',    label: 'Weight',       emoji: '⚖️', color: '#6D28D9', bg: '#F5F3FF' },
   { value: 'medication',label: 'Medication',   emoji: '💊', color: '#065F46', bg: '#ECFDF5' },
   { value: 'grooming',  label: 'Wash/Groom',   emoji: '🛁', color: '#0F766E', bg: '#F0FDFA' },
+  { value: 'vaccination', label: 'Vaccination', emoji: '💉', color: '#BE185D', bg: '#FDF2F8' },
 ];
 
 function timeAgo(iso: string) {
@@ -86,7 +90,7 @@ function SectionHeading({ icon: Icon, title, subtitle, color = '#6D28D9', bg = '
 
 // ── Main component ─────────────────────────────────────────────
 export default function PetHealth() {
-  const { data, currentUser } = useApp();
+  const { data, currentUser, updateDog } = useApp();
   const navigate = useNavigate();
   const myDogs = data.dogs.filter(d => d.ownerId === currentUser?.id);
 
@@ -100,8 +104,15 @@ export default function PetHealth() {
   const [addType, setAddType] = useState<EntryType>('note');
   const [addContent, setAddContent] = useState('');
   const [addWeight, setAddWeight] = useState('');
+  const [addDueDate, setAddDueDate] = useState('');
   const [listening, setListening] = useState(false);
   const [dateFilter, setDateFilter] = useState<string | null>(null); // yyyy-mm-dd, or null = show all
+  const [editingInterval, setEditingInterval] = useState<'wash' | 'vet' | null>(null);
+  const [intervalDraft, setIntervalDraft] = useState('');
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [shareUrl, setShareUrl] = useState('');
+  const [shareLoading, setShareLoading] = useState(false);
+  const [shareError, setShareError] = useState('');
   const recognitionRef = useRef<any>(null);
 
   // Real, synced journal — previously this lived only in localStorage on one device.
@@ -163,20 +174,47 @@ export default function PetHealth() {
     const defs = [
       { key: 'walk', label: 'Walk', icon: Footprints, color: '#1B4332', bg: '#EBF5EF', intervalDays: 2,
         lastAt: lastWalkBooking?.scheduledDate ?? null, markDone: false },
-      { key: 'wash', label: 'Wash / Groom', icon: Bath, color: '#0F766E', bg: '#F0FDFA', intervalDays: 30,
-        lastAt: [lastGroomEntry?.createdAt, lastGroomBooking?.scheduledDate].filter(Boolean).sort().reverse()[0] ?? null, markDone: true },
-      { key: 'vet', label: 'Vet Checkup', icon: Stethoscope, color: '#7C3AED', bg: '#F5F3FF', intervalDays: 180,
-        lastAt: [lastVet?.createdAt, lastVetBooking?.scheduledDate].filter(Boolean).sort().reverse()[0] ?? null, markDone: false },
+      { key: 'wash', label: 'Wash / Groom', icon: Bath, color: '#0F766E', bg: '#F0FDFA', intervalDays: selectedDog?.washIntervalDays ?? 30,
+        lastAt: [lastGroomEntry?.createdAt, lastGroomBooking?.scheduledDate].filter(Boolean).sort().reverse()[0] ?? null, markDone: true, editable: true as const },
+      { key: 'vet', label: 'Vet Checkup', icon: Stethoscope, color: '#7C3AED', bg: '#F5F3FF', intervalDays: selectedDog?.vetIntervalDays ?? 180,
+        lastAt: [lastVet?.createdAt, lastVetBooking?.scheduledDate].filter(Boolean).sort().reverse()[0] ?? null, markDone: false, editable: true as const },
     ];
 
-    return defs.map(d => {
+    const timeBased = defs.map(d => {
       const daysSince = d.lastAt ? Math.floor((Date.now() - new Date(d.lastAt).getTime()) / 86400000) : null;
       const daysUntilDue = daysSince == null ? null : d.intervalDays - daysSince;
       const status: 'never' | 'overdue' | 'due' | 'ok' =
         daysSince == null ? 'never' : daysUntilDue! < 0 ? 'overdue' : daysUntilDue! <= 2 ? 'due' : 'ok';
       return { ...d, daysSince, daysUntilDue, status };
     });
-  }, [dogWalks, dogEntries, lastVet]);
+
+    // Vaccination is tracked by due date, not a fixed interval — whatever due date was logged
+    // against the most recent vaccination entry (if any) drives the status.
+    const lastVaccine = dogEntries.find(e => e.type === 'vaccination');
+    const vaxDaysUntilDue = lastVaccine?.dueDate
+      ? Math.ceil((new Date(lastVaccine.dueDate).getTime() - Date.now()) / 86400000)
+      : null;
+    const vaxDaysSince = lastVaccine ? Math.floor((Date.now() - new Date(lastVaccine.createdAt).getTime()) / 86400000) : null;
+    const vaxStatus: 'never' | 'overdue' | 'due' | 'ok' =
+      !lastVaccine ? 'never' : vaxDaysUntilDue == null ? 'ok' : vaxDaysUntilDue < 0 ? 'overdue' : vaxDaysUntilDue <= 14 ? 'due' : 'ok';
+    const vaccination = {
+      key: 'vaccination' as const, label: 'Vaccination', icon: Syringe, color: '#BE185D', bg: '#FDF2F8',
+      intervalDays: null, lastAt: lastVaccine?.createdAt ?? null, markDone: false, editable: false as const,
+      daysSince: vaxDaysSince, daysUntilDue: vaxDaysUntilDue, status: vaxStatus, dueDate: lastVaccine?.dueDate ?? null,
+    };
+
+    return [...timeBased, vaccination];
+  }, [dogWalks, dogEntries, lastVet, selectedDog?.washIntervalDays, selectedDog?.vetIntervalDays]);
+
+  const saveInterval = async () => {
+    if (!selectedDog || !editingInterval) return;
+    const days = parseInt(intervalDraft, 10);
+    if (!days || days < 1) { setEditingInterval(null); return; }
+    const patch = editingInterval === 'wash' ? { washIntervalDays: days } : { vetIntervalDays: days };
+    setSelectedDog(prev => prev ? { ...prev, ...patch } : prev);
+    await updateDog(selectedDog.id, patch);
+    setEditingInterval(null);
+  };
 
   const quickLogGrooming = async () => {
     if (!selectedDog || !currentUser) return;
@@ -194,16 +232,18 @@ export default function PetHealth() {
       type: addType,
       content: addType === 'weight' ? `Weight recorded: ${addWeight} kg` : addContent.trim(),
       weightKg: addType === 'weight' ? parseFloat(addWeight) : undefined,
+      dueDate: addType === 'vaccination' && addDueDate ? addDueDate : undefined,
       createdAt: new Date().toISOString(),
     };
     setEntries(prev => [entry, ...prev]);
     setAddContent('');
     setAddWeight('');
+    setAddDueDate('');
     setAddType('note');
     setShowAddModal(false);
     const { error } = await supabase.from('health_journal').insert({
       id: entry.id, dog_id: entry.dogId, owner_id: currentUser.id, type: entry.type,
-      content: entry.content, weight_kg: entry.weightKg ?? null,
+      content: entry.content, weight_kg: entry.weightKg ?? null, due_date: entry.dueDate ?? null,
     });
     if (error) console.error('health_journal insert:', error);
   };
@@ -219,7 +259,10 @@ export default function PetHealth() {
     setAIThinking(true);
     setAIResult('');
     try {
-      const result = await getAIInsight(aiDraft, selectedDog?.name);
+      const recentEntries = dogEntries.slice(0, 5).map(e => ({ type: e.type, content: e.content, createdAt: e.createdAt }));
+      const result = await getAIInsight(aiDraft, selectedDog?.name, {
+        breed: selectedDog?.breed, age: selectedDog?.age, recentEntries,
+      });
       setAIResult(result);
     } catch (err: any) {
       setAIResult(`Could not reach AI — ${err?.message ?? 'check your connection and try again.'}`);
@@ -247,6 +290,47 @@ export default function PetHealth() {
       content: entry.content, ai_response: entry.aiResponse ?? null,
     });
     if (error) console.error('health_journal insert (AI):', error);
+  };
+
+  const openShareModal = async () => {
+    setShowShareModal(true);
+    if (!selectedDog) return;
+    setShareLoading(true);
+    setShareError('');
+    try {
+      const { data: sess } = await supabase.auth.getSession();
+      const token = sess.session?.access_token;
+      if (!token) throw new Error('Please log out, log back in, then try again.');
+      const res = await fetch('/api/pet-health-share', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'create', dogId: selectedDog.id }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || 'Could not create a share link.');
+      setShareUrl(json.url);
+    } catch (err: any) {
+      setShareError(err?.message ?? 'Something went wrong.');
+    } finally {
+      setShareLoading(false);
+    }
+  };
+
+  const revokeShare = async () => {
+    if (!selectedDog) return;
+    setShareLoading(true);
+    try {
+      const { data: sess } = await supabase.auth.getSession();
+      const token = sess.session?.access_token;
+      await fetch('/api/pet-health-share', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'revoke', dogId: selectedDog.id }),
+      });
+      setShareUrl('');
+    } finally {
+      setShareLoading(false);
+    }
   };
 
   if (myDogs.length === 0) return (
@@ -278,8 +362,13 @@ export default function PetHealth() {
             <h1 className="text-white font-extrabold text-lg leading-tight">Pet Health</h1>
             <p className="text-white/55 text-[11px]">Track vitals · journal · AI insights</p>
           </div>
-          <button onClick={() => setShowAddModal(true)}
+          <button onClick={openShareModal}
             className="ml-auto w-9 h-9 rounded-2xl flex items-center justify-center"
+            style={{ background: 'rgba(255,255,255,0.15)' }}>
+            <Share2 className="w-4 h-4 text-white" />
+          </button>
+          <button onClick={() => setShowAddModal(true)}
+            className="w-9 h-9 rounded-2xl flex items-center justify-center"
             style={{ background: 'rgba(255,255,255,0.20)' }}>
             <Plus className="w-4 h-4 text-white" />
           </button>
@@ -294,7 +383,7 @@ export default function PetHealth() {
                 style={selectedDog?.id === dog.id
                   ? { background: 'white', color: '#6D28D9' }
                   : { background: 'rgba(255,255,255,0.18)', color: 'rgba(255,255,255,0.80)' }}>
-                <span>🐕</span>
+                <DogIcon className="w-3.5 h-3.5" strokeWidth={2.2} />
                 {dog.name}
               </button>
             ))}
@@ -423,6 +512,11 @@ export default function PetHealth() {
                           <span className="text-[10px] text-ink-muted ml-auto">{timeAgo(entry.createdAt)}</span>
                         </div>
                         <p className="text-sm text-ink leading-relaxed">{entry.content}</p>
+                        {entry.dueDate && (
+                          <p className="text-[11px] font-semibold mt-1" style={{ color: '#BE185D' }}>
+                            Next due: {new Date(entry.dueDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          </p>
+                        )}
                         {entry.aiResponse && (
                           <div className="mt-2 px-3 py-2 rounded-xl text-xs leading-relaxed" style={{ background: '#F5F3FF', color: '#5B21B6', borderLeft: '3px solid #7C3AED' }}>
                             <span className="font-bold">✨ AI: </span>{entry.aiResponse}
@@ -465,10 +559,38 @@ export default function PetHealth() {
                         {STATUS_META.label}
                       </span>
                     </div>
-                    <p className="text-xs text-ink-muted mt-0.5">
-                      {r.daysSince == null ? `Log it to start tracking` : r.daysSince === 0 ? 'Today' : `${r.daysSince}d ago`}
-                      {r.key !== 'walk' && r.daysSince != null && ` · every ~${r.intervalDays}d`}
-                    </p>
+                    {r.key === 'vaccination' ? (
+                      <p className="text-xs text-ink-muted mt-0.5">
+                        {!r.lastAt ? 'Log a vaccination to start tracking' : (r as any).dueDate
+                          ? `Due ${new Date((r as any).dueDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`
+                          : `Last logged ${r.daysSince}d ago · no due date set`}
+                      </p>
+                    ) : editingInterval === r.key ? (
+                      <div className="flex items-center gap-1.5 mt-1">
+                        <input type="number" min={1} autoFocus value={intervalDraft}
+                          onChange={e => setIntervalDraft(e.target.value)}
+                          className="w-16 border border-surface-border rounded-lg px-2 py-1 text-xs"
+                          placeholder={String(r.intervalDays)} />
+                        <span className="text-xs text-ink-muted">days</span>
+                        <button onClick={saveInterval} className="text-xs font-bold" style={{ color: r.color }}>Save</button>
+                        <button onClick={() => setEditingInterval(null)} className="text-xs text-ink-muted">Cancel</button>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-ink-muted mt-0.5">
+                        {r.daysSince == null ? `Log it to start tracking` : r.daysSince === 0 ? 'Today' : `${r.daysSince}d ago`}
+                        {r.key !== 'walk' && r.daysSince != null && (
+                          <>
+                            {' · every ~'}{r.intervalDays}d
+                            {(r as any).editable && (
+                              <button onClick={() => { setEditingInterval(r.key as 'wash' | 'vet'); setIntervalDraft(String(r.intervalDays)); }}
+                                className="inline-flex items-center ml-1 text-ink-muted/70 hover:text-ink-muted">
+                                <Pencil className="w-2.5 h-2.5" />
+                              </button>
+                            )}
+                          </>
+                        )}
+                      </p>
+                    )}
                   </div>
                   {r.markDone && (
                     <button onClick={quickLogGrooming}
@@ -482,6 +604,13 @@ export default function PetHealth() {
                       className="text-[11px] font-bold px-3 py-2 rounded-xl shrink-0 text-white"
                       style={{ background: r.color }}>
                       Log visit
+                    </button>
+                  )}
+                  {r.key === 'vaccination' && (
+                    <button onClick={() => { setAddType('vaccination'); setShowAddModal(true); }}
+                      className="text-[11px] font-bold px-3 py-2 rounded-xl shrink-0 text-white"
+                      style={{ background: r.color }}>
+                      Log it
                     </button>
                   )}
                 </div>
@@ -500,7 +629,6 @@ export default function PetHealth() {
           </div>
           <div className="divide-y divide-surface-border">
             {[
-              { icon: '💉', text: 'Vaccinations due every 12 months', action: 'Log it' },
               { icon: '🦷', text: 'Dental check every 6 months', action: 'Log it' },
               { icon: '🪱', text: 'Deworming every 3 months', action: 'Log it' },
               { icon: '🧴', text: 'Flea & tick treatment monthly', action: 'Log it' },
@@ -553,16 +681,27 @@ export default function PetHealth() {
                     className="w-full border border-surface-border rounded-2xl px-4 py-3 text-sm text-ink focus:outline-none focus:border-primary" />
                 </div>
               ) : (
-                <div>
-                  <p className="text-xs text-ink-muted mb-2">
-                    {addType === 'symptom' && 'What are you noticing? (e.g. limping, not eating, scratching)'}
-                    {addType === 'vet_visit' && 'What happened at the vet? Diagnosis, vaccines, anything prescribed'}
-                    {addType === 'medication' && 'What medication and dose? (e.g. Amoxicillin 250mg, twice daily)'}
-                    {addType === 'note' && "Anything worth remembering about your pet's health"}
-                  </p>
-                  <textarea value={addContent} onChange={e => setAddContent(e.target.value)} rows={3}
-                    placeholder="Write here…"
-                    className="w-full border border-surface-border rounded-2xl px-4 py-3 text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-primary resize-none" />
+                <div className="space-y-3">
+                  <div>
+                    <p className="text-xs text-ink-muted mb-2">
+                      {addType === 'symptom' && 'What are you noticing? (e.g. limping, not eating, scratching)'}
+                      {addType === 'vet_visit' && 'What happened at the vet? Diagnosis, vaccines, anything prescribed'}
+                      {addType === 'medication' && 'What medication and dose? (e.g. Amoxicillin 250mg, twice daily)'}
+                      {addType === 'grooming' && 'Anything about this wash/groom worth noting'}
+                      {addType === 'vaccination' && 'Which vaccine? (e.g. Rabies booster)'}
+                      {addType === 'note' && "Anything worth remembering about your pet's health"}
+                    </p>
+                    <textarea value={addContent} onChange={e => setAddContent(e.target.value)} rows={3}
+                      placeholder="Write here…"
+                      className="w-full border border-surface-border rounded-2xl px-4 py-3 text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-primary resize-none" />
+                  </div>
+                  {addType === 'vaccination' && (
+                    <div>
+                      <p className="text-xs text-ink-muted mb-2">Next due date (optional, but needed for a reminder)</p>
+                      <input type="date" value={addDueDate} onChange={e => setAddDueDate(e.target.value)}
+                        className="w-full border border-surface-border rounded-2xl px-4 py-3 text-sm text-ink focus:outline-none focus:border-primary" />
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -641,6 +780,56 @@ export default function PetHealth() {
                     Save to Journal
                   </button>
                 </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Share with Vet Modal ── */}
+      {showShareModal && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 backdrop-blur-sm px-4 pb-4"
+          onClick={e => { if (e.target === e.currentTarget) setShowShareModal(false); }}>
+          <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden">
+            <div className="flex items-center gap-3 px-5 pt-5 pb-4 border-b border-surface-border">
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: '#F5F3FF' }}>
+                <Share2 className="w-4 h-4" style={{ color: '#6D28D9' }} />
+              </div>
+              <div className="flex-1">
+                <h2 className="font-bold text-ink text-sm">Share with vet</h2>
+                <p className="text-[10px] text-ink-muted">A read-only link to {selectedDog?.name}'s journal</p>
+              </div>
+              <button onClick={() => setShowShareModal(false)}
+                className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-surface-hover text-ink-muted">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-5 space-y-3">
+              {shareLoading ? (
+                <div className="flex items-center justify-center gap-2 py-6 text-ink-muted text-sm">
+                  <Loader2 className="w-4 h-4 animate-spin" /> Preparing link…
+                </div>
+              ) : shareError ? (
+                <p className="text-sm text-red-600">{shareError}</p>
+              ) : shareUrl ? (
+                <>
+                  <p className="text-xs text-ink-muted">
+                    Anyone with this link can view {selectedDog?.name}'s health journal — no login needed. Send it to your vet, or revoke it any time.
+                  </p>
+                  <div className="flex items-center gap-2 rounded-2xl border border-surface-border px-3 py-2.5 bg-surface-hover">
+                    <p className="text-xs text-ink flex-1 truncate">{shareUrl}</p>
+                    <button onClick={() => navigator.clipboard?.writeText(shareUrl)}
+                      className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg bg-white border border-surface-border">
+                      <Copy className="w-3.5 h-3.5 text-ink-muted" />
+                    </button>
+                  </div>
+                  <button onClick={revokeShare}
+                    className="w-full py-2.5 rounded-2xl text-xs font-bold text-red-600 bg-red-50">
+                    Turn off sharing
+                  </button>
+                </>
+              ) : (
+                <p className="text-sm text-ink-muted">Could not create a link right now.</p>
               )}
             </div>
           </div>

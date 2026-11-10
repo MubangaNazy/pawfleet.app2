@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, CheckCheck, ArrowLeft, MapPin, CreditCard, UserPlus, CheckCircle, XCircle, ShoppingBag, ChevronRight, Star, X } from 'lucide-react';
+import { Bell, CheckCheck, ArrowLeft, MapPin, CreditCard, UserPlus, CheckCircle, XCircle, ShoppingBag, ChevronRight, Star, X, Heart } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { AppNotification } from '../types';
 import { format } from 'date-fns';
@@ -22,6 +22,7 @@ const TYPE_META: Record<string, { icon: React.ReactNode; color: string; bg: stri
   go_online_nudge:          { icon: <UserPlus className="w-4 h-4" />,   color: '#F59E0B', bg: '#FFFBEB' },
   booking_pending_followup: { icon: <MapPin className="w-4 h-4" />,     color: '#F59E0B', bg: '#FFFBEB' },
   payment_reminder:         { icon: <CreditCard className="w-4 h-4" />, color: '#7C3AED', bg: '#F5F3FF' },
+  pet_care_reminder:        { icon: <Heart className="w-4 h-4" />,      color: '#DC2626', bg: '#FEF2F2' },
 };
 
 function parseAchievementNotif(notif: AppNotification) {

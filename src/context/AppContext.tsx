@@ -58,6 +58,8 @@ const toDog = (r: any): Dog => ({
   id: r.id, name: r.name, breed: r.breed, age: r.age,
   ownerId: r.owner_id, imageUrl: r.image_url, notes: r.notes,
   animalType: r.animal_type ?? 'dog',
+  washIntervalDays: r.wash_interval_days ?? undefined,
+  vetIntervalDays: r.vet_interval_days ?? undefined,
   healthLogs: (r.health_logs || []).map((hl: any) => ({
     date: hl.date, water: hl.water,
     foodMorning: hl.food_morning, foodEvening: hl.food_evening,
@@ -1349,6 +1351,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (updates.name !== undefined)  db.name = updates.name;
     if (updates.breed !== undefined) db.breed = updates.breed;
     if (updates.notes !== undefined) db.notes = updates.notes;
+    if (updates.washIntervalDays !== undefined) db.wash_interval_days = updates.washIntervalDays;
+    if (updates.vetIntervalDays !== undefined)  db.vet_interval_days = updates.vetIntervalDays;
     const save = async () => {
       if (updates.age !== undefined) {
         const { error } = await supabase.from('dogs').update({ ...db, age: updates.age }).eq('id', id);

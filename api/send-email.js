@@ -1,10 +1,14 @@
 // Transactional emails via Resend.
 // POST /api/send-email  { to, template, data }
 // Never blocks anything else: the app fires this and moves on regardless of the result.
+//
+// Also covers what used to be the separate send-receipt.js — merged in to stay under Vercel Hobby's
+// 12-serverless-function cap, not because receipts share template logic with everything else here.
 
 import { logEmail } from './_lib/logEmail.js';
 
 const FROM = 'PawFleet <notifications@mail.pawfleetapp.com>';
+const RECEIPT_FROM = 'PawFleet <receipts@mail.pawfleetapp.com>';
 const SUPPORT_EMAIL = 'pawfleetapp@gmail.com';
 
 function shell(bodyHtml, { badge = '🐾', title, subtitle = 'PawFleet · Lusaka, Zambia' } = {}) {
@@ -90,6 +94,48 @@ const TEMPLATES = {
       { badge: '🔑', title: 'Your Account Is Ready' },
     ),
   }),
+  // Its own full layout (a receipt table), not the shared `shell()` — kept identical to the standalone
+  // send-receipt.js this replaced, including its own "from" address, handled below.
+  payment_receipt: (d) => {
+    const operatorLabel = { airtel: 'Airtel Money', mtn: 'MTN MoMo', zamtel: 'Zamtel Kwacha' }[d.operator] || 'Mobile Money';
+    const date = new Date().toLocaleDateString('en-ZM', { day: 'numeric', month: 'long', year: 'numeric' });
+    return {
+      subject: `Payment Confirmed — K${Number(d.amount).toLocaleString()} received`,
+      html: `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f9fafb;font-family:Arial,sans-serif">
+  <div style="max-width:480px;margin:32px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08)">
+    <div style="background:linear-gradient(135deg,#1B4332,#2B8A50);padding:32px 24px;text-align:center">
+      <div style="font-size:36px;margin-bottom:8px">🐾</div>
+      <h1 style="color:#fff;margin:0;font-size:22px;font-weight:800">Payment Confirmed</h1>
+      <p style="color:rgba(255,255,255,0.8);margin:6px 0 0;font-size:14px">PawFleet · Lusaka, Zambia</p>
+    </div>
+    <div style="padding:24px">
+      <p style="color:#374151;font-size:15px;margin:0 0 20px">Hi <strong>${esc(d.name) || 'there'}</strong>, your payment was received successfully.</p>
+      <div style="background:#EBF5EF;border-radius:12px;padding:20px;text-align:center;margin-bottom:20px">
+        <p style="color:#6B7280;font-size:12px;margin:0 0 4px;text-transform:uppercase;letter-spacing:0.05em">Amount Paid</p>
+        <p style="color:#1B4332;font-size:36px;font-weight:800;margin:0">K${Number(d.amount).toLocaleString()}</p>
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:14px;color:#374151">
+        <tr><td style="padding:8px 0;border-bottom:1px solid #F3F4F6;color:#6B7280">Description</td><td style="padding:8px 0;border-bottom:1px solid #F3F4F6;text-align:right;font-weight:600">${esc(d.description) || 'PawFleet Order'}</td></tr>
+        <tr><td style="padding:8px 0;border-bottom:1px solid #F3F4F6;color:#6B7280">Payment Method</td><td style="padding:8px 0;border-bottom:1px solid #F3F4F6;text-align:right;font-weight:600">${operatorLabel}</td></tr>
+        <tr><td style="padding:8px 0;border-bottom:1px solid #F3F4F6;color:#6B7280">Reference</td><td style="padding:8px 0;border-bottom:1px solid #F3F4F6;text-align:right;font-family:monospace;font-size:12px">${esc(d.reference) || '—'}</td></tr>
+        <tr><td style="padding:8px 0;color:#6B7280">Date</td><td style="padding:8px 0;text-align:right;font-weight:600">${date}</td></tr>
+      </table>
+      <div style="margin-top:24px;padding:16px;background:#FEF9C3;border-radius:12px;border-left:4px solid #FBBF24">
+        <p style="margin:0;font-size:13px;color:#92400E">Keep this email as your receipt. If you have any questions, contact us at <a href="mailto:${SUPPORT_EMAIL}" style="color:#2B8A50">${SUPPORT_EMAIL}</a>.</p>
+      </div>
+    </div>
+    <div style="padding:16px 24px;border-top:1px solid #F3F4F6;text-align:center">
+      <p style="margin:0;font-size:12px;color:#9CA3AF">© ${new Date().getFullYear()} PawFleet · Lusaka, Zambia</p>
+    </div>
+  </div>
+</body>
+</html>`,
+    };
+  },
 };
 
 export default async function handler(req, res) {
@@ -101,15 +147,17 @@ export default async function handler(req, res) {
   const { to, template, data } = req.body || {};
   const build = TEMPLATES[template];
   if (!to || !build) return res.status(400).json({ error: 'to and a valid template are required' });
+  if (template === 'payment_receipt' && !data?.amount) return res.status(400).json({ error: 'amount is required' });
 
   const { subject, html } = build(data || {});
+  const from = template === 'payment_receipt' ? RECEIPT_FROM : FROM;
 
   try {
     const r = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { Authorization: `Bearer ${RESEND_KEY}`, 'Content-Type': 'application/json' },
       // "from" is a send-only technical address; a reply routes to a real inbox instead.
-      body: JSON.stringify({ from: FROM, to: [to], subject, html, reply_to: SUPPORT_EMAIL }),
+      body: JSON.stringify({ from, to: [to], subject, html, reply_to: SUPPORT_EMAIL }),
     });
     const d = await r.json();
     if (!r.ok) {

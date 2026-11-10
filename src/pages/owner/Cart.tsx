@@ -106,16 +106,19 @@ export default function Cart() {
     }
     // Send receipt email for online payments
     if (method !== 'pay_on_delivery' && currentUser?.email) {
-      fetch('/api/send-receipt', {
+      fetch('/api/send-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           to: currentUser.email,
-          name: currentUser.name,
-          amount: total,
-          description: `Shop order (${items.reduce((s, i) => s + i.qty, 0)} items)`,
-          reference: method,
-          operator: method,
+          template: 'payment_receipt',
+          data: {
+            name: currentUser.name,
+            amount: total,
+            description: `Shop order (${items.reduce((s, i) => s + i.qty, 0)} items)`,
+            reference: method,
+            operator: method,
+          },
         }),
       }).catch(() => {});
     }

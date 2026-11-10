@@ -1,5 +1,6 @@
-// Shared by api/send-email.js and api/send-receipt.js. In api/_lib so Vercel never turns it into its
-// own route (anything under an underscore-prefixed folder in api/ is excluded from routing).
+// Used by api/send-email.js (which also handles what used to be the separate send-receipt.js). In
+// api/_lib so Vercel never turns it into its own route (an underscore-prefixed folder under api/ is
+// excluded from routing).
 // Never allowed to block or fail the actual email send — logging is best-effort only.
 export async function logEmail({ to, template, subject, status, error, resendId }) {
   try {

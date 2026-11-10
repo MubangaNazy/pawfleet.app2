@@ -15,10 +15,10 @@ export default function ForgotPassword() {
     setBusy(true);
     setError('');
     try {
-      const res = await fetch('/api/request-password-reset', {
+      const res = await fetch('/api/password-reset', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim() }),
+        body: JSON.stringify({ action: 'request', email: email.trim() }),
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) { setError(json.error || 'Something went wrong. Please try again.'); setBusy(false); return; }

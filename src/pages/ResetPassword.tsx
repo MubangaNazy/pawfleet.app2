@@ -23,10 +23,10 @@ export default function ResetPassword() {
     setBusy(true);
     setError('');
     try {
-      const res = await fetch('/api/reset-password', {
+      const res = await fetch('/api/password-reset', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, password: pw }),
+        body: JSON.stringify({ action: 'reset', token, password: pw }),
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) { setError(json.error || 'Something went wrong. Please try again.'); setBusy(false); return; }

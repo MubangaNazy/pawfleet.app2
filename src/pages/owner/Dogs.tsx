@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
-import { Camera, Plus, X, ArrowRight, Upload, ChevronDown, Search } from 'lucide-react';
+import { Camera, Plus, X, ArrowRight, Upload, ChevronDown, Search, Bath, Stethoscope, Dog as DogIcon } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { Button } from '../../components/ui/Button';
 
@@ -323,6 +323,15 @@ export default function OwnerDogs() {
               const completedWalks = dogWalks.filter(w => w.status === 'completed');
               const lastWalk = completedWalks
                 .sort((a, b) => new Date(b.scheduledDate).getTime() - new Date(a.scheduledDate).getTime())[0];
+              const daysSince = (d?: string) => d ? Math.floor((Date.now() - new Date(d).getTime()) / 86400000) : null;
+              const lastGroom = completedWalks.filter(w => /grooming/i.test(w.notes ?? '')).sort((a, b) => new Date(b.scheduledDate).getTime() - new Date(a.scheduledDate).getTime())[0];
+              const lastVet = completedWalks.filter(w => /^VET BOOKING:/.test(w.notes ?? '')).sort((a, b) => new Date(b.scheduledDate).getTime() - new Date(a.scheduledDate).getTime())[0];
+              const groomDays = daysSince(lastGroom?.scheduledDate);
+              const vetDays = daysSince(lastVet?.scheduledDate);
+              const nudges = [
+                groomDays != null && groomDays > 30 ? { icon: Bath, text: 'Wash overdue', color: '#0F766E', bg: '#F0FDFA' } : null,
+                vetDays != null && vetDays > 180 ? { icon: Stethoscope, text: 'Checkup due', color: '#7C3AED', bg: '#F5F3FF' } : null,
+              ].filter(Boolean) as { icon: typeof Bath; text: string; color: string; bg: string }[];
               const ageLabel = dog.age == null || dog.age <= 0 ? null
                 : dog.age < 1
                   ? `${Math.round(dog.age * 12)} mo`
@@ -338,11 +347,23 @@ export default function OwnerDogs() {
                     ) : (
                       <div className="w-full h-full flex items-center justify-center"
                         style={{ background: 'linear-gradient(135deg, #EBF5EF, #D1FAE5)' }}>
-                        <span style={{ fontSize: 100 }}>🐕</span>
+                        <DogIcon style={{ width: 80, height: 80, color: '#2B8A50' }} strokeWidth={1.2} />
                       </div>
                     )}
                     <div className="absolute inset-0"
                       style={{ background: 'linear-gradient(to bottom, transparent 40%, rgba(7,26,14,0.85) 100%)' }} />
+                    {/* Care nudges — top-left, notification-style */}
+                    {nudges.length > 0 && (
+                      <div className="absolute top-3 left-3 flex flex-col gap-1.5">
+                        {nudges.map(n => (
+                          <Link key={n.text} to="/owner/pet-health"
+                            className="flex items-center gap-1.5 pl-2 pr-2.5 py-1.5 rounded-full text-[11px] font-bold shadow-lg backdrop-blur-sm"
+                            style={{ background: 'rgba(255,255,255,0.95)', color: n.color }}>
+                            <n.icon className="w-3 h-3" strokeWidth={2.2} /> {n.text}
+                          </Link>
+                        ))}
+                      </div>
+                    )}
                     {/* Name badge at bottom */}
                     <div className="absolute bottom-0 left-0 right-0 px-5 pb-4">
                       <div className="flex items-end justify-between">

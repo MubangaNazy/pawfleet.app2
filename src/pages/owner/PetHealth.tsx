@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, X, ChevronRight, Sparkles, Weight, Calendar, Activity, Mic, MicOff, Footprints, Bath, Stethoscope, Check } from 'lucide-react';
+import { ArrowLeft, Plus, X, ChevronRight, Sparkles, Weight, Calendar, Activity, Mic, MicOff, Footprints, Bath, Stethoscope, Check, Bell, NotebookPen, ClipboardList } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { supabase } from '../../lib/supabase';
 import type { Dog } from '../../types';
@@ -64,6 +64,24 @@ function timeAgo(iso: string) {
   const d = Math.floor(h / 24);
   if (d < 7) return `${d}d ago`;
   return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+}
+
+// A branded icon-chip heading, used for every section on this page instead of plain bold text.
+function SectionHeading({ icon: Icon, title, subtitle, color = '#6D28D9', bg = '#F5F3FF', action }: {
+  icon: React.ElementType; title: string; subtitle?: string; color?: string; bg?: string; action?: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-center gap-2.5 mb-3">
+      <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ background: bg }}>
+        <Icon className="w-4 h-4" style={{ color }} strokeWidth={2} />
+      </div>
+      <div className="flex-1 min-w-0">
+        <h2 className="text-sm font-extrabold text-ink leading-tight">{title}</h2>
+        {subtitle && <p className="text-[11px] text-ink-muted leading-tight mt-0.5">{subtitle}</p>}
+      </div>
+      {action}
+    </div>
+  );
 }
 
 // ── Main component ─────────────────────────────────────────────
@@ -323,12 +341,10 @@ export default function PetHealth() {
 
         {/* Week strip — tap a day to see that day's entries, tap again to show everything */}
         <div>
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="text-sm font-bold text-ink">This week</h2>
-            {dateFilter && (
-              <button onClick={() => setDateFilter(null)} className="text-xs font-bold text-primary">Show all</button>
-            )}
-          </div>
+          <SectionHeading icon={Calendar} title="This week" color="#6D28D9" bg="#F5F3FF"
+            action={dateFilter && (
+              <button onClick={() => setDateFilter(null)} className="text-xs font-bold text-primary shrink-0">Show all</button>
+            )} />
           <div className="grid grid-cols-7 gap-1.5">
             {weekDays.map(d => {
               const key = toKey(d);
@@ -356,16 +372,15 @@ export default function PetHealth() {
 
         {/* Journal */}
         <div>
-          <div className="flex items-center justify-between mb-1">
-            <h2 className="text-sm font-bold text-ink">Health Journal</h2>
-            <button onClick={() => setShowAddModal(true)}
-              className="flex items-center gap-1 text-xs font-bold text-primary">
-              <Plus className="w-3.5 h-3.5" /> Add
-            </button>
-          </div>
-          <p className="text-[11px] text-ink-muted mb-3">
-            Write down anything unusual — symptoms, vet visits, weight, medication. It helps your vet understand your pet's history.
-          </p>
+          <SectionHeading icon={NotebookPen} title="Health Journal"
+            subtitle="Symptoms, vet visits, weight, medication — anything worth your vet knowing"
+            color="#7C3AED" bg="#F5F3FF"
+            action={(
+              <button onClick={() => setShowAddModal(true)}
+                className="flex items-center gap-1 text-xs font-bold text-primary shrink-0">
+                <Plus className="w-3.5 h-3.5" /> Add
+              </button>
+            )} />
 
           {dateFilter && visibleEntries.length === 0 ? (
             <div className="rounded-3xl border border-dashed border-surface-border bg-white/60 p-6 text-center">
@@ -428,7 +443,7 @@ export default function PetHealth() {
 
         {/* Care Reminders — "last done" + "next due", colour-coded like a notification */}
         <div>
-          <h2 className="text-sm font-bold text-ink mb-3">Care Reminders</h2>
+          <SectionHeading icon={Bell} title="Care Reminders" subtitle="Last done, and when it's due again" color="#D97706" bg="#FFFBEB" />
           <div className="space-y-2">
             {careReminders.map(r => {
               const STATUS_META = {
@@ -477,8 +492,11 @@ export default function PetHealth() {
 
         {/* Other reminders — general guidance, not tracked against logged data */}
         <div className="rounded-3xl overflow-hidden border border-surface-border bg-white">
-          <div className="px-4 py-3 border-b border-surface-border">
-            <p className="text-sm font-bold text-ink">Other Reminders</p>
+          <div className="px-4 py-3 border-b border-surface-border flex items-center gap-2.5">
+            <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: '#ECFDF5' }}>
+              <ClipboardList className="w-3.5 h-3.5" style={{ color: '#059669' }} strokeWidth={2} />
+            </div>
+            <p className="text-sm font-extrabold text-ink">Other Reminders</p>
           </div>
           <div className="divide-y divide-surface-border">
             {[

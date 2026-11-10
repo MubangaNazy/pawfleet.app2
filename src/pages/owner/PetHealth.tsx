@@ -1,12 +1,12 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, X, ChevronRight, Sparkles, Weight, Calendar, Activity, Mic, MicOff } from 'lucide-react';
+import { ArrowLeft, Plus, X, ChevronRight, Sparkles, Weight, Calendar, Activity, Mic, MicOff, Footprints, Bath, Stethoscope, Check } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { supabase } from '../../lib/supabase';
 import type { Dog } from '../../types';
 
 // ── Types ──────────────────────────────────────────────────────
-type EntryType = 'note' | 'symptom' | 'vet_visit' | 'weight' | 'medication';
+type EntryType = 'note' | 'symptom' | 'vet_visit' | 'weight' | 'medication' | 'grooming';
 
 interface HealthEntry {
   id: string;
@@ -51,6 +51,7 @@ const ENTRY_TYPES: { value: EntryType; label: string; emoji: string; color: stri
   { value: 'vet_visit', label: 'Vet Visit',    emoji: '🩺', color: '#1D4ED8', bg: '#EFF6FF' },
   { value: 'weight',    label: 'Weight',       emoji: '⚖️', color: '#6D28D9', bg: '#F5F3FF' },
   { value: 'medication',label: 'Medication',   emoji: '💊', color: '#065F46', bg: '#ECFDF5' },
+  { value: 'grooming',  label: 'Wash/Groom',   emoji: '🛁', color: '#0F766E', bg: '#F0FDFA' },
 ];
 
 function timeAgo(iso: string) {
@@ -82,6 +83,7 @@ export default function PetHealth() {
   const [addContent, setAddContent] = useState('');
   const [addWeight, setAddWeight] = useState('');
   const [listening, setListening] = useState(false);
+  const [dateFilter, setDateFilter] = useState<string | null>(null); // yyyy-mm-dd, or null = show all
   const recognitionRef = useRef<any>(null);
 
   // Real, synced journal — previously this lived only in localStorage on one device.
@@ -110,13 +112,61 @@ export default function PetHealth() {
   const dogEntries = entries.filter(e => e.dogId === selectedDog?.id)
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
+  // This week's date strip (Sun–Sat), and which day's entries to show below it.
+  const toKey = (d: Date) => d.toISOString().slice(0, 10);
+  const todayKey = toKey(new Date());
+  const weekDays = useMemo(() => {
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    start.setDate(start.getDate() - start.getDay()); // back to Sunday
+    return Array.from({ length: 7 }, (_, i) => { const d = new Date(start); d.setDate(start.getDate() + i); return d; });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const entryCountByDay = useMemo(() => {
+    const m = new Map<string, number>();
+    dogEntries.forEach(e => { const k = toKey(new Date(e.createdAt)); m.set(k, (m.get(k) ?? 0) + 1); });
+    return m;
+  }, [dogEntries]); // eslint-disable-line react-hooks/exhaustive-deps
+  const visibleEntries = dateFilter ? dogEntries.filter(e => toKey(new Date(e.createdAt)) === dateFilter) : dogEntries;
+
   const lastWeight = dogEntries.find(e => e.type === 'weight');
   const lastVet    = dogEntries.find(e => e.type === 'vet_visit');
-  const thisWeekWalks = data.walks.filter(w =>
-    w.dogId === selectedDog?.id &&
-    w.status === 'completed' &&
-    Date.now() - new Date(w.scheduledDate).getTime() < 7 * 86400000
-  ).length;
+  const dogWalks = data.walks.filter(w => w.dogId === selectedDog?.id && w.status === 'completed');
+  const thisWeekWalks = dogWalks.filter(w => Date.now() - new Date(w.scheduledDate).getTime() < 7 * 86400000).length;
+
+  // "Notification-style" care reminders — last time done, next time due, colour-coded by urgency.
+  // Falls back to real booking history (a completed walk/grooming/vet booking) where no journal entry
+  // was logged by hand, so this reflects what actually happened, not only what was manually written down.
+  const careReminders = useMemo(() => {
+    const lastGroomBooking = dogWalks.filter(w => /grooming/i.test(w.notes ?? '')).sort((a, b) => new Date(b.scheduledDate).getTime() - new Date(a.scheduledDate).getTime())[0];
+    const lastVetBooking = dogWalks.filter(w => /^VET BOOKING:/.test(w.notes ?? '')).sort((a, b) => new Date(b.scheduledDate).getTime() - new Date(a.scheduledDate).getTime())[0];
+    const lastWalkBooking = dogWalks.sort((a, b) => new Date(b.scheduledDate).getTime() - new Date(a.scheduledDate).getTime())[0];
+    const lastGroomEntry = dogEntries.find(e => e.type === 'grooming');
+
+    const defs = [
+      { key: 'walk', label: 'Walk', icon: Footprints, color: '#1B4332', bg: '#EBF5EF', intervalDays: 2,
+        lastAt: lastWalkBooking?.scheduledDate ?? null, markDone: false },
+      { key: 'wash', label: 'Wash / Groom', icon: Bath, color: '#0F766E', bg: '#F0FDFA', intervalDays: 30,
+        lastAt: [lastGroomEntry?.createdAt, lastGroomBooking?.scheduledDate].filter(Boolean).sort().reverse()[0] ?? null, markDone: true },
+      { key: 'vet', label: 'Vet Checkup', icon: Stethoscope, color: '#7C3AED', bg: '#F5F3FF', intervalDays: 180,
+        lastAt: [lastVet?.createdAt, lastVetBooking?.scheduledDate].filter(Boolean).sort().reverse()[0] ?? null, markDone: false },
+    ];
+
+    return defs.map(d => {
+      const daysSince = d.lastAt ? Math.floor((Date.now() - new Date(d.lastAt).getTime()) / 86400000) : null;
+      const daysUntilDue = daysSince == null ? null : d.intervalDays - daysSince;
+      const status: 'never' | 'overdue' | 'due' | 'ok' =
+        daysSince == null ? 'never' : daysUntilDue! < 0 ? 'overdue' : daysUntilDue! <= 2 ? 'due' : 'ok';
+      return { ...d, daysSince, daysUntilDue, status };
+    });
+  }, [dogWalks, dogEntries, lastVet]);
+
+  const quickLogGrooming = async () => {
+    if (!selectedDog || !currentUser) return;
+    const entry: HealthEntry = { id: crypto.randomUUID(), dogId: selectedDog.id, type: 'grooming', content: 'Washed / groomed at home', createdAt: new Date().toISOString() };
+    setEntries(prev => [entry, ...prev]);
+    const { error } = await supabase.from('health_journal').insert({ id: entry.id, dog_id: entry.dogId, owner_id: currentUser.id, type: entry.type, content: entry.content });
+    if (error) console.error('health_journal insert (grooming):', error);
+  };
 
   const addEntry = async () => {
     if (!selectedDog || !currentUser || (!addContent.trim() && addType !== 'weight')) return;
@@ -271,6 +321,39 @@ export default function PetHealth() {
           </div>
         </button>
 
+        {/* Week strip — tap a day to see that day's entries, tap again to show everything */}
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-sm font-bold text-ink">This week</h2>
+            {dateFilter && (
+              <button onClick={() => setDateFilter(null)} className="text-xs font-bold text-primary">Show all</button>
+            )}
+          </div>
+          <div className="grid grid-cols-7 gap-1.5">
+            {weekDays.map(d => {
+              const key = toKey(d);
+              const isToday = key === todayKey;
+              const isSelected = dateFilter === key;
+              const count = entryCountByDay.get(key) ?? 0;
+              return (
+                <button key={key} onClick={() => setDateFilter(isSelected ? null : key)}
+                  className="flex flex-col items-center gap-1 py-2 rounded-2xl transition-all"
+                  style={isSelected
+                    ? { background: 'linear-gradient(135deg, #6D28D9, #8B5CF6)' }
+                    : { background: 'white', border: isToday ? '1.5px solid #8B5CF6' : '1px solid var(--surface-border, #E5E7EB)' }}>
+                  <span className="text-[9px] font-bold uppercase" style={{ color: isSelected ? 'rgba(255,255,255,0.75)' : '#9CA3AF' }}>
+                    {d.toLocaleDateString('en-GB', { weekday: 'short' }).slice(0, 2)}
+                  </span>
+                  <span className="text-sm font-extrabold" style={{ color: isSelected ? 'white' : isToday ? '#6D28D9' : '#111827' }}>
+                    {d.getDate()}
+                  </span>
+                  <span className="w-1 h-1 rounded-full" style={{ background: count > 0 ? (isSelected ? 'white' : '#8B5CF6') : 'transparent' }} />
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         {/* Journal */}
         <div>
           <div className="flex items-center justify-between mb-1">
@@ -284,7 +367,11 @@ export default function PetHealth() {
             Write down anything unusual — symptoms, vet visits, weight, medication. It helps your vet understand your pet's history.
           </p>
 
-          {dogEntries.length === 0 ? (
+          {dateFilter && visibleEntries.length === 0 ? (
+            <div className="rounded-3xl border border-dashed border-surface-border bg-white/60 p-6 text-center">
+              <p className="text-sm text-ink-muted">Nothing logged on this day.</p>
+            </div>
+          ) : dogEntries.length === 0 ? (
             <div className="rounded-3xl border border-dashed border-surface-border bg-white/60 p-8 text-center">
               <span className="text-4xl">📓</span>
               <p className="font-bold text-ink mt-3 text-sm">Nothing logged yet</p>
@@ -306,7 +393,7 @@ export default function PetHealth() {
             </div>
           ) : (
             <div className="space-y-2">
-              {dogEntries.map(entry => {
+              {visibleEntries.map(entry => {
                 const conf = ENTRY_TYPES.find(t => t.value === entry.type) ?? ENTRY_TYPES[0];
                 return (
                   <div key={entry.id} className="bg-white rounded-2xl border border-surface-border p-4">
@@ -339,22 +426,71 @@ export default function PetHealth() {
           )}
         </div>
 
-        {/* Quick health tips */}
+        {/* Care Reminders — "last done" + "next due", colour-coded like a notification */}
+        <div>
+          <h2 className="text-sm font-bold text-ink mb-3">Care Reminders</h2>
+          <div className="space-y-2">
+            {careReminders.map(r => {
+              const STATUS_META = {
+                never:   { label: 'Not logged yet', color: '#6B7280', bg: '#F3F4F6' },
+                overdue: { label: 'Overdue',         color: '#DC2626', bg: '#FEF2F2' },
+                due:     { label: 'Due soon',         color: '#D97706', bg: '#FFFBEB' },
+                ok:      { label: 'Up to date',       color: '#059669', bg: '#ECFDF5' },
+              }[r.status];
+              const Icon = r.icon;
+              return (
+                <div key={r.key} className="rounded-2xl border border-surface-border bg-white p-4 flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0" style={{ background: r.bg }}>
+                    <Icon className="w-5 h-5" style={{ color: r.color }} strokeWidth={1.8} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-bold text-ink text-sm">{r.label}</p>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0" style={{ color: STATUS_META.color, background: STATUS_META.bg }}>
+                        {STATUS_META.label}
+                      </span>
+                    </div>
+                    <p className="text-xs text-ink-muted mt-0.5">
+                      {r.daysSince == null ? `Log it to start tracking` : r.daysSince === 0 ? 'Today' : `${r.daysSince}d ago`}
+                      {r.key !== 'walk' && r.daysSince != null && ` · every ~${r.intervalDays}d`}
+                    </p>
+                  </div>
+                  {r.markDone && (
+                    <button onClick={quickLogGrooming}
+                      className="flex items-center gap-1 text-[11px] font-bold px-3 py-2 rounded-xl shrink-0 text-white"
+                      style={{ background: r.color }}>
+                      <Check className="w-3 h-3" /> Mark done
+                    </button>
+                  )}
+                  {r.key === 'vet' && (
+                    <button onClick={() => { setAddType('vet_visit'); setShowAddModal(true); }}
+                      className="text-[11px] font-bold px-3 py-2 rounded-xl shrink-0 text-white"
+                      style={{ background: r.color }}>
+                      Log visit
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Other reminders — general guidance, not tracked against logged data */}
         <div className="rounded-3xl overflow-hidden border border-surface-border bg-white">
           <div className="px-4 py-3 border-b border-surface-border">
-            <p className="text-sm font-bold text-ink">🏥 Quick Health Reminders</p>
+            <p className="text-sm font-bold text-ink">Other Reminders</p>
           </div>
           <div className="divide-y divide-surface-border">
             {[
-              { icon: '💉', text: 'Vaccinations due every 12 months', action: 'Check schedule' },
-              { icon: '🦷', text: 'Dental check every 6 months', action: 'Log next visit' },
-              { icon: '🪱', text: 'Deworming every 3 months', action: 'Set reminder' },
-              { icon: '🧴', text: 'Flea & tick treatment monthly', action: 'Track doses' },
+              { icon: '💉', text: 'Vaccinations due every 12 months', action: 'Log it' },
+              { icon: '🦷', text: 'Dental check every 6 months', action: 'Log it' },
+              { icon: '🪱', text: 'Deworming every 3 months', action: 'Log it' },
+              { icon: '🧴', text: 'Flea & tick treatment monthly', action: 'Log it' },
             ].map(({ icon, text, action }) => (
               <div key={text} className="flex items-center gap-3 px-4 py-3">
                 <span className="text-xl shrink-0">{icon}</span>
                 <p className="text-sm text-ink flex-1">{text}</p>
-                <button onClick={() => setShowAddModal(true)}
+                <button onClick={() => { setAddType('medication'); setShowAddModal(true); }}
                   className="text-[11px] font-bold shrink-0" style={{ color: '#6D28D9' }}>
                   {action}
                 </button>

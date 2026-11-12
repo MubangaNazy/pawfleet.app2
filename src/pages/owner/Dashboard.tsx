@@ -2,7 +2,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { format } from 'date-fns';
-import { Navigation, MessageCircle, ChevronRight, Star, Users, Dog, Stethoscope, Target, MapPin, Footprints, Brain, Scissors } from 'lucide-react';
+import { Navigation, MessageCircle, ChevronRight, Star, Users, Dog, Stethoscope, Scissors } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import Onboarding from '../../components/ui/Onboarding';
 import { SkeletonOwnerDashboard } from '../../components/ui/Skeleton';
@@ -242,7 +242,8 @@ export default function OwnerDashboard() {
                 <p className="text-white font-extrabold text-[17px] leading-tight">Walk</p>
                 <p className="text-white/50 text-[11px] mt-0.5">Book a walker</p>
               </div>
-              <Footprints size={108} strokeWidth={1.1} color="#fff" style={{ position: 'absolute', bottom: -14, right: -14, opacity: 0.16, transform: 'rotate(-8deg)' }} />
+              <img src="/images/bento/walk.png" alt="" aria-hidden="true"
+                style={{ position: 'absolute', bottom: 0, right: 0, width: '62%', maxWidth: 220 }} />
               {activeWalk && (
                 <span className="absolute top-3 right-3 z-10 flex items-center gap-1 text-[9px] font-bold text-white px-2 py-0.5 rounded-full" style={{ background: '#10B981' }}>
                   <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />LIVE
@@ -258,7 +259,8 @@ export default function OwnerDashboard() {
               <div className="p-3 relative z-10">
                 <p className="font-extrabold text-sm leading-tight" style={{ color: '#7DD3FC' }}>Vet</p>
               </div>
-              <Stethoscope size={64} strokeWidth={1.1} color="#7DD3FC" style={{ position: 'absolute', bottom: -10, right: -10, opacity: 0.22 }} />
+              <img src="/images/bento/vet.png" alt="" aria-hidden="true"
+                style={{ position: 'absolute', bottom: -6, right: -6, width: '58%', maxWidth: 100 }} />
             </Link>
 
             {/* TRAIN */}
@@ -269,7 +271,8 @@ export default function OwnerDashboard() {
               <div className="p-3 relative z-10">
                 <p className="font-extrabold text-sm leading-tight" style={{ color: '#FDE68A' }}>Train</p>
               </div>
-              <Target size={64} strokeWidth={1.1} color="#FDE68A" style={{ position: 'absolute', bottom: -10, right: -10, opacity: 0.22 }} />
+              <img src="/images/bento/train.png" alt="" aria-hidden="true"
+                style={{ position: 'absolute', bottom: -6, right: -6, width: '58%', maxWidth: 100 }} />
             </Link>
 
             {/* TRACK */}
@@ -281,7 +284,8 @@ export default function OwnerDashboard() {
                 <p className="font-extrabold text-sm leading-tight" style={{ color: activeWalk ? '#4ADE80' : '#86EFAC' }}>Track</p>
                 {activeWalk && <span className="flex items-center gap-1 text-[9px] font-bold mt-0.5" style={{ color: '#4ADE80' }}><span className="w-1 h-1 rounded-full bg-green-400 animate-pulse" />LIVE</span>}
               </div>
-              <MapPin size={64} strokeWidth={1.1} color={activeWalk ? '#4ADE80' : '#86EFAC'} style={{ position: 'absolute', bottom: -10, right: -10, opacity: 0.22 }} />
+              <img src="/images/bento/track.png" alt="" aria-hidden="true"
+                style={{ position: 'absolute', bottom: -6, right: -6, width: '60%', maxWidth: 100 }} />
             </Link>
 
             {/* CHAT */}
@@ -292,7 +296,8 @@ export default function OwnerDashboard() {
               <div className="p-3 relative z-10">
                 <p className="font-extrabold text-sm leading-tight" style={{ color: '#C4B5FD' }}>Chat</p>
               </div>
-              <MessageCircle size={64} strokeWidth={1.1} color="#C4B5FD" style={{ position: 'absolute', bottom: -10, right: -10, opacity: 0.22 }} />
+              <img src="/images/bento/chat.png" alt="" aria-hidden="true"
+                style={{ position: 'absolute', bottom: -6, right: -6, width: '52%', maxWidth: 88 }} />
               {unreadChat > 0 && (
                 <span className="absolute top-2 right-2 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center z-20">
                   {unreadChat > 9 ? '9+' : unreadChat}
@@ -308,7 +313,8 @@ export default function OwnerDashboard() {
               <div className="p-3 relative z-10">
                 <p className="font-extrabold text-sm leading-tight" style={{ color: '#6EE7B7' }}>My Walk</p>
               </div>
-              <Dog size={64} strokeWidth={1.1} color="#6EE7B7" style={{ position: 'absolute', bottom: -10, right: -10, opacity: 0.22 }} />
+              <img src="/images/bento/mywalk.png" alt="" aria-hidden="true"
+                style={{ position: 'absolute', bottom: -6, right: -6, width: '60%', maxWidth: 100 }} />
             </Link>
 
             {/* AI HEALTH — col-span-2 */}
@@ -320,7 +326,8 @@ export default function OwnerDashboard() {
                 <p className="font-extrabold text-sm leading-tight" style={{ color: '#C4B5FD' }}>AI Health</p>
                 <p className="text-white/40 text-[10px] mt-0.5">Journal & insights</p>
               </div>
-              <Brain size={72} strokeWidth={1.1} color="#C4B5FD" style={{ position: 'absolute', bottom: -12, right: -10, opacity: 0.22 }} />
+              <img src="/images/bento/aihealth.png" alt="" aria-hidden="true"
+                style={{ position: 'absolute', bottom: -6, right: 8, width: '42%', maxWidth: 130 }} />
             </Link>
 
             {/* GROOMING — col-span-1 matching small card style */}
@@ -331,7 +338,8 @@ export default function OwnerDashboard() {
               <div className="p-3 relative z-10">
                 <p className="font-extrabold text-sm leading-tight" style={{ color: '#6EE7B7' }}>Groom</p>
               </div>
-              <Scissors size={64} strokeWidth={1.1} color="#6EE7B7" style={{ position: 'absolute', bottom: -10, right: -10, opacity: 0.22 }} />
+              <img src="/images/bento/groom.png" alt="" aria-hidden="true"
+                style={{ position: 'absolute', bottom: -6, right: -6, width: '60%', maxWidth: 100 }} />
             </Link>
 
           </div>

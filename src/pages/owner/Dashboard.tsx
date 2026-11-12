@@ -343,7 +343,7 @@ export default function OwnerDashboard() {
                 <p className="font-extrabold text-sm leading-tight" style={{ color: '#6EE7B7' }}>Groom</p>
               </div>
               <img src="/images/bento/scissorscomb.png" alt="" aria-hidden="true"
-                style={{ position: 'absolute', bottom: -4, right: -2, width: '60%', maxWidth: 100 }} />
+                style={{ position: 'absolute', bottom: 2, right: 0, width: '48%', maxWidth: 76 }} />
             </Link>
 
           </div>

@@ -421,18 +421,21 @@ export default function PetHealth() {
 
         {/* Stats row */}
         <div className="bg-white rounded-2xl shadow-sm border border-[#E6DEF5] p-4">
-          <p className="text-xs font-bold text-ink-muted uppercase tracking-wider mb-3">At a glance</p>
+          <p className="text-xs font-bold text-ink-muted uppercase tracking-wider mb-1">At a glance</p>
+          <p className="text-[11px] text-ink-muted mb-3">Tap Weight or Last Vet to log one — Walks/week is tracked automatically</p>
           <div className="grid grid-cols-3 gap-2.5">
             {[
-              { icon: Weight,   label: 'Weight',      value: lastWeight ? `${lastWeight.weightKg} kg` : '—',        bg: '#F5F3FF', tc: '#6D28D9' },
-              { icon: Calendar, label: 'Last Vet',    value: lastVet ? timeAgo(lastVet.createdAt) : '—',             bg: '#EFF6FF', tc: '#1D4ED8' },
-              { icon: Activity, label: 'Walks/week',  value: `${thisWeekWalks}`,                                     bg: '#ECFDF5', tc: '#065F46' },
-            ].map(({ icon: Icon, label, value, bg, tc }) => (
-              <div key={label} className="rounded-2xl p-3 flex flex-col gap-1" style={{ background: bg }}>
+              { icon: Weight,   label: 'Weight',      value: lastWeight ? `${lastWeight.weightKg} kg` : '—',        bg: '#F5F3FF', tc: '#6D28D9', onClick: () => { setAddType('weight'); setAddWeight(''); setShowAddModal(true); } },
+              { icon: Calendar, label: 'Last Vet',    value: lastVet ? timeAgo(lastVet.createdAt) : '—',             bg: '#EFF6FF', tc: '#1D4ED8', onClick: () => { setAddType('vet_visit'); setAddContent(''); setAddDueDate(''); setShowAddModal(true); } },
+              { icon: Activity, label: 'Walks/week',  value: `${thisWeekWalks}`,                                     bg: '#ECFDF5', tc: '#065F46', onClick: undefined },
+            ].map(({ icon: Icon, label, value, bg, tc, onClick }) => (
+              <button key={label} type="button" onClick={onClick} disabled={!onClick}
+                className="rounded-2xl p-3 flex flex-col gap-1 text-left transition-transform active:scale-95 disabled:active:scale-100"
+                style={{ background: bg }}>
                 <Icon className="w-4 h-4" style={{ color: tc }} />
                 <p className="text-[10px] font-semibold text-ink-muted uppercase tracking-wide">{label}</p>
                 <p className="text-sm font-extrabold" style={{ color: tc }}>{value}</p>
-              </div>
+              </button>
             ))}
           </div>
         </div>

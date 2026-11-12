@@ -376,30 +376,30 @@ export default function PetHealth() {
   );
 
   return (
-    <div className="min-h-screen pb-28" style={{ background: '#F8FAF9' }}>
+    <div className="min-h-screen pb-28" style={{ background: '#FAF8FD' }}>
 
       {/* Header */}
-      <div className="sticky top-0 z-20 px-4 pt-5 pb-3"
-        style={{ background: 'linear-gradient(135deg, #4C1D95 0%, #6D28D9 100%)' }}>
-        <div className="flex items-center gap-3 mb-4">
+      <div className="max-w-lg mx-auto px-4 pt-5 space-y-4">
+        <div className="flex items-center gap-3">
           <button onClick={() => navigate(-1)}
-            className="w-9 h-9 rounded-2xl flex items-center justify-center"
-            style={{ background: 'rgba(255,255,255,0.15)' }}>
-            <ArrowLeft className="w-4 h-4 text-white" />
+            className="w-9 h-9 rounded-2xl flex items-center justify-center shrink-0 bg-white border border-[#E6DEF5]">
+            <ArrowLeft className="w-4 h-4 text-ink" />
           </button>
-          <div>
-            <h1 className="text-white font-extrabold text-lg leading-tight">Pet Health</h1>
-            <p className="text-white/55 text-[11px]">Track vitals · journal · AI insights</p>
+          <div className="flex-1 min-w-0">
+            <h1 className="text-3xl font-extrabold italic"
+              style={{ background: 'linear-gradient(135deg, #4C1D95, #A78BFA)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+              Pet Health
+            </h1>
+            <p className="text-sm font-medium mt-0.5" style={{ color: '#8B6FC4' }}>Track vitals · journal · AI insights</p>
           </div>
           <button onClick={openShareModal}
-            className="ml-auto w-9 h-9 rounded-2xl flex items-center justify-center"
-            style={{ background: 'rgba(255,255,255,0.15)' }}>
-            <Share2 className="w-4 h-4 text-white" />
+            className="w-9 h-9 rounded-2xl flex items-center justify-center shrink-0 bg-white border border-[#E6DEF5]">
+            <Share2 className="w-4 h-4" style={{ color: '#6D28D9' }} />
           </button>
           <button onClick={() => { setAddType('note'); setAddContent(''); setAddDueDate(''); setShowAddModal(true); }}
-            className="w-9 h-9 rounded-2xl flex items-center justify-center"
-            style={{ background: 'rgba(255,255,255,0.20)' }}>
-            <Plus className="w-4 h-4 text-white" />
+            className="w-9 h-9 rounded-2xl flex items-center justify-center shrink-0 text-white"
+            style={{ background: 'linear-gradient(135deg, #6D28D9, #8B5CF6)' }}>
+            <Plus className="w-4 h-4" />
           </button>
         </div>
 
@@ -408,33 +408,33 @@ export default function PetHealth() {
           <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
             {myDogs.map(dog => (
               <button key={dog.id} onClick={() => setSelectedDog(dog)}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold shrink-0 transition-all"
+                className="flex items-center gap-2 px-3.5 py-2 rounded-2xl text-xs font-bold shrink-0 transition-all border-2"
                 style={selectedDog?.id === dog.id
-                  ? { background: 'white', color: '#6D28D9' }
-                  : { background: 'rgba(255,255,255,0.18)', color: 'rgba(255,255,255,0.80)' }}>
+                  ? { background: 'linear-gradient(135deg, #6D28D9, #8B5CF6)', color: 'white', borderColor: 'transparent' }
+                  : { background: 'white', color: '#6D28D9', borderColor: '#E6DEF5' }}>
                 <DogIcon className="w-3.5 h-3.5" strokeWidth={2.2} />
                 {dog.name}
               </button>
             ))}
           </div>
         )}
-      </div>
-
-      <div className="px-4 pt-4 space-y-4">
 
         {/* Stats row */}
-        <div className="grid grid-cols-3 gap-2.5">
-          {[
-            { icon: Weight,   label: 'Weight',      value: lastWeight ? `${lastWeight.weightKg} kg` : '—',        bg: '#F5F3FF', tc: '#6D28D9' },
-            { icon: Calendar, label: 'Last Vet',    value: lastVet ? timeAgo(lastVet.createdAt) : '—',             bg: '#EFF6FF', tc: '#1D4ED8' },
-            { icon: Activity, label: 'Walks/week',  value: `${thisWeekWalks}`,                                     bg: '#ECFDF5', tc: '#065F46' },
-          ].map(({ icon: Icon, label, value, bg, tc }) => (
-            <div key={label} className="rounded-2xl p-3 flex flex-col gap-1" style={{ background: bg }}>
-              <Icon className="w-4 h-4" style={{ color: tc }} />
-              <p className="text-[10px] font-semibold text-ink-muted uppercase tracking-wide">{label}</p>
-              <p className="text-sm font-extrabold" style={{ color: tc }}>{value}</p>
-            </div>
-          ))}
+        <div className="bg-white rounded-2xl shadow-sm border border-[#E6DEF5] p-4">
+          <p className="text-xs font-bold text-ink-muted uppercase tracking-wider mb-3">At a glance</p>
+          <div className="grid grid-cols-3 gap-2.5">
+            {[
+              { icon: Weight,   label: 'Weight',      value: lastWeight ? `${lastWeight.weightKg} kg` : '—',        bg: '#F5F3FF', tc: '#6D28D9' },
+              { icon: Calendar, label: 'Last Vet',    value: lastVet ? timeAgo(lastVet.createdAt) : '—',             bg: '#EFF6FF', tc: '#1D4ED8' },
+              { icon: Activity, label: 'Walks/week',  value: `${thisWeekWalks}`,                                     bg: '#ECFDF5', tc: '#065F46' },
+            ].map(({ icon: Icon, label, value, bg, tc }) => (
+              <div key={label} className="rounded-2xl p-3 flex flex-col gap-1" style={{ background: bg }}>
+                <Icon className="w-4 h-4" style={{ color: tc }} />
+                <p className="text-[10px] font-semibold text-ink-muted uppercase tracking-wide">{label}</p>
+                <p className="text-sm font-extrabold" style={{ color: tc }}>{value}</p>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* AI Health Assistant card */}
@@ -458,7 +458,7 @@ export default function PetHealth() {
         </button>
 
         {/* Week strip — tap a day to see that day's entries, tap again to show everything */}
-        <div>
+        <div className="bg-white rounded-2xl shadow-sm border border-[#E6DEF5] p-4">
           <SectionHeading icon={Calendar} title="This week" color="#6D28D9" bg="#F5F3FF"
             action={dateFilter && (
               <button onClick={() => setDateFilter(null)} className="text-xs font-bold text-primary shrink-0">Show all</button>
@@ -489,7 +489,7 @@ export default function PetHealth() {
         </div>
 
         {/* Journal */}
-        <div>
+        <div className="bg-white rounded-2xl shadow-sm border border-[#E6DEF5] p-4">
           <SectionHeading icon={NotebookPen} title="Health Journal"
             subtitle="Symptoms, vet visits, weight, medication — anything worth your vet knowing"
             color="#7C3AED" bg="#F5F3FF"
@@ -529,7 +529,7 @@ export default function PetHealth() {
               {visibleEntries.map(entry => {
                 const conf = ENTRY_TYPES.find(t => t.value === entry.type) ?? ENTRY_TYPES[0];
                 return (
-                  <div key={entry.id} className="bg-white rounded-2xl border border-surface-border p-4">
+                  <div key={entry.id} className="rounded-2xl border border-surface-border p-4" style={{ background: '#FAFAFB' }}>
                     <div className="flex items-start gap-3">
                       <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 text-lg"
                         style={{ background: conf.bg }}>
@@ -565,7 +565,7 @@ export default function PetHealth() {
         </div>
 
         {/* Care Reminders — "last done" + "next due", colour-coded like a notification */}
-        <div>
+        <div className="bg-white rounded-2xl shadow-sm border border-[#E6DEF5] p-4">
           <SectionHeading icon={Bell} title="Care Reminders" subtitle="Last done, and when it's due again" color="#D97706" bg="#FFFBEB" />
           <div className="space-y-2">
             {careReminders.map(r => {
@@ -577,7 +577,7 @@ export default function PetHealth() {
               }[r.status];
               const Icon = r.icon;
               return (
-                <div key={r.key} className="rounded-2xl border border-surface-border bg-white p-4 flex items-center gap-3">
+                <div key={r.key} className="rounded-2xl border border-surface-border p-4 flex items-center gap-3" style={{ background: '#FAFAFB' }}>
                   <div className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0" style={{ background: r.bg }}>
                     <Icon className="w-5 h-5" style={{ color: r.color }} strokeWidth={1.8} />
                   </div>
@@ -649,8 +649,8 @@ export default function PetHealth() {
         </div>
 
         {/* Other reminders — general guidance, not tracked against logged data */}
-        <div className="rounded-3xl overflow-hidden border border-surface-border bg-white">
-          <div className="px-4 py-3 border-b border-surface-border flex items-center gap-2.5">
+        <div className="rounded-2xl overflow-hidden border border-[#E6DEF5] bg-white shadow-sm">
+          <div className="px-4 py-3 border-b border-[#E6DEF5] flex items-center gap-2.5">
             <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: '#ECFDF5' }}>
               <ClipboardList className="w-3.5 h-3.5" style={{ color: '#059669' }} strokeWidth={2} />
             </div>

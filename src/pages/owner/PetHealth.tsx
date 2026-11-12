@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, X, ChevronRight, Sparkles, Weight, Calendar, Activity, Mic, MicOff, Footprints, Bath, Stethoscope, Check, Bell, NotebookPen, ClipboardList, Syringe, Share2, Pencil, Copy, Loader2, Dog as DogIcon } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { ArrowLeft, Plus, X, ChevronRight, Sparkles, Weight, Calendar, Activity, Mic, MicOff, Footprints, Bath, Stethoscope, Check, Bell, NotebookPen, ClipboardList, Syringe, Share2, Pencil, Copy, Loader2, Dog as DogIcon, Bot, HeartPulse, ShoppingBag } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { useShop, ShopProduct } from '../../context/ShopContext';
 import { supabase } from '../../lib/supabase';
 import type { Dog } from '../../types';
 
@@ -58,6 +60,19 @@ const ENTRY_TYPES: { value: EntryType; label: string; emoji: string; color: stri
   { value: 'vaccination', label: 'Vaccination', emoji: '💉', color: '#BE185D', bg: '#FDF2F8' },
 ];
 
+// Plain keyword overlap between what was asked/answered and the shop's own catalogue — not an AI
+// recommendation, just the app surfacing products that are actually relevant, so it never invents one.
+function matchShopProducts(text: string, products: ShopProduct[]): ShopProduct[] {
+  const words = [...new Set((text.toLowerCase().match(/[a-z]{4,}/g) ?? []))];
+  if (!words.length) return [];
+  return products
+    .map(p => ({ p, score: words.filter(w => `${p.name} ${p.brand ?? ''} ${p.description ?? ''}`.toLowerCase().includes(w)).length }))
+    .filter(s => s.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 3)
+    .map(s => s.p);
+}
+
 function timeAgo(iso: string) {
   const diff = Date.now() - new Date(iso).getTime();
   const m = Math.floor(diff / 60000);
@@ -91,8 +106,10 @@ function SectionHeading({ icon: Icon, title, subtitle, color = '#6D28D9', bg = '
 // ── Main component ─────────────────────────────────────────────
 export default function PetHealth() {
   const { data, currentUser, updateDog } = useApp();
+  const { products: shopProducts } = useShop();
   const navigate = useNavigate();
   const myDogs = data.dogs.filter(d => d.ownerId === currentUser?.id);
+  const ownerFirstName = currentUser?.name?.split(' ')[0] || 'there';
 
   const [selectedDog, setSelectedDog] = useState<Dog | null>(myDogs[0] ?? null);
   const [entries, setEntries] = useState<HealthEntry[]>([]);
@@ -160,7 +177,10 @@ export default function PetHealth() {
   const lastWeight = dogEntries.find(e => e.type === 'weight');
   const lastVet    = dogEntries.find(e => e.type === 'vet_visit');
   const dogWalks = data.walks.filter(w => w.dogId === selectedDog?.id && w.status === 'completed');
-  const thisWeekWalks = dogWalks.filter(w => Date.now() - new Date(w.scheduledDate).getTime() < 7 * 86400000).length;
+  // dogWalks is every completed booking for this dog — vet visits and groom-at-home sessions go
+  // through the same `walks` table, so "Walks/week" needs its own notes-based filter or it over-counts.
+  const actualWalks = dogWalks.filter(w => !/grooming/i.test(w.notes ?? '') && !/^VET BOOKING:/.test(w.notes ?? '') && !/^TRAINING:/.test(w.notes ?? ''));
+  const thisWeekWalks = actualWalks.filter(w => Date.now() - new Date(w.scheduledDate).getTime() < 7 * 86400000).length;
 
   // "Notification-style" care reminders — last time done, next time due, colour-coded by urgency.
   // Falls back to real booking history (a completed walk/grooming/vet booking) where no journal entry
@@ -168,7 +188,7 @@ export default function PetHealth() {
   const careReminders = useMemo(() => {
     const lastGroomBooking = dogWalks.filter(w => /grooming/i.test(w.notes ?? '')).sort((a, b) => new Date(b.scheduledDate).getTime() - new Date(a.scheduledDate).getTime())[0];
     const lastVetBooking = dogWalks.filter(w => /^VET BOOKING:/.test(w.notes ?? '')).sort((a, b) => new Date(b.scheduledDate).getTime() - new Date(a.scheduledDate).getTime())[0];
-    const lastWalkBooking = dogWalks.sort((a, b) => new Date(b.scheduledDate).getTime() - new Date(a.scheduledDate).getTime())[0];
+    const lastWalkBooking = actualWalks.slice().sort((a, b) => new Date(b.scheduledDate).getTime() - new Date(a.scheduledDate).getTime())[0];
     const lastGroomEntry = dogEntries.find(e => e.type === 'grooming');
 
     const defs = [
@@ -216,6 +236,15 @@ export default function PetHealth() {
     setEditingInterval(null);
   };
 
+  const aiSuggestions = selectedDog ? [
+    `Can you summarise ${selectedDog.name}'s recent health journal?`,
+    `Any ${selectedDog.breed ? `${selectedDog.breed}-specific` : 'breed-specific'} health tips I should know?`,
+    `What should I be watching for this week?`,
+    `Is this normal for ${selectedDog.name}'s age?`,
+  ] : [];
+
+  const shopMatches = useMemo(() => matchShopProducts(`${aiDraft} ${aiResult}`, shopProducts), [aiDraft, aiResult, shopProducts]);
+
   const quickLogGrooming = async () => {
     if (!selectedDog || !currentUser) return;
     const entry: HealthEntry = { id: crypto.randomUUID(), dogId: selectedDog.id, type: 'grooming', content: 'Washed / groomed at home', createdAt: new Date().toISOString() };
@@ -232,7 +261,7 @@ export default function PetHealth() {
       type: addType,
       content: addType === 'weight' ? `Weight recorded: ${addWeight} kg` : addContent.trim(),
       weightKg: addType === 'weight' ? parseFloat(addWeight) : undefined,
-      dueDate: addType === 'vaccination' && addDueDate ? addDueDate : undefined,
+      dueDate: addType !== 'weight' && addDueDate ? addDueDate : undefined,
       createdAt: new Date().toISOString(),
     };
     setEntries(prev => [entry, ...prev]);
@@ -367,7 +396,7 @@ export default function PetHealth() {
             style={{ background: 'rgba(255,255,255,0.15)' }}>
             <Share2 className="w-4 h-4 text-white" />
           </button>
-          <button onClick={() => setShowAddModal(true)}
+          <button onClick={() => { setAddType('note'); setAddContent(''); setAddDueDate(''); setShowAddModal(true); }}
             className="w-9 h-9 rounded-2xl flex items-center justify-center"
             style={{ background: 'rgba(255,255,255,0.20)' }}>
             <Plus className="w-4 h-4 text-white" />
@@ -418,7 +447,7 @@ export default function PetHealth() {
           <div className="relative flex items-center gap-4 px-5 py-4">
             <div className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0"
               style={{ background: 'linear-gradient(135deg, #6D28D9, #8B5CF6)', boxShadow: '0 4px 12px rgba(109,40,217,0.5)' }}>
-              <Sparkles className="w-6 h-6 text-white" />
+              <Bot className="w-6 h-6 text-white" strokeWidth={1.75} />
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-white font-extrabold text-sm">AI Health Assistant</p>
@@ -465,7 +494,7 @@ export default function PetHealth() {
             subtitle="Symptoms, vet visits, weight, medication — anything worth your vet knowing"
             color="#7C3AED" bg="#F5F3FF"
             action={(
-              <button onClick={() => setShowAddModal(true)}
+              <button onClick={() => { setAddType('note'); setAddContent(''); setAddDueDate(''); setShowAddModal(true); }}
                 className="flex items-center gap-1 text-xs font-bold text-primary shrink-0">
                 <Plus className="w-3.5 h-3.5" /> Add
               </button>
@@ -482,7 +511,7 @@ export default function PetHealth() {
               <p className="text-xs text-ink-muted mt-1 mb-4">Tap below to add your first note</p>
               <div className="flex flex-wrap justify-center gap-2">
                 {ENTRY_TYPES.filter(t => t.value !== 'weight').map(t => (
-                  <button key={t.value} onClick={() => { setAddType(t.value); setShowAddModal(true); }}
+                  <button key={t.value} onClick={() => { setAddType(t.value); setAddContent(''); setAddDueDate(''); setShowAddModal(true); }}
                     className="flex items-center gap-1.5 px-3 py-2 rounded-2xl text-xs font-bold border-2 transition-all"
                     style={{ borderColor: t.color, color: t.color, background: t.bg }}>
                     {t.emoji} {t.label}
@@ -600,14 +629,14 @@ export default function PetHealth() {
                     </button>
                   )}
                   {r.key === 'vet' && (
-                    <button onClick={() => { setAddType('vet_visit'); setShowAddModal(true); }}
+                    <button onClick={() => { setAddType('vet_visit'); setAddContent(''); setAddDueDate(''); setShowAddModal(true); }}
                       className="text-[11px] font-bold px-3 py-2 rounded-xl shrink-0 text-white"
                       style={{ background: r.color }}>
                       Log visit
                     </button>
                   )}
                   {r.key === 'vaccination' && (
-                    <button onClick={() => { setAddType('vaccination'); setShowAddModal(true); }}
+                    <button onClick={() => { setAddType('vaccination'); setAddContent(''); setAddDueDate(''); setShowAddModal(true); }}
                       className="text-[11px] font-bold px-3 py-2 rounded-xl shrink-0 text-white"
                       style={{ background: r.color }}>
                       Log it
@@ -629,16 +658,16 @@ export default function PetHealth() {
           </div>
           <div className="divide-y divide-surface-border">
             {[
-              { icon: '🦷', text: 'Dental check every 6 months', action: 'Log it' },
-              { icon: '🪱', text: 'Deworming every 3 months', action: 'Log it' },
-              { icon: '🧴', text: 'Flea & tick treatment monthly', action: 'Log it' },
-            ].map(({ icon, text, action }) => (
+              { icon: '🦷', text: 'Dental check every 6 months', content: 'Dental check-up' },
+              { icon: '🪱', text: 'Deworming every 3 months', content: 'Deworming treatment' },
+              { icon: '🧴', text: 'Flea & tick treatment monthly', content: 'Flea & tick treatment' },
+            ].map(({ icon, text, content }) => (
               <div key={text} className="flex items-center gap-3 px-4 py-3">
                 <span className="text-xl shrink-0">{icon}</span>
                 <p className="text-sm text-ink flex-1">{text}</p>
-                <button onClick={() => { setAddType('medication'); setShowAddModal(true); }}
+                <button onClick={() => { setAddType('medication'); setAddContent(content); setAddDueDate(''); setShowAddModal(true); }}
                   className="text-[11px] font-bold shrink-0" style={{ color: '#6D28D9' }}>
-                  {action}
+                  Log it
                 </button>
               </div>
             ))}
@@ -651,38 +680,46 @@ export default function PetHealth() {
       {showAddModal && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 backdrop-blur-sm px-4 pb-4"
           onClick={e => { if (e.target === e.currentTarget) setShowAddModal(false); }}>
-          <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden">
-            <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-surface-border">
-              <h2 className="font-bold text-ink text-sm">Add to Journal</h2>
+          <div className="w-full max-w-lg bg-white rounded-3xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+            <div className="flex items-start justify-between px-6 pt-6 pb-4 border-b border-surface-border shrink-0">
+              <div>
+                <h2 className="font-extrabold text-ink text-base">Add to Journal</h2>
+                <p className="text-xs text-ink-muted mt-0.5">
+                  Log anything about {selectedDog?.name || 'your pet'}'s health — the more detail, the better.
+                </p>
+              </div>
               <button onClick={() => setShowAddModal(false)}
-                className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-surface-hover text-ink-muted">
+                className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-surface-hover text-ink-muted shrink-0">
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <div className="p-5 space-y-4">
-              {/* Simple inline type row */}
-              <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-                {ENTRY_TYPES.map(t => (
-                  <button key={t.value} onClick={() => setAddType(t.value)}
-                    className="flex items-center gap-1.5 px-3 py-2 rounded-2xl text-xs font-bold whitespace-nowrap transition-all shrink-0"
-                    style={addType === t.value
-                      ? { background: t.bg, color: t.color, outline: `2px solid ${t.color}` }
-                      : { background: '#F3F4F6', color: '#6B7280' }}>
-                    {t.emoji} {t.label}
-                  </button>
-                ))}
+            <div className="p-6 space-y-5 overflow-y-auto">
+              <div>
+                <p className="text-[11px] font-bold text-ink-muted uppercase tracking-wide mb-2">What kind of entry?</p>
+                <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+                  {ENTRY_TYPES.map(t => (
+                    <button key={t.value} onClick={() => setAddType(t.value)}
+                      className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-2xl text-xs font-bold whitespace-nowrap transition-all shrink-0"
+                      style={addType === t.value
+                        ? { background: t.bg, color: t.color, outline: `2px solid ${t.color}` }
+                        : { background: '#F3F4F6', color: '#6B7280' }}>
+                      {t.emoji} {t.label}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {addType === 'weight' ? (
                 <div>
-                  <p className="text-xs text-ink-muted mb-2">Enter your pet's current weight in kilograms</p>
+                  <p className="text-[11px] font-bold text-ink-muted uppercase tracking-wide mb-2">Current weight</p>
                   <input type="number" step="0.1" placeholder="e.g. 12.5 kg" value={addWeight}
                     onChange={e => setAddWeight(e.target.value)}
-                    className="w-full border border-surface-border rounded-2xl px-4 py-3 text-sm text-ink focus:outline-none focus:border-primary" />
+                    className="w-full border border-surface-border rounded-2xl px-4 py-3.5 text-sm text-ink focus:outline-none focus:border-primary" />
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-4">
                   <div>
+                    <p className="text-[11px] font-bold text-ink-muted uppercase tracking-wide mb-2">Details</p>
                     <p className="text-xs text-ink-muted mb-2">
                       {addType === 'symptom' && 'What are you noticing? (e.g. limping, not eating, scratching)'}
                       {addType === 'vet_visit' && 'What happened at the vet? Diagnosis, vaccines, anything prescribed'}
@@ -691,20 +728,21 @@ export default function PetHealth() {
                       {addType === 'vaccination' && 'Which vaccine? (e.g. Rabies booster)'}
                       {addType === 'note' && "Anything worth remembering about your pet's health"}
                     </p>
-                    <textarea value={addContent} onChange={e => setAddContent(e.target.value)} rows={3}
+                    <textarea value={addContent} onChange={e => setAddContent(e.target.value)} rows={4}
                       placeholder="Write here…"
-                      className="w-full border border-surface-border rounded-2xl px-4 py-3 text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-primary resize-none" />
+                      className="w-full border border-surface-border rounded-2xl px-4 py-3.5 text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-primary resize-none" />
                   </div>
-                  {addType === 'vaccination' && (
-                    <div>
-                      <p className="text-xs text-ink-muted mb-2">Next due date (optional, but needed for a reminder)</p>
-                      <input type="date" value={addDueDate} onChange={e => setAddDueDate(e.target.value)}
-                        className="w-full border border-surface-border rounded-2xl px-4 py-3 text-sm text-ink focus:outline-none focus:border-primary" />
-                    </div>
-                  )}
+                  <div>
+                    <p className="text-[11px] font-bold text-ink-muted uppercase tracking-wide mb-2">
+                      {addType === 'vaccination' ? 'Next due date' : 'Remind me again on (optional)'}
+                    </p>
+                    <input type="date" value={addDueDate} onChange={e => setAddDueDate(e.target.value)}
+                      className="w-full border border-surface-border rounded-2xl px-4 py-3.5 text-sm text-ink focus:outline-none focus:border-primary" />
+                  </div>
                 </div>
               )}
-
+            </div>
+            <div className="p-6 pt-0 shrink-0">
               <button onClick={addEntry}
                 disabled={addType === 'weight' ? !addWeight : !addContent.trim()}
                 className="w-full py-3.5 rounded-2xl text-white font-bold text-sm disabled:opacity-40"
@@ -720,23 +758,49 @@ export default function PetHealth() {
       {showAIModal && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm px-4 pb-4"
           onClick={e => { if (e.target === e.currentTarget) { setShowAIModal(false); setAIResult(''); setAIDraft(''); } }}>
-          <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden max-h-[85vh] flex flex-col">
-            <div className="flex items-center gap-3 px-5 pt-5 pb-4 border-b border-surface-border shrink-0">
-              <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-                style={{ background: 'linear-gradient(135deg, #6D28D9, #8B5CF6)' }}>
-                <Sparkles className="w-4 h-4 text-white" />
-              </div>
-              <div className="flex-1">
-                <h2 className="font-bold text-ink text-sm">AI Health Assistant</h2>
-                <p className="text-[10px] text-ink-muted">Describe what you're seeing — get instant guidance</p>
-              </div>
+          <div className="w-full max-w-md rounded-3xl shadow-2xl overflow-hidden max-h-[88vh] flex flex-col"
+            style={{ background: 'linear-gradient(180deg, #0F172A 0%, #1E1B4B 40%, #ffffff 40%)' }}>
+            <div className="flex items-center gap-3 px-5 pt-5 pb-3 shrink-0">
+              <p className="text-white/40 text-[10px] font-bold uppercase tracking-widest flex-1">AI Health Assistant</p>
               <button onClick={() => { setShowAIModal(false); setAIResult(''); setAIDraft(''); }}
-                className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-surface-hover text-ink-muted">
+                className="w-8 h-8 flex items-center justify-center rounded-xl bg-white/10 text-white/70">
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="p-5 space-y-4 overflow-y-auto">
+            {/* Avatar + greeting — only while the conversation is still empty */}
+            {!aiDraft && !aiResult && (
+              <div className="px-6 pb-6 pt-1 text-center shrink-0">
+                <div className="relative mx-auto mb-4" style={{ width: 76, height: 76 }}>
+                  <div className="w-full h-full rounded-[28px] flex items-center justify-center"
+                    style={{ background: 'linear-gradient(135deg, #6D28D9, #8B5CF6, #22D3EE)', boxShadow: '0 8px 28px rgba(139,92,246,0.5)' }}>
+                    <Bot className="w-9 h-9 text-white" strokeWidth={1.75} />
+                  </div>
+                  <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full flex items-center justify-center border-2 border-[#0F172A]"
+                    style={{ background: '#22C55E' }}>
+                    <HeartPulse className="w-3.5 h-3.5 text-white" />
+                  </div>
+                </div>
+                <h2 className="text-white font-extrabold text-xl leading-tight">
+                  Hi {ownerFirstName}, meet {selectedDog?.name || 'your'}'s AI guide
+                </h2>
+                <p className="text-white/50 text-xs mt-1.5">What's going on today?</p>
+              </div>
+            )}
+
+            <div className="px-5 pt-4 pb-5 space-y-4 overflow-y-auto bg-white rounded-t-[28px] -mt-2 flex-1">
+              {!aiResult && (
+                <div className="flex flex-wrap gap-2">
+                  {aiSuggestions.map(s => (
+                    <button key={s} onClick={() => setAIDraft(s)}
+                      className="px-3 py-2 rounded-2xl text-xs font-semibold text-left"
+                      style={{ background: '#F5F3FF', color: '#6D28D9' }}>
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              )}
+
               {/* Textarea with mic button */}
               <div className="relative">
                 <textarea value={aiDraft} onChange={e => setAIDraft(e.target.value)} rows={4}
@@ -767,7 +831,7 @@ export default function PetHealth() {
               {aiResult && (
                 <div className="rounded-2xl p-4 space-y-3" style={{ background: '#F5F3FF', border: '1px solid #DDD6FE' }}>
                   <div className="flex items-center gap-2">
-                    <Sparkles className="w-4 h-4" style={{ color: '#7C3AED' }} />
+                    <Bot className="w-4 h-4" style={{ color: '#7C3AED' }} />
                     <p className="text-xs font-bold uppercase tracking-wider" style={{ color: '#6D28D9' }}>AI Insight</p>
                   </div>
                   <p className="text-sm leading-relaxed" style={{ color: '#374151' }}>{aiResult}</p>
@@ -779,6 +843,31 @@ export default function PetHealth() {
                     style={{ background: 'linear-gradient(135deg, #6D28D9, #8B5CF6)' }}>
                     Save to Journal
                   </button>
+                </div>
+              )}
+
+              {aiResult && shopMatches.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <ShoppingBag className="w-3.5 h-3.5" style={{ color: '#059669' }} />
+                    <p className="text-[11px] font-bold uppercase tracking-wide" style={{ color: '#059669' }}>
+                      Might help — from the Shop
+                    </p>
+                  </div>
+                  <div className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-none">
+                    {shopMatches.map(p => (
+                      <Link key={p.id} to="/owner/shop"
+                        className="shrink-0 w-28 rounded-2xl border border-surface-border overflow-hidden bg-white">
+                        <div className="w-full aspect-square bg-surface-secondary">
+                          <img src={p.img} alt={p.name} className="w-full h-full object-cover" />
+                        </div>
+                        <div className="px-2 py-2">
+                          <p className="text-[11px] font-semibold text-ink truncate">{p.name}</p>
+                          <p className="text-[11px] font-bold text-primary mt-0.5">K{p.price}</p>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>

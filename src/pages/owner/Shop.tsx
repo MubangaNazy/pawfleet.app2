@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, ShoppingCart, Plus, X, Star, ShieldCheck, MapPin, ExternalLink } from 'lucide-react';
+import { Search, ShoppingCart, Plus, X, Star, ShieldCheck, ExternalLink, PawPrint } from 'lucide-react';
 import { useCart } from '../../context/CartContext';
 import { useShop, ShopProduct } from '../../context/ShopContext';
 import { useApp } from '../../context/AppContext';
@@ -114,8 +114,17 @@ function ProductDetailModal({ item, onClose, onAdd }: { item: ShopProduct; onClo
   );
 }
 
+const CATEGORIES: { value: ShopProduct['category'] | 'all'; label: string }[] = [
+  { value: 'all',         label: 'All' },
+  { value: 'treats',      label: 'Treats' },
+  { value: 'accessories', label: 'Accessories' },
+  { value: 'meals',       label: 'Meals' },
+  { value: 'hygiene',     label: 'Hygiene' },
+];
+
 export default function Shop() {
   const [search, setSearch] = useState('');
+  const [category, setCategory] = useState<ShopProduct['category'] | 'all'>('all');
   const [selected, setSelected] = useState<ShopProduct | null>(null);
   const [selectedShopPin, setSelectedShopPin] = useState<string>('');
   const { addItem, count: cartTotal } = useCart();
@@ -123,10 +132,6 @@ export default function Shop() {
   const { data } = useApp();
   const navigate = useNavigate();
   const loc = useMyLocation(true);
-
-  // Group custom products by shop owner, showing shop header
-  const shopOwnerIds = [...new Set(products.filter(p => p.shopOwnerId).map(p => p.shopOwnerId!))];
-  const getShopInfo = (ownerId: string) => data.users.find(u => u.id === ownerId);
 
   // Registered shops that have a pinned location, so owners can find them on the map.
   const shopsOnMap = useMemo(() => data.users
@@ -146,22 +151,21 @@ export default function Shop() {
     return m;
   }, [shopsOnMap, loc.pos, selectedShopPin]);
 
-  const treats      = products.filter(p => p.category === 'treats');
-  const accessories = products.filter(p => p.category === 'accessories');
-  const meals       = products.filter(p => p.category === 'meals');
-  const hygiene     = products.filter(p => p.category === 'hygiene');
+  const byCategory = category === 'all' ? products : products.filter(p => p.category === category);
 
   const filtered = search.trim()
-    ? products.filter(p => p.name.toLowerCase().includes(search.toLowerCase()))
-    : null;
+    ? byCategory.filter(p => p.name.toLowerCase().includes(search.toLowerCase()))
+    : byCategory;
 
-  const sections: { title: string; items: ShopProduct[] }[] = filtered
+  const sections: { title: string; items: ShopProduct[] }[] = search.trim()
     ? [{ title: 'Results', items: filtered }]
+    : category !== 'all'
+    ? [{ title: CATEGORIES.find(c => c.value === category)?.label ?? '', items: filtered }]
     : [
-        ...(treats.length      ? [{ title: 'Treats for your pup', items: treats }]      : []),
-        ...(accessories.length ? [{ title: 'Accessories',          items: accessories }] : []),
-        ...(meals.length       ? [{ title: 'Meal Plans',           items: meals }]       : []),
-        ...(hygiene.length     ? [{ title: 'Hygiene',              items: hygiene }]     : []),
+        ...(products.some(p => p.category === 'treats')      ? [{ title: 'Treats for your pup', items: products.filter(p => p.category === 'treats') }]      : []),
+        ...(products.some(p => p.category === 'accessories') ? [{ title: 'Accessories',          items: products.filter(p => p.category === 'accessories') }] : []),
+        ...(products.some(p => p.category === 'meals')       ? [{ title: 'Meal Plans',           items: products.filter(p => p.category === 'meals') }]       : []),
+        ...(products.some(p => p.category === 'hygiene')     ? [{ title: 'Hygiene',              items: products.filter(p => p.category === 'hygiene') }]     : []),
       ];
 
   const handleAdd = (item: ShopProduct) =>
@@ -199,6 +203,28 @@ export default function Shop() {
         </div>
       </div>
 
+      {/* Hero banner */}
+      {!search && (
+        <div className="px-4 pb-5">
+          <div className="relative rounded-3xl overflow-hidden px-5 py-6"
+            style={{ background: 'linear-gradient(135deg, #1B4332 0%, #2B8A50 100%)' }}>
+            <PawPrint className="absolute -right-4 -bottom-4 w-28 h-28 text-white/10" strokeWidth={1} />
+            <PawPrint className="absolute right-16 top-2 w-10 h-10 text-white/10 rotate-12" strokeWidth={1} />
+            <p className="relative text-white font-extrabold text-2xl leading-tight italic">
+              Better Food.<br />Happier Tails.
+            </p>
+            <p className="relative text-white/70 text-xs mt-2 max-w-[70%]">
+              Treats, meals and essentials for your pup — delivered across Lusaka.
+            </p>
+            <button type="button" onClick={() => { setCategory('treats'); setSearch(''); }}
+              className="relative mt-4 px-5 py-2.5 rounded-full text-xs font-bold active:scale-95 transition-transform"
+              style={{ background: 'white', color: '#1B4332' }}>
+              Shop Treats
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Hero cards */}
       {!search && (
         <div className="px-4 pb-5 grid grid-cols-2 gap-3">
@@ -219,6 +245,21 @@ export default function Shop() {
               <p className="text-white/80 text-[10px] leading-tight">Find a walker</p>
             </div>
           </button>
+        </div>
+      )}
+
+      {/* Category pills */}
+      {!search && (
+        <div className="px-4 pb-5 flex gap-2 overflow-x-auto scrollbar-none">
+          {CATEGORIES.map(c => (
+            <button key={c.value} type="button" onClick={() => setCategory(c.value)}
+              className="shrink-0 px-4 py-2 rounded-full text-xs font-bold transition-all"
+              style={category === c.value
+                ? { background: '#1B4332', color: 'white' }
+                : { background: '#F3F4F6', color: '#6B7280' }}>
+              {c.label}
+            </button>
+          ))}
         </div>
       )}
 
@@ -256,31 +297,6 @@ export default function Shop() {
         </div>
       )}
 
-      {/* Shop banners for custom shop owners */}
-      {!search && shopOwnerIds.length > 0 && shopOwnerIds.map(ownerId => {
-        const shop = getShopInfo(ownerId);
-        if (!shop?.businessName && !shop?.businessType) return null;
-        return (
-          <div key={ownerId} className="mx-4 mb-4 rounded-2xl border border-surface-border bg-white p-4 flex items-center gap-3">
-            <div className="w-14 h-14 rounded-2xl overflow-hidden shrink-0 flex items-center justify-center text-lg font-bold text-white"
-              style={{ background: shop.imageUrl ? undefined : 'linear-gradient(135deg, #1B4332, #2B8A50)' }}>
-              {shop.imageUrl
-                ? <img src={shop.imageUrl} alt={shop.businessName} className="w-full h-full object-cover" />
-                : (shop.businessName || shop.name)[0].toUpperCase()}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="font-bold text-ink text-sm">{shop.businessName || shop.name}</p>
-              {shop.businessType && <p className="text-xs text-primary font-semibold">{shop.businessType}</p>}
-              {shop.businessAddress && (
-                <p className="text-xs text-ink-muted flex items-center gap-1 mt-0.5">
-                  <MapPin className="w-3 h-3 shrink-0" />{shop.businessAddress}
-                </p>
-              )}
-            </div>
-          </div>
-        );
-      })}
-
       {/* Product sections */}
       {sections.map(section => (
         <div key={section.title} className="px-4 pb-6">
@@ -297,11 +313,13 @@ export default function Shop() {
         </div>
       ))}
 
-      {search && sections[0]?.items.length === 0 && (
+      {sections.every(s => s.items.length === 0) && (
         <div className="flex flex-col items-center py-16 gap-3 text-center px-4">
           <span className="text-4xl">🔍</span>
-          <p className="font-semibold text-ink">No results for "{search}"</p>
-          <p className="text-sm text-ink-muted">Try a different search term</p>
+          <p className="font-semibold text-ink">
+            {search ? `No results for "${search}"` : 'Nothing in this category yet'}
+          </p>
+          <p className="text-sm text-ink-muted">{search ? 'Try a different search term' : 'Check back soon'}</p>
         </div>
       )}
 

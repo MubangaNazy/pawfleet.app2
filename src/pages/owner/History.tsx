@@ -270,8 +270,17 @@ export default function OwnerHistory() {
                         );
                       }
 
-                      /* Completed — pay + rate */
+                      /* Completed — route, pay + rate */
                       if (walk.status === 'completed') {
+                        if (walk.routePoints && walk.routePoints.length > 1) {
+                          actions.push(
+                            <a key="route" href={`/owner/track/${walk.id}`}
+                              className="flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-xl active:scale-95 transition-transform"
+                              style={{ color: '#2B8A50', background: '#EBF5EF' }}>
+                              <MapPin className="w-3.5 h-3.5" /> View Route
+                            </a>
+                          );
+                        }
                         if (payment && (payment.status === 'held' || payment.status === 'unpaid')) {
                           actions.push(
                             <button key="pay" type="button" onClick={() => setConfirmWalkId(walk.id)}

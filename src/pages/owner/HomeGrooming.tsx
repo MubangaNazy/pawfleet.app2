@@ -159,32 +159,27 @@ export default function HomeGrooming() {
   }
 
   return (
-    <div className="max-w-lg mx-auto pb-28">
-      {/* Header */}
-      <div className="sticky top-0 z-10 bg-white border-b border-surface-border px-4 py-3 flex items-center gap-3">
-        <button type="button" onClick={() => navigate(-1)}
-          className="w-10 h-10 rounded-2xl flex items-center justify-center"
-          style={{ background: '#F3F4F6' }}>
-          <ArrowLeft className="w-5 h-5 text-ink" />
-        </button>
-        <div>
-          <p className="font-extrabold text-ink text-sm">Home Grooming</p>
-          <p className="text-xs text-ink-muted">Professional groomer at your door</p>
+    <div className="bg-[#F4F9F6] min-h-screen pb-28">
+      <div className="max-w-lg mx-auto px-4 pt-5 space-y-4">
+
+        {/* Header */}
+        <div className="flex items-center gap-3">
+          <button type="button" onClick={() => navigate(-1)}
+            className="w-9 h-9 rounded-2xl flex items-center justify-center shrink-0 bg-white border border-[#DDE9E2]">
+            <ArrowLeft className="w-4 h-4 text-ink" />
+          </button>
+          <div>
+            <h1 className="text-3xl font-extrabold italic"
+              style={{ background: 'linear-gradient(135deg, #1B4332, #52B788)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+              Home Grooming
+            </h1>
+            <p className="text-sm font-medium mt-0.5" style={{ color: '#5A8A70' }}>A certified groomer comes to your door</p>
+          </div>
         </div>
-      </div>
 
-      {/* Hero */}
-      <div className="px-5 py-6 relative overflow-hidden"
-        style={{ background: 'linear-gradient(135deg,#FFF3E0,#FFE0B2)' }}>
-        <div className="absolute right-0 top-0 text-8xl opacity-20 leading-none select-none pointer-events-none">✂️</div>
-        <p className="text-lg font-extrabold text-ink mb-1">Pamper Your Pet</p>
-        <p className="text-sm text-ink-muted">A certified groomer comes to your home — no stress, no travel.</p>
-      </div>
-
-      <div className="px-4 pt-5 space-y-6">
         {/* Dog selector */}
-        <div>
-          <p className="text-sm font-bold text-ink mb-3">Which dog?</p>
+        <div className="bg-white rounded-2xl shadow-sm border border-[#DDE9E2] p-4">
+          <p className="text-xs font-bold text-ink-muted uppercase tracking-wider mb-3">Which dog?</p>
           {myDogs.length === 0 ? (
             <p className="text-sm text-ink-muted">No dogs added yet. <button type="button" onClick={() => navigate('/owner/dogs')} className="text-primary font-semibold">Add a dog →</button></p>
           ) : (
@@ -192,7 +187,7 @@ export default function HomeGrooming() {
               {myDogs.map(dog => (
                 <button key={dog.id} type="button" onClick={() => setDogId(dog.id)}
                   className={`flex items-center gap-3 p-3 rounded-2xl border-2 transition-all ${
-                    dogId === dog.id ? 'border-primary bg-primary/5' : 'border-surface-border bg-white hover:bg-surface-hover'
+                    dogId === dog.id ? 'border-primary bg-primary/5' : 'border-[#DDE9E2] bg-white hover:bg-surface-hover'
                   }`}>
                   <div className="w-10 h-10 rounded-xl overflow-hidden bg-surface-secondary shrink-0">
                     {dog.imageUrl ? <img src={dog.imageUrl} alt={dog.name} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center">🐕</div>}
@@ -208,8 +203,8 @@ export default function HomeGrooming() {
         </div>
 
         {/* Dog temperament */}
-        <div>
-          <p className="text-sm font-bold text-ink mb-1">Dog temperament <span className="text-red-500">*</span></p>
+        <div className="bg-white rounded-2xl shadow-sm border border-[#DDE9E2] p-4">
+          <p className="text-xs font-bold text-ink-muted uppercase tracking-wider mb-1">Dog temperament <span className="text-red-500">*</span></p>
           <p className="text-xs text-ink-muted mb-3">This helps the groomer prepare the right approach and safety equipment.</p>
           <div className="grid grid-cols-3 gap-2">
             {([
@@ -241,15 +236,15 @@ export default function HomeGrooming() {
         </div>
 
         {/* Grooming package */}
-        <div>
-          <p className="text-sm font-bold text-ink mb-3">Choose a package</p>
+        <div className="bg-white rounded-2xl shadow-sm border border-[#DDE9E2] p-4">
+          <p className="text-xs font-bold text-ink-muted uppercase tracking-wider mb-3">Choose a package</p>
 
           {/* Home grooming packages */}
           <div className="space-y-2 mb-4">
             {PACKAGES.filter(p => !p.isVet).map(p => (
               <button key={p.id} type="button" onClick={() => { setPkg(p.id); setNeedsSedation(false); }}
                 className={`w-full flex items-center gap-4 p-4 rounded-2xl border-2 text-left transition-all ${
-                  pkg === p.id ? 'border-primary bg-primary/5' : 'border-surface-border bg-white hover:bg-surface-hover'
+                  pkg === p.id ? 'border-primary bg-primary/5' : 'border-[#DDE9E2] bg-white hover:bg-surface-hover'
                 }`}>
                 <div className="w-14 h-14 rounded-2xl overflow-hidden shrink-0" style={{ background: '#F4F9F6' }}>
                   {p.art ? <GroomIllustration kind={p.art} className="w-full h-full" /> : (
@@ -277,7 +272,7 @@ export default function HomeGrooming() {
             <div key={p.id}>
               <button type="button" onClick={() => setPkg(p.id)}
                 className={`w-full flex items-center gap-4 p-4 rounded-2xl border-2 text-left transition-all ${
-                  pkg === p.id ? 'border-purple-500 bg-purple-50' : 'border-surface-border bg-white hover:bg-surface-hover'
+                  pkg === p.id ? 'border-purple-500 bg-purple-50' : 'border-[#DDE9E2] bg-white hover:bg-surface-hover'
                 }`}>
                 <div className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0"
                   style={{ background: pkg === p.id ? '#F5F3FF' : '#F9FAFB' }}>
@@ -341,13 +336,13 @@ export default function HomeGrooming() {
 
         {/* Plan */}
         {!isVetGrooming && (
-          <div>
-            <p className="text-sm font-bold text-ink mb-1">How often?</p>
+          <div className="bg-white rounded-2xl shadow-sm border border-[#DDE9E2] p-4">
+            <p className="text-xs font-bold text-ink-muted uppercase tracking-wider mb-1">How often?</p>
             <p className="text-xs text-ink-muted mb-3">Regular grooming costs less per visit. You book the first visit now.</p>
             <div className="grid grid-cols-3 gap-2">
               {([['', 'Just once', ''], ...GROOM_PLANS.map(p => [p.id, p.id === 'monthly' ? 'Monthly' : 'Twice a month', `Save ${p.discountPct}%`])] as [string, string, string][]).map(([id, label, sub]) => (
                 <button key={id || 'once'} type="button" onClick={() => setPlan(id as PlanId | '')}
-                  className={`flex flex-col items-center gap-0.5 py-3 rounded-2xl border-2 text-center transition-all ${plan === id ? 'border-primary bg-primary/5' : 'border-surface-border bg-white'}`}>
+                  className={`flex flex-col items-center gap-0.5 py-3 rounded-2xl border-2 text-center transition-all ${plan === id ? 'border-primary bg-primary/5' : 'border-[#DDE9E2] bg-white'}`}>
                   <span className={`text-xs font-bold ${plan === id ? 'text-primary' : 'text-ink'}`}>{label}</span>
                   <span className="text-[10px] font-semibold" style={{ color: sub ? '#B45309' : '#9CA3AF' }}>{sub || 'Full price'}</span>
                 </button>
@@ -357,28 +352,28 @@ export default function HomeGrooming() {
         )}
 
         {/* Date & time */}
-        <div>
-          <p className="text-sm font-bold text-ink mb-3">When?</p>
+        <div className="bg-white rounded-2xl shadow-sm border border-[#DDE9E2] p-4">
+          <p className="text-xs font-bold text-ink-muted uppercase tracking-wider mb-3">When?</p>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-semibold text-ink-muted mb-1 block">Date</label>
               <input type="date" value={date} min={todayStr()}
                 onChange={e => setDate(e.target.value)}
-                className="w-full px-3 py-3 rounded-2xl border border-surface-border text-sm font-medium text-ink focus:outline-none focus:border-primary" />
+                className="w-full px-3 py-3 rounded-2xl border border-[#DDE9E2] text-sm font-medium text-ink focus:outline-none focus:border-primary bg-[#F4F9F6]" />
             </div>
             <div>
               <label className="text-xs font-semibold text-ink-muted mb-1 block">Time</label>
               <input type="time" value={time}
                 onChange={e => setTime(e.target.value)}
-                className="w-full px-3 py-3 rounded-2xl border border-surface-border text-sm font-medium text-ink focus:outline-none focus:border-primary" />
+                className="w-full px-3 py-3 rounded-2xl border border-[#DDE9E2] text-sm font-medium text-ink focus:outline-none focus:border-primary bg-[#F4F9F6]" />
             </div>
           </div>
         </div>
 
         {/* Where */}
-        <div>
+        <div className="bg-white rounded-2xl shadow-sm border border-[#DDE9E2] p-4">
           <div className="flex items-center justify-between mb-2 gap-2">
-            <label className="text-sm font-bold text-ink">Where should the groomer go?</label>
+            <label className="text-xs font-bold text-ink-muted uppercase tracking-wider">Where should the groomer go?</label>
             <div className="flex items-center gap-3 shrink-0">
               <button type="button" onClick={() => setShowPinPicker(true)}
                 className="flex items-center gap-1 text-xs font-bold" style={{ color: '#2B8A50' }}>
@@ -394,7 +389,7 @@ export default function HomeGrooming() {
           </div>
           <input type="text" value={address} placeholder="e.g. Plot 15, Kabulonga, Lusaka"
             onChange={e => { setAddress(e.target.value); setCoords(null); setGeoStatus('idle'); }}
-            className="w-full px-4 py-3 rounded-2xl border border-surface-border text-sm text-ink focus:outline-none focus:border-primary" />
+            className="w-full px-4 py-3 rounded-2xl border border-[#DDE9E2] text-sm text-ink focus:outline-none focus:border-primary" />
           <p className="text-xs mt-1.5" style={{ color: geoStatus === 'missing' || gpsError ? '#B45309' : '#6B7280' }}>
             {gpsError
               || (geoStatus === 'looking' ? 'Finding this on the map…'
@@ -404,12 +399,13 @@ export default function HomeGrooming() {
           </p>
         </div>
 
-        {/* Groomers nearby */}
-        <div>
-          <p className="text-sm font-bold text-ink mb-1">Groomers near you</p>
+        {/* Groomers nearby — only PawFleet walkers who have set a grooming price show up here, never
+            plain dog walkers, so this list is always a real groomer search, not a general walker one. */}
+        <div className="bg-white rounded-2xl shadow-sm border border-[#DDE9E2] p-4">
+          <p className="text-xs font-bold text-ink-muted uppercase tracking-wider mb-1">Groomers near you</p>
           <p className="text-xs text-ink-muted mb-3">Pick one, or leave it and the first available groomer will accept.</p>
           {groomers.length === 0 ? (
-            <div className="rounded-2xl border-2 border-dashed border-surface-border p-4 text-center">
+            <div className="rounded-2xl border-2 border-dashed border-[#DDE9E2] p-4 text-center">
               <p className="text-sm font-semibold text-ink">No groomers listed yet</p>
               <p className="text-xs text-ink-muted mt-1">Book anyway and groomers will be notified as soon as they join.</p>
             </div>
@@ -418,7 +414,7 @@ export default function HomeGrooming() {
               {groomers.slice(0, 8).map(({ user: g, live: isLive, distKm }) => (
                 <div key={g.id}
                   onClick={() => setGroomerId(id => id === g.id ? '' : g.id)}
-                  className={`flex items-center gap-3 p-3 rounded-2xl border-2 cursor-pointer transition-all ${groomerId === g.id ? 'border-primary bg-primary/5' : 'border-surface-border bg-white'}`}>
+                  className={`flex items-center gap-3 p-3 rounded-2xl border-2 cursor-pointer transition-all ${groomerId === g.id ? 'border-primary bg-primary/5' : 'border-[#DDE9E2] bg-white'}`}>
                   <div className="w-11 h-11 rounded-full overflow-hidden flex items-center justify-center text-white font-bold shrink-0"
                     style={{ background: 'linear-gradient(135deg,#1B4332,#2B8A50)' }}>
                     {g.imageUrl ? <img src={g.imageUrl} alt="" className="w-full h-full object-cover" /> : g.name[0]?.toUpperCase()}
@@ -448,15 +444,15 @@ export default function HomeGrooming() {
         </div>
 
         {/* Extra notes */}
-        <div>
-          <label className="text-sm font-bold text-ink mb-2 block">Any special notes? <span className="text-ink-muted font-normal">(optional)</span></label>
+        <div className="bg-white rounded-2xl shadow-sm border border-[#DDE9E2] p-4">
+          <label className="text-xs font-bold text-ink-muted uppercase tracking-wider mb-2 block">Any special notes? <span className="font-normal normal-case">(optional)</span></label>
           <textarea value={notes} placeholder="e.g. Dog is nervous around clippers, has sensitive ears…"
             onChange={e => setNotes(e.target.value)} rows={3}
-            className="w-full px-4 py-3 rounded-2xl border border-surface-border text-sm text-ink focus:outline-none focus:border-primary resize-none" />
+            className="w-full px-4 py-3 rounded-2xl border border-[#DDE9E2] text-sm text-ink focus:outline-none focus:border-primary resize-none" />
         </div>
 
         {/* Price summary */}
-        <div className="rounded-2xl p-4 border border-surface-border bg-white">
+        <div className="rounded-2xl p-4 border border-[#DDE9E2] bg-white shadow-sm">
           <div className="flex items-center justify-between mb-1">
             <p className="text-sm font-bold text-ink">{isVetGrooming ? 'Vet Clinic Grooming' : 'Home Grooming'}</p>
             <p className="text-sm font-semibold text-ink-muted">K{selectedPkg.price}</p>
@@ -473,7 +469,7 @@ export default function HomeGrooming() {
               <p className="text-sm font-semibold" style={{ color: '#2B8A50' }}>−K{beforePlan - totalPrice}</p>
             </div>
           )}
-          <div className="flex items-center justify-between pt-2 border-t border-surface-border mt-1">
+          <div className="flex items-center justify-between pt-2 border-t border-[#DDE9E2] mt-1">
             <p className="text-sm font-bold text-ink">Total</p>
             <p className="text-xl font-extrabold" style={{ color: '#1B4332' }}>K{totalPrice}</p>
           </div>

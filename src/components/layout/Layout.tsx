@@ -50,6 +50,14 @@ export function Layout() {
     n => n.userId === currentUser?.id && !n.read
   ).length;
 
+  // <main> is the real scroll container (not the window), so React Router's own scroll-on-navigate
+  // never resets it — a page left scrolled down stays that way after navigating to a new, shorter page,
+  // landing you at its bottom instead of its top. Reset on every route change.
+  const mainRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    mainRef.current?.scrollTo(0, 0);
+  }, [location.pathname]);
+
   const notifPath = currentUser?.role === 'admin'
     ? '/admin/notifications'
     : currentUser?.role === 'walker'
@@ -107,7 +115,7 @@ export function Layout() {
         </header>
 
         {/* Content */}
-        <main className={`flex-1 overflow-y-auto overflow-x-hidden ${(isOwner || isWalker) ? 'pb-16 lg:pb-0' : ''}`}>
+        <main ref={mainRef} className={`flex-1 overflow-y-auto overflow-x-hidden ${(isOwner || isWalker) ? 'pb-16 lg:pb-0' : ''}`}>
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={location.pathname}

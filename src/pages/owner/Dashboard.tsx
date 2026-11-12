@@ -37,6 +37,37 @@ function Reveal({ children, delay = 0, className = '' }: { children: ReactNode; 
   );
 }
 
+// A small curled-up sleeping dog that rests on the corner of the hero card — the same idea as the
+// mascot GitHub tucks onto its own pages, just ours. Pure decoration, no interaction.
+function SleepingDogMascot() {
+  return (
+    <div className="absolute -top-4 left-4 z-10 pointer-events-none select-none" style={{ width: 56, animation: 'mascotSettle 0.8s ease 1.1s both' }}>
+      <style>{`
+        @keyframes mascotSettle { from { opacity: 0; transform: translateY(10px) rotate(-6deg); } to { opacity: 1; transform: translateY(0) rotate(-4deg); } }
+        @keyframes mascotBreathe { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(1.03); } }
+        @keyframes mascotZzz { 0% { opacity: 0; transform: translate(0,0) scale(0.7); } 30% { opacity: 1; } 100% { opacity: 0; transform: translate(6px,-10px) scale(1.1); } }
+      `}</style>
+      <svg viewBox="0 0 64 44" style={{ transform: 'rotate(-4deg)', transformOrigin: 'center', animation: 'mascotBreathe 3.2s ease-in-out infinite' }}>
+        {/* curled body */}
+        <path d="M10 34 C2 30 4 16 16 12 C26 9 34 11 40 18 C46 24 44 32 52 32 C58 32 60 28 58 24"
+          fill="none" stroke="#1B4332" strokeWidth="7" strokeLinecap="round" />
+        <path d="M10 34 C2 30 4 16 16 12 C26 9 34 11 40 18 C46 24 44 32 52 32 C58 32 60 28 58 24"
+          fill="none" stroke="#52B788" strokeWidth="3.5" strokeLinecap="round" />
+        {/* head */}
+        <circle cx="14" cy="30" r="9" fill="#1B4332" />
+        <ellipse cx="9" cy="26" rx="4" ry="5.5" fill="#1B4332" transform="rotate(-25 9 26)" />
+        {/* closed eye */}
+        <path d="M13 29.5 q2 1.3 4 0" fill="none" stroke="#F8FAF9" strokeWidth="1.3" strokeLinecap="round" />
+        {/* snout */}
+        <circle cx="7" cy="32" r="1.4" fill="#F8FAF9" />
+      </svg>
+      {/* Zzz */}
+      <span style={{ position: 'absolute', top: -6, left: 30, fontSize: 11, fontWeight: 800, color: '#52B788', animation: 'mascotZzz 2.4s ease-in-out infinite' }}>z</span>
+      <span style={{ position: 'absolute', top: -13, left: 37, fontSize: 8, fontWeight: 800, color: '#52B788', animation: 'mascotZzz 2.4s ease-in-out 0.5s infinite' }}>z</span>
+    </div>
+  );
+}
+
 // ── Slideshow images ─────────────────────────────────────────
 const SLIDES = [
   {
@@ -161,7 +192,9 @@ export default function OwnerDashboard() {
         </div>
 
         {/* ── Hero Slideshow ── */}
-        <Link to={SLIDES[slide].to} className="block relative overflow-hidden rounded-3xl" style={{ height: 230 }}>
+        <div className="relative">
+          <SleepingDogMascot />
+          <Link to={SLIDES[slide].to} className="block relative overflow-hidden rounded-3xl" style={{ height: 230 }}>
           {SLIDES.map((s, i) => (
             <img
               key={i}
@@ -204,7 +237,8 @@ export default function OwnerDashboard() {
             <img src="/logo.png" alt="PawFleet" className="w-6 h-6 rounded-full object-cover opacity-90 drop-shadow" />
             <span className="text-xs font-bold drop-shadow" style={{ color: '#52B788', textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>PawFleet</span>
           </div>
-        </Link>
+          </Link>
+        </div>
 
         {/* ── Quick Actions Bento ── */}
         <Reveal delay={50}>

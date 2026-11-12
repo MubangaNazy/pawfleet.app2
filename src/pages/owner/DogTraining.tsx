@@ -112,51 +112,42 @@ export default function DogTraining() {
   };
 
   return (
-    <div className="max-w-lg mx-auto pb-28 bg-white min-h-screen">
+    <div className="bg-[#F4F9F6] min-h-screen pb-28">
+      <div className="max-w-lg mx-auto px-4 pt-5 space-y-4">
 
-      {/* Header */}
-      <div className="sticky top-0 z-10 bg-white/90 backdrop-blur border-b border-surface-border px-4 py-3 flex items-center gap-3">
-        <button onClick={() => navigate(-1)}
-          className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-surface-hover text-ink-secondary">
-          <ArrowLeft className="w-5 h-5" />
-        </button>
-        <h1 className="text-base font-bold text-ink flex-1">Dog Training</h1>
-      </div>
-
-      {/* Hero */}
-      <div className="relative overflow-hidden" style={{ minHeight: 210 }}>
-        <img src="/images/pf-walk-man.png" alt="Dog Training"
-          className="absolute inset-0 w-full h-full object-cover" style={{ filter: 'brightness(0.38)' }} />
-        <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, rgba(7,26,14,0.3) 0%, rgba(7,26,14,0.88) 100%)' }} />
-        <div className="relative px-5 pt-7 pb-8 z-10">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full mb-3" style={{ background: 'rgba(255,255,255,0.12)' }}>
-            <span className="w-1.5 h-1.5 rounded-full bg-green-400" />
-            <p className="text-white/80 text-[11px] uppercase tracking-widest font-bold">Professional Training</p>
-          </div>
-          <h2 className="text-white text-2xl font-extrabold leading-tight mb-1">
-            Train your dog<br />the right way 🐕
-          </h2>
-          <p className="text-white/55 text-sm mb-3">14-day certified program · From <span className="text-white font-bold">K3,500</span></p>
-          <div className="flex flex-wrap gap-2">
-            {[`${sessionMin} min/day`, '14-day program', 'Certified trainers', 'Guaranteed results'].map(tag => (
-              <span key={tag} className="px-3 py-1.5 rounded-full text-xs font-semibold text-white/85"
-                style={{ background: 'rgba(255,255,255,0.13)' }}>
-                {tag}
-              </span>
-            ))}
+        {/* Header */}
+        <div className="flex items-center gap-3">
+          <button onClick={() => navigate(-1)}
+            className="w-9 h-9 rounded-2xl flex items-center justify-center shrink-0 bg-white border border-[#DDE9E2]">
+            <ArrowLeft className="w-4 h-4 text-ink" />
+          </button>
+          <div>
+            <h1 className="text-3xl font-extrabold italic"
+              style={{ background: 'linear-gradient(135deg, #1B4332, #52B788)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+              Dog Training
+            </h1>
+            <p className="text-sm font-medium mt-0.5" style={{ color: '#5A8A70' }}>
+              14-day certified program · From K3,500
+            </p>
           </div>
         </div>
-      </div>
 
-      <div className="px-4 pt-5 space-y-7">
+        <div className="flex flex-wrap gap-2">
+          {[`${sessionMin} min/day`, '14-day program', 'Certified trainers', 'Guaranteed results'].map(tag => (
+            <span key={tag} className="px-3 py-1.5 rounded-full text-xs font-semibold"
+              style={{ background: '#EBF5EF', color: '#1B4332' }}>
+              {tag}
+            </span>
+          ))}
+        </div>
 
         {/* ── Dog size ── */}
-        <section>
-          <p className="text-xs font-bold text-ink-muted uppercase tracking-wide mb-2.5">Your dog's size</p>
+        <section className="bg-white rounded-2xl shadow-sm border border-[#DDE9E2] p-4">
+          <p className="text-xs font-bold text-ink-muted uppercase tracking-wider mb-2.5">Your dog's size</p>
           <div className="grid grid-cols-2 gap-2.5">
             {(['small', 'large'] as const).map(size => (
               <button key={size} onClick={() => setDogSize(size)}
-                className={`flex flex-col items-center gap-2 py-5 rounded-2xl border-2 transition-all ${dogSize === size ? 'border-primary bg-primary/10' : 'border-surface-border hover:bg-surface-hover'}`}>
+                className={`flex flex-col items-center gap-2 py-5 rounded-2xl border-2 transition-all ${dogSize === size ? 'border-primary bg-primary/10' : 'border-[#DDE9E2] hover:bg-surface-hover'}`}>
                 <span className="text-3xl">{size === 'small' ? '🐩' : '🐕‍🦺'}</span>
                 <div className="text-center">
                   <p className={`text-sm font-extrabold ${dogSize === size ? 'text-primary' : 'text-ink'}`}>
@@ -172,8 +163,8 @@ export default function DogTraining() {
         </section>
 
         {/* ── Packages ── */}
-        <section>
-          <p className="text-xs font-bold text-ink-muted uppercase tracking-wide mb-2.5">Choose package</p>
+        <section className="bg-white rounded-2xl shadow-sm border border-[#DDE9E2] p-4">
+          <p className="text-xs font-bold text-ink-muted uppercase tracking-wider mb-2.5">Choose package</p>
           {selectedPackages.length === 2 && (
             <div className="mb-3 px-4 py-3 rounded-2xl text-sm font-bold flex items-center gap-2"
               style={{ background: '#FEF3C7', color: '#92400E' }}>
@@ -185,7 +176,7 @@ export default function DogTraining() {
               const on = selectedPackages.includes(pkg.id);
               return (
                 <button key={pkg.id} onClick={() => togglePkg(pkg.id)}
-                  className={`w-full text-left rounded-2xl border-2 p-4 transition-all ${on ? 'border-primary bg-primary/5' : 'border-surface-border hover:border-primary/30'}`}>
+                  className={`w-full text-left rounded-2xl border-2 p-4 transition-all ${on ? 'border-primary bg-primary/5' : 'border-[#DDE9E2] hover:border-primary/30'}`}>
                   <div className="flex items-start gap-3">
                     <div className="w-11 h-11 rounded-xl flex items-center justify-center text-2xl shrink-0"
                       style={{ background: on ? '#EBF5EF' : '#F3F4F6' }}>
@@ -218,12 +209,12 @@ export default function DogTraining() {
 
         {/* ── Dog selector ── */}
         {myDogs.length > 0 && (
-          <section>
-            <p className="text-xs font-bold text-ink-muted uppercase tracking-wide mb-2.5">Which dog?</p>
+          <section className="bg-white rounded-2xl shadow-sm border border-[#DDE9E2] p-4">
+            <p className="text-xs font-bold text-ink-muted uppercase tracking-wider mb-2.5">Which dog?</p>
             <div className="flex flex-wrap gap-2">
               {myDogs.map(dog => (
                 <button key={dog.id} onClick={() => setSelectedDog(dog.id)}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl border-2 text-sm font-semibold transition-all ${selectedDog === dog.id ? 'border-primary bg-primary/10 text-primary' : 'border-surface-border text-ink'}`}>
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl border-2 text-sm font-semibold transition-all ${selectedDog === dog.id ? 'border-primary bg-primary/10 text-primary' : 'border-[#DDE9E2] text-ink'}`}>
                   <span>🐶</span>
                   {dog.name}
                 </button>
@@ -233,9 +224,9 @@ export default function DogTraining() {
         )}
 
         {/* ── Trainers ── */}
-        <section>
+        <section className="bg-white rounded-2xl shadow-sm border border-[#DDE9E2] p-4">
           <div className="flex items-center justify-between mb-2.5">
-            <p className="text-xs font-bold text-ink-muted uppercase tracking-wide">Trainers near you</p>
+            <p className="text-xs font-bold text-ink-muted uppercase tracking-wider">Trainers near you</p>
             <button type="button" onClick={loc.request}
               className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-xl"
               style={{ color: '#2B8A50', background: '#EBF5EF' }}>
@@ -249,7 +240,7 @@ export default function DogTraining() {
               <div className="flex gap-2">
                 <input type="text" value={areaText} onChange={e => setAreaText(e.target.value)}
                   placeholder="Location is off. Type your area, e.g. Kabulonga"
-                  className="flex-1 border border-surface-border rounded-2xl px-4 py-2.5 text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-primary bg-white" />
+                  className="flex-1 border border-[#DDE9E2] rounded-2xl px-4 py-2.5 text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-primary bg-white" />
                 <button type="button" disabled={loc.lookingUp || areaText.trim().length < 3}
                   onClick={async () => { setAreaMissing(false); if (!(await loc.setFromText(areaText))) setAreaMissing(true); }}
                   className="px-4 rounded-2xl text-xs font-bold text-white disabled:opacity-40" style={{ background: '#1B4332' }}>
@@ -261,7 +252,7 @@ export default function DogTraining() {
           )}
 
           {trainerMarkers.length > 1 && (
-            <div className="relative rounded-2xl overflow-hidden border border-surface-border mb-3" style={{ height: 200 }}>
+            <div className="relative rounded-2xl overflow-hidden border border-[#DDE9E2] mb-3" style={{ height: 200 }}>
               <LiveRouteMap
                 markers={trainerMarkers}
                 center={loc.pos ?? [-15.4167, 28.2833]}
@@ -276,7 +267,7 @@ export default function DogTraining() {
           )}
 
           {trainers.length === 0 ? (
-            <div className="rounded-2xl border border-surface-border p-6 text-center">
+            <div className="rounded-2xl border border-[#DDE9E2] p-6 text-center">
               <p className="text-3xl mb-2">🐕</p>
               <p className="font-semibold text-ink text-sm">No trainers available yet</p>
               <p className="text-xs text-ink-muted mt-1">
@@ -289,7 +280,7 @@ export default function DogTraining() {
                 const on = selectedTrainer === trainer.id;
                 return (
                   <div key={trainer.id}
-                    className={`flex items-center gap-3 p-4 rounded-2xl border-2 transition-all ${on ? 'border-primary bg-primary/5' : 'border-surface-border'}`}>
+                    className={`flex items-center gap-3 p-4 rounded-2xl border-2 transition-all ${on ? 'border-primary bg-primary/5' : 'border-[#DDE9E2]'}`}>
                     {/* Avatar */}
                     <div className="w-12 h-12 rounded-2xl shrink-0 overflow-hidden flex items-center justify-center font-bold text-white text-sm"
                       style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)' }}>
@@ -312,12 +303,12 @@ export default function DogTraining() {
                     <div className="flex items-center gap-2 shrink-0">
                       <button
                         onClick={() => setChatTrainer(trainer)}
-                        className="w-8 h-8 rounded-xl flex items-center justify-center border border-surface-border hover:bg-surface-hover">
+                        className="w-8 h-8 rounded-xl flex items-center justify-center border border-[#DDE9E2] hover:bg-surface-hover">
                         <MessageCircle className="w-4 h-4 text-ink-muted" />
                       </button>
                       <button
                         onClick={() => setSelectedTrainer(on ? '' : trainer.id)}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${on ? 'text-white' : 'border border-surface-border text-ink-secondary hover:bg-surface-hover'}`}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${on ? 'text-white' : 'border border-[#DDE9E2] text-ink-secondary hover:bg-surface-hover'}`}
                         style={on ? { background: 'linear-gradient(135deg, #1B4332, #2B8A50)' } : {}}>
                         {on ? '✓ Selected' : 'Select'}
                       </button>
@@ -331,9 +322,9 @@ export default function DogTraining() {
 
         {/* ── Price summary ── */}
         {basePrice > 0 && (
-          <section className="rounded-2xl overflow-hidden border border-surface-border">
-            <div className="px-4 py-3" style={{ background: '#F9FAFB' }}>
-              <p className="text-xs font-bold text-ink-muted uppercase tracking-wide">Price Summary</p>
+          <section className="rounded-2xl overflow-hidden border border-[#DDE9E2] bg-white shadow-sm">
+            <div className="px-4 py-3 border-b border-[#DDE9E2]">
+              <p className="text-xs font-bold text-ink-muted uppercase tracking-wider">Price Summary</p>
             </div>
             <div className="px-4 py-3 space-y-2">
               {selectedPackages.length === 2 ? (
@@ -353,7 +344,7 @@ export default function DogTraining() {
                   <span className="font-semibold text-ink">K{basePrice.toLocaleString()}</span>
                 </div>
               )}
-              <div className="flex justify-between pt-2 border-t border-surface-border">
+              <div className="flex justify-between pt-2 border-t border-[#DDE9E2]">
                 <span className="font-bold text-ink">Total</span>
                 <span className="font-extrabold text-ink text-lg">K{basePrice.toLocaleString()}</span>
               </div>

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { format, differenceInMinutes, isToday, isYesterday, isThisWeek } from 'date-fns';
 import { Clock, MapPin, Star, X, RefreshCw, ChevronRight } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
@@ -218,11 +219,11 @@ export default function OwnerHistory() {
                       /* Active walk — track button */
                       if (walk.status === 'active') {
                         actions.push(
-                          <a key="track" href={`/owner/track/${walk.id}`}
+                          <Link key="track" to={`/owner/track/${walk.id}`}
                             className="flex items-center justify-center gap-2 flex-1 py-2.5 rounded-xl text-xs font-bold text-white transition-all"
                             style={{ background: 'linear-gradient(135deg,#1B4332,#2B8A50)' }}>
                             📍 Live Track <ChevronRight className="w-3.5 h-3.5" />
-                          </a>
+                          </Link>
                         );
                       }
 
@@ -274,11 +275,11 @@ export default function OwnerHistory() {
                       if (walk.status === 'completed') {
                         if (walk.routePoints && walk.routePoints.length > 1) {
                           actions.push(
-                            <a key="route" href={`/owner/track/${walk.id}`}
+                            <Link key="route" to={`/owner/track/${walk.id}`}
                               className="flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-xl active:scale-95 transition-transform"
                               style={{ color: '#2B8A50', background: '#EBF5EF' }}>
                               <MapPin className="w-3.5 h-3.5" /> View Route
-                            </a>
+                            </Link>
                           );
                         }
                         if (payment && (payment.status === 'held' || payment.status === 'unpaid')) {

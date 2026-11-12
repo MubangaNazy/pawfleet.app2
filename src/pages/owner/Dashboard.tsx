@@ -37,33 +37,36 @@ function Reveal({ children, delay = 0, className = '' }: { children: ReactNode; 
   );
 }
 
-// A small curled-up sleeping dog that rests on the corner of the hero card — the same idea as the
-// mascot GitHub tucks onto its own pages, just ours. Pure decoration, no interaction.
+// A small dog lying down, asleep on the corner of the hero card — the same idea as the mascot
+// GitHub tucks onto its own pages, just ours. Pure decoration, no interaction.
 function SleepingDogMascot() {
   return (
-    <div className="absolute -top-4 left-4 z-10 pointer-events-none select-none" style={{ width: 56, animation: 'mascotSettle 0.8s ease 1.1s both' }}>
+    <div className="absolute -top-3 right-5 z-10 pointer-events-none select-none" style={{ width: 68, animation: 'mascotSettle 0.8s ease 1.1s both' }}>
       <style>{`
-        @keyframes mascotSettle { from { opacity: 0; transform: translateY(10px) rotate(-6deg); } to { opacity: 1; transform: translateY(0) rotate(-4deg); } }
-        @keyframes mascotBreathe { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(1.03); } }
+        @keyframes mascotSettle { from { opacity: 0; transform: translateY(10px) rotate(4deg); } to { opacity: 1; transform: translateY(0) rotate(3deg); } }
+        @keyframes mascotBreathe { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(1.035); } }
         @keyframes mascotZzz { 0% { opacity: 0; transform: translate(0,0) scale(0.7); } 30% { opacity: 1; } 100% { opacity: 0; transform: translate(6px,-10px) scale(1.1); } }
       `}</style>
-      <svg viewBox="0 0 64 44" style={{ transform: 'rotate(-4deg)', transformOrigin: 'center', animation: 'mascotBreathe 3.2s ease-in-out infinite' }}>
-        {/* curled body */}
-        <path d="M10 34 C2 30 4 16 16 12 C26 9 34 11 40 18 C46 24 44 32 52 32 C58 32 60 28 58 24"
-          fill="none" stroke="#1B4332" strokeWidth="7" strokeLinecap="round" />
-        <path d="M10 34 C2 30 4 16 16 12 C26 9 34 11 40 18 C46 24 44 32 52 32 C58 32 60 28 58 24"
-          fill="none" stroke="#52B788" strokeWidth="3.5" strokeLinecap="round" />
-        {/* head */}
-        <circle cx="14" cy="30" r="9" fill="#1B4332" />
-        <ellipse cx="9" cy="26" rx="4" ry="5.5" fill="#1B4332" transform="rotate(-25 9 26)" />
-        {/* closed eye */}
-        <path d="M13 29.5 q2 1.3 4 0" fill="none" stroke="#F8FAF9" strokeWidth="1.3" strokeLinecap="round" />
+      <svg viewBox="0 0 72 36" style={{ transform: 'rotate(3deg)', transformOrigin: 'bottom center', animation: 'mascotBreathe 3.4s ease-in-out infinite' }}>
+        {/* tail, curled up over the back */}
+        <path d="M58 22 C66 22 68 14 62 11" fill="none" stroke="#52B788" strokeWidth="4.5" strokeLinecap="round" />
+        {/* body, lying flat */}
+        <ellipse cx="40" cy="25" rx="23" ry="9.5" fill="#1B4332" />
+        {/* far ear, behind the head */}
+        <ellipse cx="18" cy="15" rx="4.5" ry="7" fill="#1B4332" transform="rotate(18 18 15)" />
+        {/* head, resting on the ground */}
+        <circle cx="16" cy="22" r="11" fill="#1B4332" />
+        {/* near ear, flopped down */}
+        <ellipse cx="11" cy="17" rx="5" ry="8" fill="#0F2A1C" transform="rotate(-10 11 17)" />
         {/* snout */}
-        <circle cx="7" cy="32" r="1.4" fill="#F8FAF9" />
+        <ellipse cx="4" cy="24" rx="5" ry="4" fill="#1B4332" />
+        <circle cx="1.5" cy="23.5" r="1.6" fill="#F8FAF9" />
+        {/* closed eye */}
+        <path d="M13 20 q2.5 1.6 5 0" fill="none" stroke="#F8FAF9" strokeWidth="1.4" strokeLinecap="round" />
       </svg>
       {/* Zzz */}
-      <span style={{ position: 'absolute', top: -6, left: 30, fontSize: 11, fontWeight: 800, color: '#52B788', animation: 'mascotZzz 2.4s ease-in-out infinite' }}>z</span>
-      <span style={{ position: 'absolute', top: -13, left: 37, fontSize: 8, fontWeight: 800, color: '#52B788', animation: 'mascotZzz 2.4s ease-in-out 0.5s infinite' }}>z</span>
+      <span style={{ position: 'absolute', top: -10, left: 6, fontSize: 12, fontWeight: 800, color: '#52B788', animation: 'mascotZzz 2.4s ease-in-out infinite' }}>z</span>
+      <span style={{ position: 'absolute', top: -18, left: 14, fontSize: 9, fontWeight: 800, color: '#52B788', animation: 'mascotZzz 2.4s ease-in-out 0.5s infinite' }}>z</span>
     </div>
   );
 }

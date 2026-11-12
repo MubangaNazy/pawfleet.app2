@@ -2,7 +2,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { format } from 'date-fns';
-import { Navigation, MessageCircle, ChevronRight, Star, Users, Dog, Stethoscope, Scissors } from 'lucide-react';
+import { Navigation, MessageCircle, ChevronRight, Star, Users, Dog, Stethoscope, Scissors, PawPrint } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import Onboarding from '../../components/ui/Onboarding';
 import { SkeletonOwnerDashboard } from '../../components/ui/Skeleton';
@@ -242,8 +242,12 @@ export default function OwnerDashboard() {
                 <p className="text-white font-extrabold text-[17px] leading-tight">Walk</p>
                 <p className="text-white/50 text-[11px] mt-0.5">Book a walker</p>
               </div>
-              <img src="/images/bento/walk.png" alt="" aria-hidden="true"
-                style={{ position: 'absolute', bottom: 0, right: 0, width: '62%', maxWidth: 220 }} />
+              {/* Glowing paw print — a flat colour glow on the card's own gradient masks perfectly,
+                  unlike the shoe photo below which needs real cutout work. */}
+              <PawPrint size={84} strokeWidth={0} fill="#52B788"
+                style={{ position: 'absolute', bottom: 28, right: 28, opacity: 0.55, filter: 'drop-shadow(0 0 14px rgba(82,183,136,0.85))', transform: 'rotate(-8deg)' }} />
+              <img src="/images/bento/shoe.png" alt="" aria-hidden="true"
+                style={{ position: 'absolute', bottom: 10, left: 14, width: '58%', maxWidth: 190, filter: 'drop-shadow(0 6px 10px rgba(0,0,0,0.45))' }} />
               {activeWalk && (
                 <span className="absolute top-3 right-3 z-10 flex items-center gap-1 text-[9px] font-bold text-white px-2 py-0.5 rounded-full" style={{ background: '#10B981' }}>
                   <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />LIVE
@@ -271,8 +275,8 @@ export default function OwnerDashboard() {
               <div className="p-3 relative z-10">
                 <p className="font-extrabold text-sm leading-tight" style={{ color: '#FDE68A' }}>Train</p>
               </div>
-              <img src="/images/bento/train.png" alt="" aria-hidden="true"
-                style={{ position: 'absolute', bottom: -6, right: -6, width: '58%', maxWidth: 100 }} />
+              <img src="/images/bento/target.png" alt="" aria-hidden="true"
+                style={{ position: 'absolute', bottom: -4, right: 0, width: '52%', maxWidth: 88 }} />
             </Link>
 
             {/* TRACK */}
@@ -338,8 +342,8 @@ export default function OwnerDashboard() {
               <div className="p-3 relative z-10">
                 <p className="font-extrabold text-sm leading-tight" style={{ color: '#6EE7B7' }}>Groom</p>
               </div>
-              <img src="/images/bento/groom.png" alt="" aria-hidden="true"
-                style={{ position: 'absolute', bottom: -6, right: -6, width: '60%', maxWidth: 100 }} />
+              <img src="/images/bento/scissorscomb.png" alt="" aria-hidden="true"
+                style={{ position: 'absolute', bottom: -4, right: -2, width: '60%', maxWidth: 100 }} />
             </Link>
 
           </div>

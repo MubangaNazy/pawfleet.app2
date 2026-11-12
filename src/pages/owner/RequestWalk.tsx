@@ -1,13 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { CheckCircle, Star, MapPin, Zap, Calendar, Scissors, Loader2, CreditCard, ChevronDown } from 'lucide-react';
-
-const LUSAKA_AREAS = [
-  'Libala', 'Chelstone', 'Kabulonga', 'Woodlands', 'Ibex Hill',
-  'Rhodespark', 'Northmead', 'Handsworth Park', 'Roma', 'Olympia',
-  'Avondale', 'Matero', 'Chilenje', 'Chaisa', 'Kabwata',
-  'Emmasdale', 'Mtendere', 'Foxdale', 'Garden', 'Longacres',
-];
+import { CheckCircle, Star, MapPin, Zap, Calendar, Scissors, Loader2, CreditCard } from 'lucide-react';
 import { ScalePop, FadeIn, StaggerList, StaggerItem } from '../../components/ui/Anim';
 import { SuccessDogIllustration, NoPetsIllustration } from '../../components/ui/Illustrations';
 import { useApp } from '../../context/AppContext';
@@ -16,7 +9,7 @@ import LiveRouteMap from '../../components/map/LiveRouteMap';
 import PinDropPicker from '../../components/map/PinDropPicker';
 import { useWalkersLive } from '../../lib/liveTracking';
 import { isValidCoord } from '../../lib/geo';
-import { geocodeAddress, reverseGeocode } from '../../lib/geocode';
+import { reverseGeocode, searchAddressSuggestions, type AddressSuggestion } from '../../lib/geocode';
 import { LOOP_DIRECTIONS, loopBearing, planLoopRoute, type PlannedRoute } from '../../lib/routing';
 import type { WalkerPricing } from '../../types';
 
@@ -51,7 +44,6 @@ export default function OwnerRequestWalk() {
   const [route, setRoute] = useState<PlannedRoute | null>(null);
   const [routeOption, setRouteOption] = useState(0);
   const [geoStatus, setGeoStatus] = useState<'idle' | 'looking' | 'found' | 'missing'>('idle');
-  const [selectedArea, setSelectedArea] = useState('');
   const [createdWalkPrice, setCreatedWalkPrice] = useState(0);
   const [showPayModal, setShowPayModal] = useState(false);
   const [paymentDone, setPaymentDone] = useState(false);
@@ -64,9 +56,10 @@ export default function OwnerRequestWalk() {
   const [pickupAddress, setPickupAddress] = useState('');
   const [gpsLoading, setGpsLoading] = useState(false);
   const [gpsError, setGpsError] = useState('');
+  const [addressSuggestions, setAddressSuggestions] = useState<AddressSuggestion[]>([]);
 
   const selectedDog = myDogs.find(d => d.id === dogId);
-  const pickupReady = pickupMode === 'live'
+  const pickupReady = pickupMode === 'live' || pickupMode === 'pin'
     ? pickupLat !== null && pickupAddress !== ''
     : pickupMode === 'manual'
     ? pickupAddress.trim().length > 3
@@ -81,10 +74,6 @@ export default function OwnerRequestWalk() {
     const active = data.users.filter(u => {
       if (u.role !== 'walker') return false;
       if (u.walkerStatus && u.walkerStatus !== 'active') return false;
-      if (selectedArea) {
-        const areas: string[] = (u.pricing as any)?.serviceAreas ?? [];
-        if (areas.length > 0 && !areas.includes(selectedArea)) return false;
-      }
       return true;
     });
     return active
@@ -130,21 +119,34 @@ export default function OwnerRequestWalk() {
     if (myDogs.length === 1 && !dogId) setDogId(myDogs[0].id);
   }, [myDogs.length]);
 
-  // Type-an-address: find its coordinates so the walker can navigate and the owner can preview the route.
+  // Type-an-address: look up candidate places (not just one hidden guess) so the owner can pick the
+  // right "Northmead" — the school, the church, the shops — instead of hoping Nominatim guessed right.
   useEffect(() => {
     if (pickupMode !== 'manual') return;
     const q = pickupAddress.trim();
-    if (q.length < 6) { setPickupLat(null); setPickupLng(null); setGeoStatus('idle'); return; }
+    if (q.length < 3) { setPickupLat(null); setPickupLng(null); setGeoStatus('idle'); setAddressSuggestions([]); return; }
     setGeoStatus('looking');
     let cancelled = false;
     const t = setTimeout(async () => {
-      const hit = await geocodeAddress(q);
+      const hits = await searchAddressSuggestions(q);
       if (cancelled) return;
-      if (hit) { setPickupLat(hit[0]); setPickupLng(hit[1]); setGeoStatus('found'); }
-      else { setPickupLat(null); setPickupLng(null); setGeoStatus('missing'); }
-    }, 900);
+      if (hits.length > 0) {
+        setAddressSuggestions(hits);
+        setGeoStatus('found');
+      } else {
+        setAddressSuggestions([]);
+        setGeoStatus('missing');
+      }
+    }, 500);
     return () => { cancelled = true; clearTimeout(t); };
   }, [pickupAddress, pickupMode]);
+
+  const handlePickSuggestion = (s: AddressSuggestion) => {
+    setPickupAddress(s.label);
+    setPickupLat(s.lat);
+    setPickupLng(s.lng);
+    setAddressSuggestions([]);
+  };
 
   // Suggested loop route for the chosen duration, starting and ending at the pickup point.
   useEffect(() => {
@@ -188,6 +190,7 @@ export default function OwnerRequestWalk() {
     setPickupLng(null);
     setPickupAddress('');
     setGpsError('');
+    setAddressSuggestions([]);
   };
 
   const handlePinConfirmed = (result: { lat: number; lng: number; address: string }) => {
@@ -518,52 +521,44 @@ export default function OwnerRequestWalk() {
                   type="text"
                   value={pickupAddress}
                   onChange={e => setPickupAddress(e.target.value)}
-                  placeholder="e.g. 14 Addis Ababa Drive, Roma, Lusaka"
+                  placeholder="e.g. Northmead, or 14 Addis Ababa Drive"
                   autoFocus
                   className="w-full border-2 border-surface-border rounded-xl pl-10 pr-4 py-3.5 text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-primary transition-colors"
                 />
               </div>
-              {pickupAddress.trim().length > 3 && (
+
+              {geoStatus === 'looking' && (
+                <p className="text-xs text-ink-muted px-1">Searching…</p>
+              )}
+
+              {addressSuggestions.length > 0 && (
+                <div className="rounded-xl border border-primary/20 overflow-hidden divide-y divide-surface-border">
+                  {addressSuggestions.map((s, i) => (
+                    <button key={i} type="button" onClick={() => handlePickSuggestion(s)}
+                      className="w-full flex items-start gap-2 px-3 py-2.5 bg-white hover:bg-primary-50/40 text-left transition-colors">
+                      <MapPin className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
+                      <p className="text-xs text-ink leading-relaxed">{s.label}</p>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {geoStatus === 'missing' && (
+                <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl bg-amber-50 border border-amber-200">
+                  <MapPin className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+                  <p className="text-[11px] text-amber-700 leading-relaxed">
+                    Couldn't find that on the map. Try a nearby landmark or area name, or use Drop a Pin / Live Location instead.
+                  </p>
+                </div>
+              )}
+
+              {pickupLat != null && addressSuggestions.length === 0 && geoStatus !== 'missing' && (
                 <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl bg-primary-50 border border-primary/20">
                   <MapPin className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
-                  <div className="min-w-0">
-                    <p className="text-xs text-primary font-semibold leading-relaxed">{pickupAddress}</p>
-                    <p className="text-[10px] mt-0.5" style={{ color: geoStatus === 'missing' ? '#B45309' : '#5A8A70' }}>
-                      {geoStatus === 'looking' && 'Finding this on the map…'}
-                      {geoStatus === 'found' && '✓ Located on the map — your walker can navigate here'}
-                      {geoStatus === 'missing' && 'Could not find this on the map. Add a landmark or area name, or use Live Location. Your walker will call you.'}
-                    </p>
-                  </div>
+                  <p className="text-xs text-primary font-semibold leading-relaxed">✓ {pickupAddress}</p>
                 </div>
               )}
             </div>
-          )}
-        </div>
-
-        {/* ── Area selector ── */}
-        <div className="bg-white rounded-2xl shadow-sm border border-[#DDE9E2] p-4">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-xs font-bold text-ink-muted uppercase tracking-wider">Your area in Lusaka</p>
-            {selectedArea && (
-              <button type="button" onClick={() => setSelectedArea('')}
-                className="text-xs text-ink-muted hover:text-danger">Clear</button>
-            )}
-          </div>
-          <p className="text-xs text-ink-muted mb-3">Select your area to find walkers who cover it</p>
-          <div className="relative">
-            <select
-              value={selectedArea}
-              onChange={e => setSelectedArea(e.target.value)}
-              className="w-full appearance-none px-4 py-3 pr-10 rounded-2xl border border-surface-border text-sm text-ink bg-white focus:outline-none focus:border-primary">
-              <option value="">All areas — show every walker</option>
-              {LUSAKA_AREAS.map(a => <option key={a} value={a}>{a}</option>)}
-            </select>
-            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-muted pointer-events-none" />
-          </div>
-          {selectedArea && (
-            <p className="text-xs text-primary font-semibold mt-2 flex items-center gap-1">
-              <MapPin className="w-3 h-3" /> Showing walkers who cover {selectedArea}
-            </p>
           )}
         </div>
 

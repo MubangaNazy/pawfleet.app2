@@ -25,3 +25,20 @@ export async function geocodeAddress(q: string): Promise<LatLng | null> {
   } catch { /* offline or rate limited */ }
   return null;
 }
+
+export interface AddressSuggestion { label: string; lat: number; lng: number }
+
+/** Several candidate places for a partially-typed address (e.g. "Northmead" -> the school, the
+ *  church, the shopping area, …) so the person can pick the right one instead of guessing exactly
+ *  what Nominatim will match on a single, hidden lookup. */
+export async function searchAddressSuggestions(q: string): Promise<AddressSuggestion[]> {
+  try {
+    const url = 'https://nominatim.openstreetmap.org/search?format=json&limit=5&countrycodes=zm'
+      + '&viewbox=27.8,-15.2,28.7,-15.75&q=' + encodeURIComponent(q);
+    const res = await fetch(url, { headers: { 'Accept-Language': 'en' } });
+    const rows = await res.json();
+    if (!Array.isArray(rows)) return [];
+    return rows.map((r: any) => ({ label: r.display_name as string, lat: Number(r.lat), lng: Number(r.lon) }));
+  } catch { /* offline or rate limited */ }
+  return [];
+}

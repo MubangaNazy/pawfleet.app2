@@ -41,46 +41,17 @@ function Reveal({ children, delay = 0, className = '' }: { children: ReactNode; 
 // idea as the mascot GitHub tucks onto its own pages, just ours. Pure decoration, no interaction.
 function SleepingDogMascot() {
   return (
-    <div className="absolute -top-7 right-4 z-10 pointer-events-none select-none" style={{ width: 126, animation: 'mascotSettle 0.8s ease 1.1s both' }}>
+    <div className="absolute z-10 pointer-events-none select-none" style={{ width: 150, top: -45, right: 16, animation: 'mascotSettle 0.8s ease 1.1s both' }}>
       <style>{`
         @keyframes mascotSettle { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes mascotBreathe { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(1.025); } }
+        @keyframes mascotBreathe { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(1.02); } }
         @keyframes mascotZzz { 0% { opacity: 0; transform: translate(0,0) scale(0.7); } 30% { opacity: 1; } 100% { opacity: 0; transform: translate(6px,-10px) scale(1.1); } }
       `}</style>
-      <svg viewBox="0 0 140 120" style={{ transformOrigin: 'top center', animation: 'mascotBreathe 3.6s ease-in-out infinite' }}>
-        <defs>
-          <linearGradient id="dogBody" x1="0" y1="0" x2="0.4" y2="1">
-            <stop offset="0%" stopColor="#3C8761" />
-            <stop offset="100%" stopColor="#0F2A1C" />
-          </linearGradient>
-        </defs>
-        {/* tail, draped down over the front of the card */}
-        <path d="M98 38 C118 40 126 62 120 84 C116 100 110 108 106 112"
-          fill="none" stroke="url(#dogBody)" strokeWidth="11" strokeLinecap="round" />
-        {/* far ear */}
-        <ellipse cx="24" cy="20" rx="10" ry="16" fill="#123323" transform="rotate(-22 24 20)" />
-        {/* body */}
-        <path d="M30 40 C30 24 48 16 66 17 C86 18 103 26 104 40 C105 50 96 56 80 57 C58 58 30 56 30 40 Z"
-          fill="url(#dogBody)" />
-        {/* head */}
-        <circle cx="26" cy="33" r="19" fill="url(#dogBody)" />
-        {/* near ear, flopped forward */}
-        <ellipse cx="16" cy="29" rx="9" ry="15" fill="#123323" transform="rotate(14 16 29)" />
-        {/* snout */}
-        <ellipse cx="7" cy="40" rx="8" ry="6.5" fill="#143A28" />
-        <circle cx="2" cy="39" r="2.6" fill="#F8FAF9" />
-        {/* closed eye with little lash */}
-        <path d="M20 30 q4 2.6 8 0" fill="none" stroke="#F8FAF9" strokeWidth="2" strokeLinecap="round" />
-        <path d="M27 27 l2.5 -2" fill="none" stroke="#F8FAF9" strokeWidth="1.4" strokeLinecap="round" />
-        {/* collar */}
-        <path d="M34 45 C42 51 56 52 68 51" fill="none" stroke="#5EEAB0" strokeWidth="6" strokeLinecap="round" />
-        <circle cx="50" cy="51" r="2.2" fill="#F8FAF9" />
-        {/* front paw, tucked under the chin */}
-        <ellipse cx="20" cy="52" rx="9" ry="5.5" fill="url(#dogBody)" />
-      </svg>
+      <img src="/images/dog-mascot.png" alt="" aria-hidden="true"
+        style={{ width: '100%', transformOrigin: 'bottom center', animation: 'mascotBreathe 3.6s ease-in-out infinite' }} />
       {/* Zzz */}
-      <span style={{ position: 'absolute', top: -10, left: 18, fontSize: 13, fontWeight: 800, color: '#52B788', animation: 'mascotZzz 2.4s ease-in-out infinite' }}>z</span>
-      <span style={{ position: 'absolute', top: -19, left: 28, fontSize: 10, fontWeight: 800, color: '#52B788', animation: 'mascotZzz 2.4s ease-in-out 0.5s infinite' }}>z</span>
+      <span style={{ position: 'absolute', top: 0, left: 14, fontSize: 13, fontWeight: 800, color: '#52B788', animation: 'mascotZzz 2.4s ease-in-out infinite' }}>z</span>
+      <span style={{ position: 'absolute', top: -9, left: 24, fontSize: 10, fontWeight: 800, color: '#52B788', animation: 'mascotZzz 2.4s ease-in-out 0.5s infinite' }}>z</span>
     </div>
   );
 }

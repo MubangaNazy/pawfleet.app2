@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { isWalker as approvedWalker, isGroomer } from '../../lib/providers';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Crosshair, Footprints, MessageCircle, Navigation, Scissors, ShoppingBag } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
@@ -54,13 +55,13 @@ export default function WalkerMap() {
   }, [isWalker, myOnline.pos]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const approved = useMemo(
-    () => data.users.filter(u => u.role === 'walker' && (!u.walkerStatus || u.walkerStatus === 'active') && u.id !== currentUser?.id),
+    () => data.users.filter(u => (approvedWalker(u) || isGroomer(u)) && u.id !== currentUser?.id),
     [data.users, currentUser?.id],
   );
   const pendingApproval = data.users.filter(u => u.role === 'walker' && u.walkerStatus === 'pending_approval').length;
 
   const entries: Entry[] = useMemo(() => {
-    const pool = service === 'grooming' ? approved.filter(u => u.pricing?.grooming != null) : approved;
+    const pool = service === 'grooming' ? approved.filter(isGroomer) : approved.filter(approvedWalker);
     return pool.map(user => {
       const l = live[user.id];
       let pos: LatLng | null = null;

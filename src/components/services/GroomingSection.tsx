@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { isGroomer } from '../../lib/providers';
 import { useNavigate } from 'react-router-dom';
 import { CheckCircle, Clock, MapPin, Scissors, ShieldCheck, Sparkles, Home } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
@@ -12,7 +13,7 @@ export function GroomingHero() {
   const { data, currentUser } = useApp();
   const live = useWalkersLive(currentUser?.id);
 
-  const groomers = data.users.filter(u => u.role === 'walker' && (!u.walkerStatus || u.walkerStatus === 'active') && u.pricing?.grooming != null);
+  const groomers = data.users.filter(isGroomer);
   const liveNow = groomers.filter(g => live[g.id]).length;
 
   return (

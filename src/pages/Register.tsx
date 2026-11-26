@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   Eye, EyeOff, Phone, Lock, Mail, User as UserIcon,
-  ArrowRight, Check, Shield, Camera, CreditCard,
+  ArrowRight, Check, Shield, Camera, CreditCard, Store, MapPin,
 } from 'lucide-react';
 import PawFleetLogo from '../components/ui/PawFleetLogo';
 import { useApp } from '../context/AppContext';
@@ -10,13 +10,28 @@ import { prepareImage } from '../lib/image';
 
 const ROLE_ROUTES = { owner: '/owner', walker: '/walker' };
 
+type Kind = 'owner' | 'walker' | 'groomer' | 'breeder';
+const KINDS: { value: Kind; emoji: string; label: string; desc: string; noun: string; title: string; subtitle: string }[] = [
+  { value: 'owner',   emoji: '🐾', label: 'Pet Owner',  desc: 'Book walks & services', noun: 'account', title: 'Join PawFleet', subtitle: "Zambia's trusted dog care app 🇿🇲" },
+  { value: 'walker',  emoji: '🦮', label: 'Dog Walker', desc: 'Walk dogs & earn',      noun: 'walker',  title: 'Become a Walker', subtitle: 'Earn by walking dogs near you' },
+  { value: 'groomer', emoji: '✂️', label: 'Groomer',    desc: 'Person or business',     noun: 'groomer', title: 'Join as a Groomer', subtitle: 'Get grooming bookings from dog owners' },
+  { value: 'breeder', emoji: '🏡', label: 'Breeder / Shelter', desc: 'List dogs for adoption', noun: 'breeder', title: 'Breeders & Shelters', subtitle: 'Get verified to list dogs on Adopt a Pet' },
+];
+
 export default function Register() {
   const { register } = useApp();
   const navigate = useNavigate();
   const fileRef    = useRef<HTMLInputElement>(null);
   const nrcFileRef = useRef<HTMLInputElement>(null);
 
-  const [role, setRole]               = useState<'owner' | 'walker'>('owner');
+  // What they are signing up as. Walkers and groomers share the provider account type in the database,
+  // but each applies for its own service, approved separately by an admin.
+  const [kind, setKind]               = useState<Kind>('owner');
+  const role: 'owner' | 'walker'      = kind === 'walker' || kind === 'groomer' ? 'walker' : 'owner';
+  const needsId                       = kind !== 'owner';
+  const [isBusiness, setIsBusiness]   = useState(false);
+  const [businessName, setBusinessName] = useState('');
+  const [businessArea, setBusinessArea] = useState('');
   const [name, setName]               = useState('');
   const [phone, setPhone]             = useState('');
   const [email, setEmail]             = useState('');
@@ -53,20 +68,28 @@ export default function Register() {
     setError('');
     if (password !== confirmPw) { setError('Passwords do not match.'); return; }
     if (password.length < 6)    { setError('Password must be at least 6 characters.'); return; }
-    if (role === 'walker') {
-      if (!photoUrl)       { setError('A profile photo is required for walkers.'); return; }
-      if (!nrc.trim())     { setError('NRC number is required for walkers.'); return; }
-      if (!nrcImageUrl)    { setError('A photo of your NRC card is required.'); return; }
+    if (needsId) {
+      if (!photoUrl)       { setError(isBusiness ? 'Add your logo or a photo of your business.' : 'A profile photo is required.'); return; }
+      if (!nrc.trim())     { setError(isBusiness ? 'Enter your NRC or business registration (PACRA) number.' : 'NRC number is required.'); return; }
+      if (!nrcImageUrl)    { setError(isBusiness ? 'Add a photo of your NRC or registration certificate.' : 'A photo of your NRC card is required.'); return; }
+      if ((isBusiness || kind === 'breeder') && kind !== 'walker' && !businessName.trim()) { setError(kind === 'breeder' ? 'Enter your kennel or shelter name.' : 'Enter your business name.'); return; }
+      if (kind !== 'walker' && !businessArea.trim()) { setError('Enter your area, e.g. Kabulonga, Lusaka.'); return; }
     }
+    const service = kind === 'walker' ? 'walking' : kind === 'groomer' ? 'grooming' : kind === 'breeder' ? 'breeder' : null;
     setLoading(true);
     const result = await register(name, phone, email, password, role, {
       photoUrl: photoUrl || undefined,
-      nrc: role === 'walker' ? nrc.trim() : undefined,
-      nrcImageUrl: role === 'walker' ? nrcImageUrl || undefined : undefined,
+      nrc: needsId ? nrc.trim() : undefined,
+      nrcImageUrl: needsId ? nrcImageUrl || undefined : undefined,
+      approvals: service ? { [service]: 'applied' } : undefined,
+      businessName: businessName.trim() || undefined,
+      businessAddress: businessArea.trim() || undefined,
+      businessType: kind === 'groomer' ? (isBusiness ? 'grooming_business' : 'groomer') : kind === 'breeder' ? (isBusiness ? 'shelter' : 'breeder') : undefined,
     });
     setLoading(false);
     if (result.success) {
       if (result.pendingApproval) { setPending(true); return; }
+      if (kind === 'breeder') { setPending(true); return; }
       if (result.user) navigate(ROLE_ROUTES[role as keyof typeof ROLE_ROUTES]);
       else setEmailSent(true);
     } else {
@@ -84,13 +107,13 @@ export default function Register() {
             <div className="px-6 py-8 text-center"
               style={{ background: 'linear-gradient(145deg, #071a0e 0%, #0f3020 55%, #0a2418 100%)' }}>
               <div className="w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center text-3xl"
-                style={{ background: 'rgba(255,255,255,0.12)' }}>🦮</div>
+                style={{ background: 'rgba(255,255,255,0.12)' }}>{KINDS.find(k => k.value === kind)?.emoji}</div>
               <h2 className="text-xl font-extrabold text-white mb-1">Application Submitted!</h2>
-              <p className="text-white/55 text-sm">Your walker profile is under review</p>
+              <p className="text-white/55 text-sm">Your {KINDS.find(k => k.value === kind)?.noun} application is under review</p>
             </div>
             <div className="px-6 py-6">
               <div className="space-y-3 mb-6">
-                {['Admin reviews your photo & NRC', "We'll email you and notify you in the app when approved", 'Log in any time to check — then start accepting walks!'].map((s, i) => (
+                {['PawFleet checks your photo and documents', "We'll notify you in the app when you're approved", kind === 'breeder' ? 'Then you can list pets on Adopt a Pet' : kind === 'groomer' ? 'Then set your grooming price and start taking bookings' : 'Log in any time to check — then start accepting walks!'].map((s, i) => (
                   <div key={i} className="flex items-center gap-3 p-3 rounded-xl" style={{ background: '#F4F9F6' }}>
                     <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0"
                       style={{ background: '#2B8A50' }}>{i + 1}</div>
@@ -162,10 +185,10 @@ export default function Register() {
           <PawFleetLogo size={32} showText textWhite />
           <div>
             <h1 className="text-[28px] font-extrabold text-white tracking-tight leading-tight">
-              {role === 'walker' ? 'Become a Walker' : 'Join PawFleet'}
+              {KINDS.find(k => k.value === kind)?.title}
             </h1>
             <p className="text-white/60 text-sm mt-0.5">
-              {role === 'walker' ? 'Earn by walking dogs in Lusaka' : "Zambia's trusted dog walking app 🇿🇲"}
+              {KINDS.find(k => k.value === kind)?.subtitle}
             </p>
           </div>
         </div>
@@ -180,20 +203,28 @@ export default function Register() {
 
           {/* Role toggle */}
           <div className="grid grid-cols-2 gap-2 mb-6">
-            {([
-              { value: 'owner',  label: '🐾 Pet Owner', desc: 'Book walks & services' },
-              { value: 'walker', label: '🦮 Dog Walker', desc: 'Walk dogs & earn' },
-            ] as const).map(r => (
-              <button key={r.value} type="button" onClick={() => { setRole(r.value); setError(''); }}
+            {KINDS.map(r => (
+              <button key={r.value} type="button" onClick={() => { setKind(r.value); setIsBusiness(false); setError(''); }}
                 className="p-3 rounded-2xl border-2 text-left transition-all"
-                style={role === r.value
+                style={kind === r.value
                   ? { borderColor: '#1B4332', background: '#EBF5EF' }
                   : { borderColor: '#E5E7EB', background: 'white' }}>
-                <p className="text-sm font-bold text-ink">{r.label}</p>
+                <p className="text-sm font-bold text-ink">{r.emoji} {r.label}</p>
                 <p className="text-[11px] text-ink-muted mt-0.5">{r.desc}</p>
               </button>
             ))}
           </div>
+
+          {(kind === 'groomer' || kind === 'breeder') && (
+            <div className="grid grid-cols-2 gap-2 mb-5 p-1 rounded-2xl bg-gray-100">
+              {[false, true].map(b => (
+                <button key={String(b)} type="button" onClick={() => setIsBusiness(b)}
+                  className={`h-10 rounded-xl text-xs font-bold ${isBusiness === b ? 'bg-white text-ink shadow-sm' : 'text-gray-500'}`}>
+                  {kind === 'groomer' ? (b ? 'Grooming business' : 'Individual groomer') : (b ? 'Shelter / rescue' : 'Breeder')}
+                </button>
+              ))}
+            </div>
+          )}
 
           {/* Avatar upload */}
           <div className="flex flex-col items-center mb-6">
@@ -215,8 +246,8 @@ export default function Register() {
                 <Camera className="w-3.5 h-3.5 text-white" />
               </div>
             </div>
-            <p className="text-xs mt-2" style={{ color: role === 'walker' ? '#DC2626' : '#9CA3AF' }}>
-              {role === 'walker' ? 'Profile photo required' : 'Profile photo (optional)'}
+            <p className="text-xs mt-2" style={{ color: needsId ? '#DC2626' : '#9CA3AF' }}>
+              {needsId ? (isBusiness ? 'Logo or business photo required' : 'Profile photo required') : 'Profile photo (optional)'}
             </p>
             <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handlePhoto} />
           </div>
@@ -228,7 +259,7 @@ export default function Register() {
               <div className="flex items-center gap-3 px-4 h-14">
                 <UserIcon className="w-4 h-4 text-gray-400 shrink-0" />
                 <input type="text" value={name} onChange={e => setName(e.target.value)}
-                  placeholder="Full name" required
+                  placeholder={isBusiness ? 'Contact person (full name)' : 'Full name'} required
                   className="flex-1 h-full bg-transparent text-sm placeholder:text-gray-400 focus:outline-none" />
               </div>
               <div className="flex items-center gap-3 px-4 h-14">
@@ -265,23 +296,43 @@ export default function Register() {
               </div>
             </div>
 
-            {/* Walker NRC */}
-            {role === 'walker' && (
+            {/* Business / kennel details */}
+            {(kind === 'groomer' || kind === 'breeder') && (
+              <div className="bg-[#F9FAFB] rounded-2xl divide-y divide-gray-100 border border-gray-100 overflow-hidden">
+                {(isBusiness || kind === 'breeder') && (
+                  <div className="flex items-center gap-3 px-4 h-14">
+                    <Store className="w-4 h-4 text-gray-400 shrink-0" />
+                    <input type="text" value={businessName} onChange={e => setBusinessName(e.target.value)}
+                      placeholder={kind === 'breeder' ? (isBusiness ? 'Shelter / rescue name' : 'Kennel name') : 'Business name'}
+                      className="flex-1 h-full bg-transparent text-sm placeholder:text-gray-400 focus:outline-none" />
+                  </div>
+                )}
+                <div className="flex items-center gap-3 px-4 h-14">
+                  <MapPin className="w-4 h-4 text-gray-400 shrink-0" />
+                  <input type="text" value={businessArea} onChange={e => setBusinessArea(e.target.value)}
+                    placeholder="Area, e.g. Kabulonga, Lusaka"
+                    className="flex-1 h-full bg-transparent text-sm placeholder:text-gray-400 focus:outline-none" />
+                </div>
+              </div>
+            )}
+
+            {/* Identity / registration */}
+            {needsId && (
               <div className="rounded-2xl border-2 bg-white overflow-hidden" style={{ borderColor: '#2B8A50' }}>
                 <div className="flex items-center gap-2 px-4 py-2.5" style={{ background: '#EBF5EF' }}>
                   <Shield className="w-3.5 h-3.5 text-primary" />
-                  <p className="text-xs font-bold text-primary">Identity Verification Required</p>
+                  <p className="text-xs font-bold text-primary">{isBusiness ? 'Business Verification Required' : 'Identity Verification Required'}</p>
                 </div>
                 <div className="flex items-center gap-3 px-4 h-14 border-t border-gray-100">
                   <CreditCard className="w-4 h-4 text-gray-400 shrink-0" />
                   <input type="text" value={nrc} onChange={e => setNrc(e.target.value)}
-                    placeholder="NRC Number (e.g. 123456/78/9)" required={role === 'walker'}
+                    placeholder={isBusiness ? 'NRC or PACRA registration number' : 'NRC Number (e.g. 123456/78/9)'} required={needsId}
                     className="flex-1 h-full bg-transparent text-sm placeholder:text-gray-400 focus:outline-none" />
                 </div>
                 {/* NRC photo upload */}
                 <div className="px-4 pt-3 pb-3 border-t border-gray-100">
                   <p className="text-xs font-semibold text-gray-600 mb-2.5">
-                    NRC Card Photo <span className="text-red-500">*</span>
+                    {isBusiness ? 'NRC or certificate photo' : 'NRC Card Photo'} <span className="text-red-500">*</span>
                   </p>
                   <div className="flex items-center gap-3">
                     <div
@@ -325,14 +376,14 @@ export default function Register() {
               </div>
             )}
 
-            {/* Walker review notice */}
-            {role === 'walker' && (
+            {/* Review notice */}
+            {needsId && (
               <div className="flex items-start gap-3 px-4 py-3.5 rounded-xl text-xs"
                 style={{ background: '#FFFBEB', border: '1px solid #FDE68A' }}>
                 <span className="text-base shrink-0">⏳</span>
                 <div>
                   <p className="font-bold text-amber-800 mb-0.5">Application review takes 24–48 hrs</p>
-                  <p className="text-amber-700 leading-relaxed">Admin will verify your photo & NRC. We'll email you when you're approved — you can also log in any time to check.</p>
+                  <p className="text-amber-700 leading-relaxed">PawFleet checks your photo and documents before you can {kind === 'breeder' ? 'list pets' : 'take bookings'}. You can log in any time to check.</p>
                 </div>
               </div>
             )}
@@ -355,11 +406,11 @@ export default function Register() {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
                   </svg>
-                  {role === 'walker' ? 'Submitting application…' : 'Creating account…'}
+                  {needsId ? 'Submitting application…' : 'Creating account…'}
                 </>
               ) : (
                 <>
-                  {role === 'walker' ? 'Submit Walker Application' : 'Create My Account'}
+                  {needsId ? `Submit ${KINDS.find(k => k.value === kind)?.noun} application` : 'Create My Account'}
                   <ArrowRight className="w-4 h-4" />
                 </>
               )}

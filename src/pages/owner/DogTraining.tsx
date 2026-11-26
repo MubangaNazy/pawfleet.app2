@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { isTrainer } from '../../lib/providers';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, MessageCircle, Phone, CheckCircle2, ChevronRight, AlertCircle, Navigation, Loader2, MapPin } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
@@ -43,7 +44,7 @@ export default function DogTraining() {
   // Only walkers approved as trainers (trainerStatus: 'approved' in pricing JSONB).
   // Live trainers first, then nearest to you.
   const trainers = data.users
-    .filter(u => u.role === 'walker' && (u.pricing as any)?.trainerStatus === 'approved')
+    .filter(isTrainer)
     .map(u => {
       const l = live[u.id];
       const pos: LatLng | null = l ? [l.lat, l.lng]

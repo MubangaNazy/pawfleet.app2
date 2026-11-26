@@ -24,6 +24,7 @@ const AdminPayments    = lazy(() => import('./pages/admin/Payments'));
 const AdminShopManager = lazy(() => import('./pages/admin/ShopManager'));
 const AdminPartners    = lazy(() => import('./pages/admin/Partners'));
 const AdminAdoptions   = lazy(() => import('./pages/admin/Adoptions'));
+const AdminApplications = lazy(() => import('./pages/admin/Applications'));
 const AdminHistory     = lazy(() => import('./pages/admin/History'));
 const AdminAnalytics   = lazy(() => import('./pages/admin/Analytics'));
 const AdminProfitMgmt  = lazy(() => import('./pages/admin/ProfitManagement'));
@@ -265,6 +266,7 @@ function AppRoutes() {
         <Route path="shop"        element={<AdminShopManager />} />
         <Route path="partners"    element={<AdminPartners />} />
         <Route path="adoptions"   element={<AdminAdoptions />} />
+        <Route path="applications" element={<AdminApplications />} />
         <Route path="history"     element={<AdminHistory />} />
         <Route path="analytics"   element={<AdminAnalytics />} />
         <Route path="profit"      element={<AdminProfitMgmt />} />

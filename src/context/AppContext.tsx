@@ -1,7 +1,9 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { isWalker, isGroomer, isTrainer } from '../lib/providers';
+import { canWalkerTakeOpenJob } from '../lib/jobs';
 import { apiUrl, apiPost } from '../lib/api';
 import { supabase } from '../lib/supabase';
-import { User, Dog, Walk, Payment, WalkerStats, WalkerBadge, AppData, Role, BadgeId, AppNotification } from '../types';
+import { User, Dog, Walk, Payment, WalkerStats, WalkerBadge, AppData, Role, BadgeId, AppNotification, ServiceKey, ApprovalStatus, Approvals } from '../types';
 import { requestNotificationPermission, onForegroundMessage } from '../lib/firebase';
 import { identifyUser, clearUser, trackEvent } from '../lib/monitoring';
 import { goOffline } from '../lib/liveTracking';
@@ -35,6 +37,7 @@ const toUser = (r: any): User => ({
   onlineLng: r.online_lng ?? undefined,
   wentOnlineAt: r.went_online_at ?? undefined,
   pricing: r.pricing ?? undefined,
+  approvals: r.approvals ?? {},
   referralCode: r.referral_code ?? undefined,
   referredByAdminId: r.referred_by_admin_id ?? undefined,
   fcmToken: r.fcm_token ?? undefined,
@@ -110,6 +113,11 @@ interface RegisterExtras {
   nrc?: string;
   nrcImageUrl?: string;
   referralCode?: string;
+  /** Services applied for at sign-up, e.g. { walking: 'applied' } or { grooming: 'applied' }. */
+  approvals?: Approvals;
+  businessName?: string;
+  businessAddress?: string;
+  businessType?: string;
 }
 interface AppContextType {
   loading: boolean;
@@ -140,6 +148,8 @@ interface AppContextType {
   refreshData: () => void;
   approveWalker: (walkerId: string) => void;
   rejectWalker: (walkerId: string) => void;
+  setApproval: (userId: string, key: ServiceKey, status: ApprovalStatus | null, reason?: string) => Promise<string | null>;
+  applyForService: (key: ServiceKey, details?: Partial<User>) => Promise<string | null>;
   markNotificationRead: (notifId: string) => void;
   markAllNotificationsRead: () => void;
   sendNotification: (userId: string, type: AppNotification['type'], title: string, body: string, data?: Record<string, string>) => void;
@@ -315,6 +325,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  // The signed-in person is cached on the phone. Keep approvals, status and prices in step with the
+  // database, so an approval (or a removed service) takes effect without logging out and back in.
+  useEffect(() => {
+    if (!currentUser) return;
+    const fresh = data.users.find(u => u.id === currentUser.id);
+    if (!fresh) return;
+    const pick = (u: User) => JSON.stringify([u.approvals ?? {}, u.walkerStatus ?? null, u.role, u.pricing ?? null, u.subscriptionPaidUntil ?? null, u.businessName ?? null]);
+    if (pick(fresh) === pick(currentUser)) return;
+    const merged: User = {
+      ...currentUser, approvals: fresh.approvals ?? {}, walkerStatus: fresh.walkerStatus, role: fresh.role,
+      pricing: fresh.pricing, subscriptionPaidUntil: fresh.subscriptionPaidUntil, businessName: fresh.businessName,
+    };
+    setCurrentUser(merged);
+    try { localStorage.setItem('pawfleet_user', JSON.stringify(merged)); } catch { /* private mode */ }
+  }, [data.users]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── iOS/Safari login recovery ────────────────────────────────
   // On startup, if Supabase has a valid session but our stored user is missing, re-fetch it.
@@ -614,14 +640,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               phone: meta.phone || undefined,
               email: authData.user!.email || '',
               password: '',
-              role: (meta.role as Role) || 'owner',
+              role: meta.role === 'walker' ? 'walker' : 'owner',
               createdAt: authData.user!.created_at,
               walkerStatus: meta.role === 'walker' ? 'pending_approval' : undefined,
+              // What they applied for at sign-up (walker / groomer / breeder), kept with their login.
+              approvals: meta.approvals && typeof meta.approvals === 'object' ? meta.approvals : {},
+              businessName: meta.businessName || undefined,
+              businessAddress: meta.businessAddress || undefined,
+              businessType: meta.businessType || undefined,
+              nrc: meta.nrc || undefined,
             };
             const healRow = (phoneValue: string | null) => supabase.from('users').upsert({
               id: healed.id, name: healed.name, phone: phoneValue,
               email: healed.email, password: '', role: healed.role,
               walker_status: healed.walkerStatus ?? null,
+              approvals: healed.approvals ?? {},
+              business_name: healed.businessName ?? null,
+              business_address: healed.businessAddress ?? null,
+              business_type: healed.businessType ?? null,
+              nrc: healed.nrc ?? null,
             }, { onConflict: 'id' });
             let { error: healErr } = await healRow(meta.phone || null);
             // Someone else already has this phone on file — keep the account working rather than fail on it.
@@ -722,7 +759,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email, password,
-      options: { data: { name, phone, role } },
+      options: { data: {
+        name, phone, role,
+        approvals: extras?.approvals ?? {},
+        businessName: extras?.businessName ?? null,
+        businessAddress: extras?.businessAddress ?? null,
+        businessType: extras?.businessType ?? null,
+        nrc: extras?.nrc ?? null,
+      } },
     });
     if (authError) return { success: false, error: authError.message };
     if (!authData.user) return { success: false, error: 'Registration failed. Please try again.' };
@@ -775,6 +819,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       nrc: extras?.nrc,
       nrcImageUrl: nrcImagePublicUrl,
       walkerStatus,
+      approvals: extras?.approvals ?? {},
+      businessName: extras?.businessName,
+      businessAddress: extras?.businessAddress,
+      businessType: extras?.businessType,
     };
 
     // Insert profile row — critical for the account to actually work.
@@ -784,6 +832,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       nrc: extras?.nrc ?? null,
       nrc_image_url: nrcImagePublicUrl ?? null,
       walker_status: walkerStatus ?? null,
+      approvals: extras?.approvals ?? {},
+      business_name: extras?.businessName ?? null,
+      business_address: extras?.businessAddress ?? null,
+      business_type: extras?.businessType ?? null,
     }, { onConflict: 'id' });
     let { error: insertError } = await insertProfile(phone);
     // Someone else already has this phone on file — keep the new account, don't fail the whole sign-up on it.
@@ -805,15 +857,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     setData(prev => ({ ...prev, users: [...prev.users.filter(u => u.id !== userId), newUser] }));
 
-    // Notify admins of new walker application
-    if (role === 'walker') {
+    // Tell admins about every application (walker, groomer, breeder / shelter).
+    const applied = Object.keys(extras?.approvals ?? {});
+    const appliedLabel = applied.includes('grooming') ? 'Groomer' : applied.includes('breeder') ? 'Breeder / shelter' : 'Walker';
+    if (role === 'walker' || applied.length > 0) {
       data.users.filter(u => u.role === 'admin').forEach(admin => {
         sendNotification(admin.id, 'walker_signup',
-          'New Walker Application 🦮',
-          `${name} has applied to join as a walker. Review and approve their application.`,
+          `New ${appliedLabel} Application`,
+          `${extras?.businessName || name} applied as a ${appliedLabel.toLowerCase()}. Review it in Admin → Applications.`,
           { walkerId: userId }
         );
       });
+    }
+    if (role === 'walker') {
       sendEmail(email, 'welcome_walker_pending', { name });
       return { success: true, pendingApproval: true };
     }
@@ -903,7 +959,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const msg = `${ownerName} booked ${service} for ${dogName}.`;
       [...vetIds, ...adminIds].forEach(id => sendNotification(id, 'walk_booked', 'New Vet Appointment 🏥', msg, { walkId: walk.id }));
       if (walk.notes?.includes('Walker transport requested')) {
-        data.users.filter(u => u.role === 'walker' && (!u.walkerStatus || u.walkerStatus === 'active'))
+        data.users.filter(isWalker)
           .forEach(w => sendNotification(w.id, 'walk_booked', 'Vet Transport Job 🚗', `${ownerName} needs ${dogName} taken to the vet. K${walk.walkerEarning} earning.`, { walkId: walk.id }));
       }
       trackEvent('vet_booked', { dogId: walk.dogId, price: walk.price });
@@ -914,7 +970,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (/^TRAINING:/.test(walk.notes ?? '')) {
       const trainerIds = walk.walkerId
         ? [walk.walkerId]
-        : data.users.filter(u => u.role === 'walker' && (u.pricing as any)?.trainerStatus === 'approved').map(u => u.id);
+        : data.users.filter(isTrainer).map(u => u.id);
       const msg = `${ownerName} wants to train ${dogName}. Open the request to see the details.`;
       [...trainerIds, ...adminIds].forEach(id => sendNotification(id, 'walk_booked', 'New Training Request 🎓', msg, { walkId: walk.id }));
       trackEvent('training_booked', { dogId: walk.dogId, price: walk.price });
@@ -942,9 +998,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         { walkId: walk.id },
       );
     } else {
-      const approved = data.users.filter(u => u.role === 'walker' && (!u.walkerStatus || u.walkerStatus === 'active'));
-      const groomers = approved.filter(u => u.pricing?.grooming != null);
-      const pool = isGroomingJob && groomers.length > 0 ? groomers : approved;
+      // Each job only rings the people approved for it: grooming jobs go to approved groomers, walks to
+      // approved walkers, and a walk with a grooming add-on to people approved for both.
+      const pool = isGroomingJob
+        ? data.users.filter(isGroomer)
+        : isGroomingAddon
+        ? data.users.filter(u => isWalker(u) && isGroomer(u))
+        : data.users.filter(isWalker);
       pool.forEach(w => sendNotification(w.id, 'walk_booked', notifyTitle, notifyMsg, { walkId: walk.id }));
     }
     data.users.filter(u => u.role === 'admin').forEach(admin => {
@@ -1186,7 +1246,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
     // Notify other active walkers about the re-opened walk
     data.users
-      .filter(u => u.role === 'walker' && u.walkerStatus === 'active' && u.id !== decliningWalkerId)
+      .filter(u => u.id !== decliningWalkerId && canWalkerTakeOpenJob(walk ?? {}, u) && u.role === 'walker' && u.walkerStatus === 'active')
       .forEach(w => {
         sendNotification(
           w.id,
@@ -1456,6 +1516,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       dbFields.image_url = resolvedUpdates.imageUrl;
     if (resolvedUpdates.nrcImageUrl !== undefined && !resolvedUpdates.nrcImageUrl.startsWith('data:'))
       dbFields.nrc_image_url = resolvedUpdates.nrcImageUrl;
+    if (resolvedUpdates.nrc !== undefined)                   dbFields.nrc                    = resolvedUpdates.nrc;
     if (resolvedUpdates.businessName !== undefined)          dbFields.business_name          = resolvedUpdates.businessName;
     if (resolvedUpdates.businessAddress !== undefined)       dbFields.business_address       = resolvedUpdates.businessAddress;
     if (resolvedUpdates.businessType !== undefined)          dbFields.business_type          = resolvedUpdates.businessType;
@@ -1468,6 +1529,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (resolvedUpdates.onlineLng !== undefined)              dbFields.online_lng              = resolvedUpdates.onlineLng;
     if (resolvedUpdates.wentOnlineAt !== undefined)           dbFields.went_online_at          = resolvedUpdates.wentOnlineAt;
     if (resolvedUpdates.pricing !== undefined)               dbFields.pricing                 = resolvedUpdates.pricing;
+    if (resolvedUpdates.approvals !== undefined)             dbFields.approvals               = resolvedUpdates.approvals;
     if (Object.keys(dbFields).length > 0) {
       supabase.from('users').update(dbFields).eq('id', userId)
         .then(({ error }) => { if (error) console.error('updateUser:', error); });
@@ -1486,35 +1548,54 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     updateUser(userId, { subscriptionPaidUntil: until });
   };
 
-  const approveWalker = (walkerId: string) => {
-    setData(prev => ({
-      ...prev,
-      users: prev.users.map(u => u.id === walkerId ? { ...u, walkerStatus: 'active' as const } : u),
-    }));
-    supabase.from('users').update({ walker_status: 'active' }).eq('id', walkerId)
-      .then(({ error }) => { if (error) console.error('approveWalker:', error); });
-    sendNotification(walkerId, 'walker_approved',
-      'Application Approved! 🎉',
-      'Congratulations! Your walker application has been approved. You can now start accepting walks.',
-    );
-    const walker = data.users.find(u => u.id === walkerId);
-    sendEmail(walker?.email, 'walker_approved', { name: walker?.name ?? 'there' });
+  // One approval per service (walking, grooming, training, breeder). Only admins can change these;
+  // the database refuses anyone else (supabase/migrations/20261126_service_approvals.sql).
+  const setApproval = async (userId: string, key: ServiceKey, status: ApprovalStatus | null, reason?: string): Promise<string | null> => {
+    const user = data.users.find(u => u.id === userId);
+    if (!user) return 'Account not found.';
+    const approvals: Approvals = { ...(user.approvals || {}) };
+    if (status) approvals[key] = status; else delete approvals[key];
+    const db: Record<string, unknown> = { approvals };
+    // Approving a provider service also activates the account itself.
+    let walkerStatus = user.walkerStatus;
+    if (user.role === 'walker' && key !== 'breeder') {
+      const anyApproved = (['walking', 'grooming', 'training'] as ServiceKey[]).some(k => approvals[k] === 'approved');
+      walkerStatus = anyApproved ? 'active' : status === 'rejected' && !Object.values(approvals).includes('applied') ? 'suspended' : user.walkerStatus;
+      db.walker_status = walkerStatus;
+    }
+    const { error } = await supabase.from('users').update(db).eq('id', userId);
+    if (error) return error.message;
+    setData(prev => ({ ...prev, users: prev.users.map(u => u.id === userId ? { ...u, approvals, walkerStatus } : u) }));
+
+    const label = { walking: 'dog walker', grooming: 'groomer', training: 'dog trainer', breeder: 'breeder / shelter' }[key];
+    if (status === 'approved') {
+      sendNotification(userId, key === 'walking' ? 'walker_approved' : 'adoption_update', `You're approved as a ${label} 🎉`,
+        key === 'breeder' ? 'You can now list pets on Adopt a Pet. Each pet is still checked before it goes live.'
+          : `You can now accept ${key === 'walking' ? 'walks' : key} jobs on PawFleet. Go online to appear on the map.`);
+      if (key === 'walking') sendEmail(user.email, 'walker_approved', { name: user.name });
+    } else if (status === 'rejected') {
+      sendNotification(userId, key === 'walking' ? 'walker_rejected' : 'adoption_update', `Your ${label} application`,
+        `Your ${label} application was not approved${reason ? `: ${reason}` : '.'} Contact PawFleet for more information.`);
+      if (key === 'walking') sendEmail(user.email, 'walker_rejected', { name: user.name });
+    }
+    return null;
   };
 
-  const rejectWalker = (walkerId: string) => {
-    setData(prev => ({
-      ...prev,
-      users: prev.users.map(u => u.id === walkerId ? { ...u, walkerStatus: 'suspended' as const } : u),
-    }));
-    supabase.from('users').update({ walker_status: 'suspended' }).eq('id', walkerId)
-      .then(({ error }) => { if (error) console.error('rejectWalker:', error); });
-    sendNotification(walkerId, 'walker_rejected',
-      'Application Not Approved',
-      'Unfortunately your walker application was not approved at this time. Contact admin for more information.',
-    );
-    const walker = data.users.find(u => u.id === walkerId);
-    sendEmail(walker?.email, 'walker_rejected', { name: walker?.name ?? 'there' });
+  /** A provider or owner applies for a service. Admins are told. */
+  const applyForService = async (key: ServiceKey, details?: Partial<User>): Promise<string | null> => {
+    if (!currentUser) return 'Please log in again.';
+    const approvals: Approvals = { ...(currentUser.approvals || {}), [key]: 'applied' };
+    await updateUser(currentUser.id, { ...(details || {}), approvals });
+    const label = { walking: 'dog walking', grooming: 'grooming', training: 'training', breeder: 'breeder / shelter' }[key];
+    data.users.filter(u => u.role === 'admin').forEach(a =>
+      sendNotification(a.id, 'walker_signup', `New ${label} application`,
+        `${currentUser.name}${currentUser.businessName ? ` (${currentUser.businessName})` : ''} applied for ${label}. Review it in Admin → Applications.`,
+        { userId: currentUser.id, service: key }));
+    return null;
   };
+
+  const approveWalker = (walkerId: string) => { setApproval(walkerId, 'walking', 'approved'); };
+  const rejectWalker = (walkerId: string) => { setApproval(walkerId, 'walking', 'rejected'); };
 
   // Photos that were only ever saved on one phone (or stored inside the database as a giant text blob) are
   // shrunk and uploaded properly, so they show up on every phone. Runs once per photo, for the owner's own
@@ -1559,7 +1640,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       createDog, updateDog, logHealth,
       addUser, updateUser, getWalkerStats, refreshData,
       activateSubscription,
-      approveWalker, rejectWalker,
+      approveWalker, rejectWalker, setApproval, applyForService,
       markNotificationRead, markAllNotificationsRead, sendNotification,
       getAdminReferralCode, addRating, declineWalk, updateOrderStatus, deleteAccount,
     }}>

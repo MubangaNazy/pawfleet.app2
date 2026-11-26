@@ -26,7 +26,7 @@ const WALK_SLIDES = [
 ];
 
 export default function WalkerDashboard() {
-  const { data, currentUser, getWalkerStats, loading, sendNotification } = useApp();
+  const { data, currentUser, getWalkerStats, loading, sendNotification, applyForService } = useApp();
   const { unreadTotal: unreadMessages } = useDirectInbox(currentUser?.id);
   const { online } = useWalkerOnline();
   const { pos: refPos, source: refSource } = useWalkerRefPos();
@@ -85,7 +85,18 @@ export default function WalkerDashboard() {
   };
 
   // Check if walker has already applied to be a trainer
-  const trainerStatus = (currentUser?.pricing as any)?.trainerStatus as string | undefined;
+  const trainerStatus = currentUser?.approvals?.training ?? (currentUser?.pricing as any)?.trainerStatus as string | undefined;
+  const walkingStatus = currentUser?.approvals?.walking;
+  const groomingStatus = currentUser?.approvals?.grooming;
+  const groomingOnly = !!groomingStatus && !walkingStatus;
+  const [applyingFor, setApplyingFor] = useState<'' | 'grooming' | 'walking'>('');
+  const [applyDone, setApplyDone] = useState('');
+  const applyExtra = async (key: 'grooming' | 'walking') => {
+    setApplyingFor(key);
+    await applyForService(key);
+    setApplyingFor('');
+    setApplyDone(key === 'grooming' ? 'Grooming application sent. We will let you know once it is approved.' : 'Walking application sent. We will let you know once it is approved.');
+  };
 
   const gamStats = getWalkerStats(currentUser?.id || '');
 
@@ -212,8 +223,36 @@ export default function WalkerDashboard() {
         {/* Go online so owners nearby can find and book you */}
         <GoOnlineCard />
 
+        {/* Each extra service is applied for separately and approved by an admin. */}
+        {(walkingStatus === 'approved' && !groomingStatus) && (
+          <button type="button" disabled={!!applyingFor} onClick={() => applyExtra('grooming')}
+            className="w-full flex items-center justify-between gap-3 px-5 py-4 rounded-2xl text-left bg-white border-2 border-[#2B8A50]/30 active:scale-[0.98]">
+            <span>
+              <span className="block font-extrabold text-sm text-ink">✂️ Also offer grooming</span>
+              <span className="block text-xs text-ink-muted mt-0.5">Apply to take grooming bookings too. An admin reviews it first.</span>
+            </span>
+            <span className="text-xs font-bold text-primary shrink-0">{applyingFor === 'grooming' ? 'Sending…' : 'Apply'}</span>
+          </button>
+        )}
+        {(groomingStatus === 'approved' && !walkingStatus) && (
+          <button type="button" disabled={!!applyingFor} onClick={() => applyExtra('walking')}
+            className="w-full flex items-center justify-between gap-3 px-5 py-4 rounded-2xl text-left bg-white border-2 border-[#2B8A50]/30 active:scale-[0.98]">
+            <span>
+              <span className="block font-extrabold text-sm text-ink">🦮 Also offer dog walks</span>
+              <span className="block text-xs text-ink-muted mt-0.5">Apply to take walking jobs too. An admin reviews it first.</span>
+            </span>
+            <span className="text-xs font-bold text-primary shrink-0">{applyingFor === 'walking' ? 'Sending…' : 'Apply'}</span>
+          </button>
+        )}
+        {(groomingStatus === 'applied' || (walkingStatus === 'applied' && groomingStatus === 'approved')) && walkingStatus !== undefined && (
+          <div className="px-5 py-3 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-800 font-semibold">
+            ⏳ {groomingStatus === 'applied' ? 'Grooming' : 'Walking'} application is being reviewed.
+          </div>
+        )}
+        {applyDone && <div className="px-5 py-3 rounded-2xl bg-[#EBF5EF] text-xs text-primary font-semibold">{applyDone}</div>}
+
         {/* Become a Trainer CTA */}
-        {trainerStatus !== 'approved' && (
+        {trainerStatus !== 'approved' && !groomingOnly && (
           <button type="button" onClick={() => setShowTrainerModal(true)}
             className="w-full flex items-center gap-4 px-5 py-4 rounded-2xl text-left transition-all active:scale-[0.98]"
             style={trainerStatus === 'applied'
@@ -552,6 +591,7 @@ function TrainerApplicationModal({ walker, onClose }: { walker: User; onClose: (
         experience,
         motivation,
       },
+      approvals: { ...(walker.approvals || {}), training: 'applied' },
     });
     const adminId = adminUser?.id ?? '47ba55a7-0484-4047-bd56-1aa383aa1c7b';
     sendNotification(adminId, 'trainer_application', 'Trainer Application', `${walker.name} has applied to become a dog trainer`, {

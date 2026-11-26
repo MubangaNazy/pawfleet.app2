@@ -115,6 +115,14 @@ See `docs/REALIGNMENT.md` for the diagnosis, system map and two-phone test.
 - Walk safety: starting a walk asks for a pickup photo (`components/walker/PickupPhotoSheet.tsx`); both sides can send photos in the walk chat (`src/lib/walkPhotos.ts`). Ending a walk from any screen saves the route (`takeWalkTrail`).
 - Android back button: `components/AndroidBackButton.tsx` (`@capacitor/app`). Release signing reads `android/keystore.properties` (gitignored).
 
+## Accounts and approvals (2026-11-26)
+- `users.approvals` jsonb: `walking` / `grooming` / `training` / `breeder`, each `applied | approved | rejected`. Helpers in `src/lib/providers.ts` (`isWalker`, `isGroomer`, `isTrainer`, `isBreeder`). Never test `pricing.grooming` or `trainerStatus` directly any more.
+- Walkers and groomers are both `role = 'walker'` in the database (shared jobs/chat/tracking); the approvals decide what they see. A grooming business never gets walk jobs; a walker is not a groomer until approved.
+- Breeders/shelters are `role = 'owner'` with `approvals.breeder`; only approved ones can insert into `adoption_listings` (RLS).
+- Trigger `trg_users_protect` (`20261126_service_approvals.sql`): non-admins cannot change their own role, walker_status, subscription dates, or set an approval to approved/rejected. Admins, the service role and the SQL editor can.
+- Admin review: `/admin/applications` (walkers, groomers, trainers, breeders, per-service on/off). Vets and shops are still admin-created in `/admin/partners`.
+- Deploy order matters: run the migration **before** deploying code that reads `approvals`, or nobody counts as approved.
+
 ## Pending / Known Issues
 - [ ] iOS: needs a Mac + an **active** Apple Developer account ($99/yr) before `npx cap add ios` + Xcode work can start
 - [ ] WhatsApp OTP: needs the owner to set up a WhatsApp Business API account first

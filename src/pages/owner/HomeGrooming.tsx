@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { isGroomer } from '../../lib/providers';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, CheckCircle, Loader2, MapPin, MessageCircle, Pin, Stethoscope } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
@@ -86,7 +87,7 @@ export default function HomeGrooming() {
   // Groomers = approved walkers who offer grooming. Live ones first, then nearest to the owner.
   const groomers = useMemo(() => {
     return data.users
-      .filter(u => u.role === 'walker' && (!u.walkerStatus || u.walkerStatus === 'active') && u.pricing?.grooming != null)
+      .filter(isGroomer)
       .map(u => {
         const l = live[u.id];
         const pos: LatLng | null = l ? [l.lat, l.lng]

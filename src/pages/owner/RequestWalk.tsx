@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { isWalker, isGroomer } from '../../lib/providers';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { CheckCircle, Star, MapPin, Zap, Calendar, Scissors, Loader2, CreditCard } from 'lucide-react';
 import { ScalePop, FadeIn, StaggerList, StaggerItem } from '../../components/ui/Anim';
@@ -71,11 +72,8 @@ export default function OwnerRequestWalk() {
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
   };
   const walkers = (() => {
-    const active = data.users.filter(u => {
-      if (u.role !== 'walker') return false;
-      if (u.walkerStatus && u.walkerStatus !== 'active') return false;
-      return true;
-    });
+    // Only people approved for walking (a grooming-only business never shows up here).
+    const active = data.users.filter(isWalker);
     return active
       .map(w => {
         const l = live[w.id];
@@ -110,6 +108,7 @@ export default function OwnerRequestWalk() {
     .filter((p): p is number => typeof p === 'number');
   const minWalkPrice = walkerDurationPrices.length > 0 ? Math.min(...walkerDurationPrices) : null;
   const walkerGroomPrices = walkers
+    .filter(isGroomer)
     .map(w => w.pricing?.grooming)
     .filter((p): p is number => typeof p === 'number');
   const minGroomPrice = walkerGroomPrices.length > 0 ? Math.min(...walkerGroomPrices) : null;
@@ -215,7 +214,7 @@ export default function OwnerRequestWalk() {
   const confirmBooking = async (walkerId?: string) => {
     const selectedWalker = walkerId ? data.users.find(u => u.id === walkerId) : null;
     const walkPrice  = (selectedWalker?.pricing?.[dKey] as number | undefined) ?? minWalkPrice ?? 150;
-    const groomPrice = selectedWalker?.pricing?.grooming ?? minGroomPrice ?? 249;
+    const groomPrice = (selectedWalker && isGroomer(selectedWalker) ? selectedWalker.pricing?.grooming : undefined) ?? minGroomPrice ?? 249;
     const finalPrice = addGrooming ? walkPrice + groomPrice : walkPrice;
 
     const scheduledDate = isInstant

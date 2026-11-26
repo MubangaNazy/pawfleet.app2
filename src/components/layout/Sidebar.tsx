@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Map, ListChecks, PlusCircle,
   Users, UserCog, CreditCard, Activity, DollarSign, Clock,
   LogOut, X, Dog, ChevronRight, Scissors, ShoppingBag, User, Calendar, Bell, Package, TrendingUp, History, Trophy, Stethoscope, ClipboardList,
-  GraduationCap, Store,
+  GraduationCap, Store, ClipboardCheck,
 } from 'lucide-react';
 import PawFleetLogo from '../ui/PawFleetLogo';
 import { useApp } from '../../context/AppContext';
@@ -22,6 +22,7 @@ const adminNav = [
   { to: '/admin/payments',    icon: CreditCard,      label: 'Payments' },
   { to: '/admin/shop',        icon: ShoppingBag,     label: 'Shop Manager' },
   { to: '/admin/partners',    icon: Stethoscope,     label: 'Vets & Shop Owners' },
+  { to: '/admin/applications', icon: ClipboardCheck, label: 'Applications' },
   { to: '/admin/adoptions',   icon: Store,           label: 'Adoptions' },
   { to: '/admin/history',     icon: History,         label: 'Notification & Email History' },
   { to: '/admin/analytics',   icon: Activity,        label: 'Analytics' },

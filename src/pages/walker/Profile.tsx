@@ -131,6 +131,9 @@ function PricingCard() {
   const { currentUser, updateUser } = useApp();
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  // Only show the prices for services this person is approved for (or has applied for).
+  const showWalk = !!currentUser?.approvals?.walking || !currentUser?.approvals?.grooming;
+  const showGroom = !!currentUser?.approvals?.grooming;
   const [prices, setPrices] = useState<Record<string, string>>({
     walk_20:  String(currentUser?.pricing?.walk_20  ?? ''),
     walk_30:  String(currentUser?.pricing?.walk_30  ?? ''),
@@ -142,7 +145,9 @@ function PricingCard() {
   const handleSave = async () => {
     if (!currentUser) return;
     setSaving(true);
-    const pricing: WalkerPricing = {};
+    // Keep everything else stored in pricing (e.g. trainer details); only replace the prices.
+    const pricing: WalkerPricing = { ...(currentUser.pricing || {}) };
+    delete pricing.walk_20; delete pricing.walk_30; delete pricing.walk_40; delete pricing.walk_60; delete pricing.grooming;
     if (prices.walk_20)  pricing.walk_20  = Number(prices.walk_20);
     if (prices.walk_30)  pricing.walk_30  = Number(prices.walk_30);
     if (prices.walk_40)  pricing.walk_40  = Number(prices.walk_40);
@@ -162,7 +167,7 @@ function PricingCard() {
           </div>
           <div>
             <p className="text-sm font-semibold text-ink">My Pricing</p>
-            <p className="text-[11px] text-ink-muted">What owners pay per walk</p>
+            <p className="text-[11px] text-ink-muted">{showWalk ? 'What owners pay per walk' : 'What owners pay per groom'}</p>
           </div>
         </div>
         <button type="button" onClick={() => setEditing(e => !e)}
@@ -172,6 +177,7 @@ function PricingCard() {
       </div>
 
       <div className="p-4 space-y-3">
+        {showWalk && <>
         <p className="text-[10px] font-bold text-ink-muted uppercase tracking-wider">Walk Durations</p>
         <div className="grid grid-cols-2 gap-2.5">
           {DURATION_LABELS.map(({ key, label }) => {
@@ -200,7 +206,10 @@ function PricingCard() {
           })}
         </div>
 
-        <p className="text-[10px] font-bold text-ink-muted uppercase tracking-wider pt-1">Grooming Add-on</p>
+        </>}
+
+        {showGroom && <>
+        <p className="text-[10px] font-bold text-ink-muted uppercase tracking-wider pt-1">Grooming {currentUser?.approvals?.grooming === 'approved' ? '' : '(after approval)'}</p>
         <div className="flex items-center justify-between rounded-xl border border-surface-border px-3 py-2.5 bg-[#F4F9F6]">
           <span className="text-xs font-semibold text-ink">Bath, trim & nail clip</span>
           {editing ? (
@@ -220,6 +229,7 @@ function PricingCard() {
             </span>
           )}
         </div>
+        </>}
 
         {editing && (
           <button

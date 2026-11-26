@@ -5,12 +5,14 @@ import { isValidCoord, haversineKm, type LatLng } from './geo';
  * Not every open booking is a dog walk. Vet visits and training requests are handled by vets and trainers,
  * and pure grooming jobs by groomers, so a walker should only see the open jobs they can actually take.
  */
-export function canWalkerTakeOpenJob(walk: Pick<Walk, 'notes'>, walker?: Pick<User, 'pricing'> | null): boolean {
+export function canWalkerTakeOpenJob(walk: Pick<Walk, 'notes'>, walker?: Pick<User, 'pricing' | 'approvals'> | null): boolean {
   const notes = walk.notes ?? '';
-  if (/^VET BOOKING:/.test(notes)) return notes.includes('Walker transport requested'); // only the drive to the clinic
-  if (/^TRAINING:/.test(notes)) return (walker?.pricing as any)?.trainerStatus === 'approved';
-  if (/^(HOME_|VET_)?GROOMING:/.test(notes)) return walker?.pricing?.grooming != null; // grooming-only booking: groomers
-  return true; // plain walks, and walks with a grooming add-on, are open to every approved walker
+  const ok = (k: 'walking' | 'grooming' | 'training') => walker?.approvals?.[k] === 'approved';
+  if (/^VET BOOKING:/.test(notes)) return notes.includes('Walker transport requested') && ok('walking'); // only the drive to the clinic
+  if (/^TRAINING:/.test(notes)) return ok('training');
+  if (/^(HOME_|VET_)?GROOMING:/.test(notes)) return ok('grooming') && walker?.pricing?.grooming != null; // approved groomers only
+  if (/Add-on: Grooming requested/.test(notes)) return ok('walking') && ok('grooming'); // walk + groom: needs both
+  return ok('walking'); // plain walks: approved walkers only (a grooming company never gets these)
 }
 
 /** Straight-line distance from a walker's reference point to a job's pickup, in km. Null when either is unknown. */

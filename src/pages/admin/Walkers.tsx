@@ -110,7 +110,7 @@ const BLANK: NewWalkerForm = { name: '', phone: '', email: '', password: '', pho
 type Tab = 'active' | 'pending' | 'suspended' | 'trainer';
 
 export default function AdminWalkers() {
-  const { data, getWalkerStats, addUser, approveWalker, rejectWalker, updateUser, activateSubscription, currentUser, getAdminReferralCode, refreshData } = useApp();
+  const { data, getWalkerStats, addUser, approveWalker, rejectWalker, setApproval, updateUser, activateSubscription, currentUser, getAdminReferralCode, refreshData } = useApp();
 
   const [tab, setTab]         = useState<Tab>('active');
   const [showAdd, setShowAdd] = useState(false);
@@ -128,10 +128,12 @@ export default function AdminWalkers() {
 
   const walkers = data.users.filter(u => u.role === 'walker');
   const activeWalkers  = walkers.filter(w => !w.walkerStatus || w.walkerStatus === 'active');
-  const pendingWalkers = walkers.filter(w => w.walkerStatus === 'pending_approval');
+  // Groomer-only applicants are reviewed in Admin → Applications, so approving here can never make a
+  // groomer a walker by accident.
+  const pendingWalkers = walkers.filter(w => w.walkerStatus === 'pending_approval' && (w.approvals?.walking === 'applied' || !w.approvals?.grooming));
   const suspendedWalkers = walkers.filter(w => w.walkerStatus === 'suspended');
-  const trainerApplicants = walkers.filter(w => (w.pricing as any)?.trainerStatus === 'applied');
-  const approvedTrainers  = walkers.filter(w => (w.pricing as any)?.trainerStatus === 'approved');
+  const trainerApplicants = walkers.filter(w => w.approvals?.training === 'applied');
+  const approvedTrainers  = walkers.filter(w => w.approvals?.training === 'approved');
   const trainerTabCount   = trainerApplicants.length + approvedTrainers.length;
 
   const displayWalkers = tab === 'active' ? activeWalkers : tab === 'pending' ? pendingWalkers : tab === 'trainer' ? trainerApplicants : suspendedWalkers;
@@ -372,6 +374,7 @@ export default function AdminWalkers() {
                           onClick={async () => {
                             const existing = (walker.pricing as any) || {};
                             await updateUser(walker.id, { pricing: { ...existing, trainerStatus: 'approved' } });
+                            await setApproval(walker.id, 'training', 'approved');
                           }}
                           className="flex-1 py-2.5 rounded-xl text-white text-sm font-bold flex items-center justify-center gap-1.5"
                           style={{ background: 'linear-gradient(135deg,#1B4332,#2B8A50)' }}>
@@ -381,6 +384,7 @@ export default function AdminWalkers() {
                           onClick={async () => {
                             const existing = (walker.pricing as any) || {};
                             await updateUser(walker.id, { pricing: { ...existing, trainerStatus: 'rejected' } });
+                            await setApproval(walker.id, 'training', 'rejected');
                           }}
                           className="flex-1 py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-1.5 border border-surface-border text-ink-secondary">
                           <XCircle className="w-4 h-4" /> Reject

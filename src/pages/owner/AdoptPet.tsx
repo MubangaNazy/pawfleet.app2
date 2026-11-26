@@ -6,6 +6,8 @@ import {
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import BreedPicker from '../../components/ui/BreedPicker';
+import { isBreeder } from '../../lib/providers';
+import { uploadDataUrlToStorage } from '../../lib/image';
 import { prepareImage } from '../../lib/image';
 import {
   fetchListings, createListing, setListingStatus, deleteListing, loadFavs, saveFavs, ageLabel,
@@ -34,6 +36,10 @@ function Photo({ src, className }: { src: string; className: string }) {
 export default function AdoptPet() {
   const navigate = useNavigate();
   const { currentUser, data, sendNotification } = useApp();
+  const me = data.users.find(u => u.id === currentUser?.id) ?? currentUser;
+  const breederStatus = me?.approvals?.breeder;
+  const canList = isBreeder(me) || me?.role === 'admin';
+  const [showApply, setShowApply] = useState(false);
   const [listings, setListings] = useState<AdoptionListing[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
@@ -227,11 +233,24 @@ export default function AdoptPet() {
       {/* List a pet */}
       <div className="fixed bottom-20 lg:bottom-6 left-0 right-0 px-4 z-20 pointer-events-none">
         <div className="max-w-2xl mx-auto flex justify-end">
-          <button onClick={() => setShowForm(true)}
-            className="pointer-events-auto flex items-center gap-2 px-5 h-12 rounded-full text-white text-sm font-bold shadow-xl"
-            style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)' }}>
-            <Plus className="w-4 h-4" /> List a pet
-          </button>
+          {/* Only verified breeders and shelters can list pets; everyone else applies first. */}
+          {canList ? (
+            <button onClick={() => setShowForm(true)}
+              className="pointer-events-auto flex items-center gap-2 px-5 h-12 rounded-full text-white text-sm font-bold shadow-xl"
+              style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)' }}>
+              <Plus className="w-4 h-4" /> List a pet
+            </button>
+          ) : breederStatus === 'applied' ? (
+            <span className="pointer-events-auto flex items-center gap-2 px-5 h-12 rounded-full text-amber-800 text-sm font-bold shadow-xl bg-amber-50 border border-amber-200">
+              <Clock className="w-4 h-4" /> Breeder application under review
+            </span>
+          ) : currentUser?.role === 'owner' ? (
+            <button onClick={() => setShowApply(true)}
+              className="pointer-events-auto flex items-center gap-2 px-5 h-12 rounded-full text-white text-sm font-bold shadow-xl"
+              style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)' }}>
+              <Plus className="w-4 h-4" /> Apply to list pets
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -260,7 +279,12 @@ export default function AdoptPet() {
           onClose={() => setOpen(null)} />
       )}
 
-      {showForm && currentUser && (
+      {showApply && currentUser && (
+        <BreederApplyForm onClose={() => setShowApply(false)}
+          onDone={() => { setShowApply(false); setToast('Application sent. You can list pets once PawFleet approves you.'); }} />
+      )}
+
+      {showForm && currentUser && canList && (
         <ListPetForm defaultPhone={currentUser.phone || ''} listerId={currentUser.id} onDone={onCreated} onClose={() => setShowForm(false)} />
       )}
     </div>
@@ -493,6 +517,70 @@ function ListPetForm({ defaultPhone, listerId, onDone, onClose }: {
         {saving ? <><Loader2 className="w-4 h-4 animate-spin" /> Sending…</> : 'Send for review'}
       </button>
       <p className="text-[11px] text-ink-muted text-center">A PawFleet admin checks every listing before it goes live.</p>
+    </Sheet>
+  );
+}
+
+function BreederApplyForm({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
+  const { currentUser, applyForService } = useApp();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [type, setType] = useState<'breeder' | 'shelter'>('breeder');
+  const [name, setName] = useState(currentUser?.businessName || '');
+  const [area, setArea] = useState(currentUser?.businessAddress || '');
+  const [idNo, setIdNo] = useState(currentUser?.nrc || '');
+  const [idPhoto, setIdPhoto] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const input = 'w-full h-11 px-4 rounded-xl border border-surface-border bg-white text-sm text-ink focus:outline-none focus:border-primary';
+
+  const submit = async () => {
+    if (!currentUser || saving) return;
+    if (!name.trim()) return setError(type === 'shelter' ? 'Enter the shelter name.' : 'Enter your kennel name.');
+    if (!area.trim()) return setError('Enter your area.');
+    if (!idNo.trim()) return setError('Enter your NRC or registration number.');
+    if (!idPhoto && !currentUser.nrcImageUrl) return setError('Add a photo of your NRC or registration certificate.');
+    setSaving(true);
+    setError('');
+    let nrcImageUrl: string | undefined;
+    if (idPhoto) {
+      nrcImageUrl = (await uploadDataUrlToStorage('avatars', `nrc/${currentUser.id}.jpg`, idPhoto)) || undefined;
+      if (!nrcImageUrl) { setSaving(false); return setError('Could not upload the photo. Check your connection.'); }
+    }
+    const err = await applyForService('breeder', {
+      businessName: name.trim(), businessAddress: area.trim(), businessType: type, nrc: idNo.trim(),
+      ...(nrcImageUrl ? { nrcImageUrl } : {}),
+    });
+    setSaving(false);
+    if (err) return setError(err);
+    onDone();
+  };
+
+  return (
+    <Sheet title="Apply to list pets" onClose={onClose}>
+      <p className="text-sm text-ink-muted">To keep Adopt a Pet safe, only verified breeders and shelters can list dogs. Tell us who you are and PawFleet will review it.</p>
+      <div className="flex gap-2">
+        {(['breeder', 'shelter'] as const).map(t => (
+          <button key={t} type="button" onClick={() => setType(t)}
+            className={`flex-1 h-10 rounded-xl text-sm font-semibold ${type === t ? 'text-white' : 'bg-surface-secondary text-ink'}`}
+            style={type === t ? { background: '#2B8A50' } : undefined}>{t === 'breeder' ? 'Breeder' : 'Shelter / rescue'}</button>
+        ))}
+      </div>
+      <input className={input} placeholder={type === 'shelter' ? 'Shelter / rescue name' : 'Kennel name'} value={name} onChange={e => setName(e.target.value.slice(0, 80))} />
+      <input className={input} placeholder="Area, e.g. Kabulonga, Lusaka" value={area} onChange={e => setArea(e.target.value.slice(0, 120))} />
+      <input className={input} placeholder="NRC or PACRA registration number" value={idNo} onChange={e => setIdNo(e.target.value.slice(0, 40))} />
+      <button type="button" onClick={() => fileRef.current?.click()}
+        className="w-full h-28 rounded-2xl border-2 border-dashed border-surface-border bg-surface-secondary overflow-hidden flex items-center justify-center">
+        {idPhoto ? <img src={idPhoto} alt="" className="w-full h-full object-cover" />
+          : <span className="flex flex-col items-center gap-1 text-ink-muted text-sm"><Camera className="w-5 h-5" />{currentUser?.nrcImageUrl ? 'ID on file — tap to replace' : 'Photo of NRC or certificate'}</span>}
+      </button>
+      <input ref={fileRef} type="file" accept="image/*" className="hidden"
+        onChange={async e => { const f = e.target.files?.[0]; e.target.value = ''; if (f) { try { setIdPhoto(await prepareImage(f, { maxDim: 1400, quality: 0.75, maxBytes: 300_000 })); } catch { setError('That photo could not be read.'); } } }} />
+      {error && <p className="text-sm text-danger text-center">{error}</p>}
+      <button onClick={submit} disabled={saving}
+        className="w-full h-12 rounded-2xl text-sm font-bold text-white flex items-center justify-center gap-2 disabled:opacity-60"
+        style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)' }}>
+        {saving ? <><Loader2 className="w-4 h-4 animate-spin" /> Sending…</> : 'Send application'}
+      </button>
     </Sheet>
   );
 }

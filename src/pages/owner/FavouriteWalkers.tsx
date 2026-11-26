@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { isWalker, isGroomer } from '../../lib/providers';
 import { useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, Heart, Star } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
@@ -25,7 +26,7 @@ export default function FavouriteWalkers() {
       .filter(w => w.ownerId === currentUser?.id && w.status === 'completed' && w.walkerId)
       .map(w => w.walkerId!)
   )];
-  const allWalkers = data.users.filter(u => u.role === 'walker' && (u.walkerStatus === 'active' || !u.walkerStatus));
+  const allWalkers = data.users.filter(u => isWalker(u) || isGroomer(u));
 
   const favWalkers = allWalkers.filter(w => favourites.includes(w.id));
   const otherWalkers = allWalkers.filter(w => !favourites.includes(w.id));

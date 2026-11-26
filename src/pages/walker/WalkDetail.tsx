@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { takeWalkTrail } from '../../lib/liveTracking';
+import PickupPhotoSheet from '../../components/walker/PickupPhotoSheet';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import {
@@ -27,6 +29,7 @@ export default function WalkerWalkDetail() {
 
   const [accepting, setAccepting] = useState(false);
   const [starting, setStarting] = useState(false);
+  const [showPickup, setShowPickup] = useState(false);
   const [ending, setEnding] = useState(false);
   const [showPayModal, setShowPayModal] = useState(false);
   const [payMade, setPayMade] = useState<boolean | null>(null);
@@ -98,7 +101,10 @@ export default function WalkerWalkDetail() {
     }
   };
 
-  const handleStart = async () => {
+  const handleStart = () => setShowPickup(true);
+
+  const doStart = async () => {
+    setShowPickup(false);
     setStarting(true);
     try {
       const loc = await getGPS();
@@ -129,7 +135,7 @@ export default function WalkerWalkDetail() {
     setEnding(true);
     try {
       const loc = await getGPS();
-      endWalk(walkId!, loc);
+      endWalk(walkId!, loc, takeWalkTrail(walkId!));
       await new Promise(r => setTimeout(r, 400));
       navigate('/walker/walks');
     } finally {
@@ -148,7 +154,7 @@ export default function WalkerWalkDetail() {
           await supabase.from('payments').update({ payment_method: payMethod, walker_confirmed: true, status: 'paid' }).eq('id', payment.id);
         }
       }
-      endWalk(walkId!, loc);
+      endWalk(walkId!, loc, takeWalkTrail(walkId!));
       await new Promise(r => setTimeout(r, 400));
       navigate('/walker/walks');
     } finally {
@@ -159,6 +165,7 @@ export default function WalkerWalkDetail() {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col max-w-lg mx-auto">
+      {showPickup && <PickupPhotoSheet walk={walk} onContinue={doStart} onClose={() => setShowPickup(false)} />}
       {/* Header */}
       <div className="sticky top-0 z-20 bg-white border-b border-surface-border px-4 py-3 flex items-center gap-3">
         <button

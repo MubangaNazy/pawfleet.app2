@@ -44,7 +44,8 @@ export interface AppNotification {
   id: string;
   userId: string;          // recipient
   type: 'walk_booked' | 'walk_accepted' | 'walk_started' | 'walk_completed' | 'walk_cancelled' | 'payment_marked' | 'walker_signup' | 'shop_promo' | 'walker_approved' | 'walker_rejected' | 'shop_order' | 'shop_message' | 'achievement' | 'sos' | 'trainer_application' | 'chat_message'
-    | 'walk_reminder' | 'go_online_nudge' | 'booking_pending_followup' | 'payment_reminder' | 'pet_care_reminder';
+    | 'walk_reminder' | 'go_online_nudge' | 'booking_pending_followup' | 'payment_reminder' | 'pet_care_reminder'
+    | 'walk_photo' | 'walk_pickup' | 'adoption_listing' | 'adoption_update' | 'plan_interest';
   title: string;
   body: string;
   data?: Record<string, string>;

@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { apiUrl } from '../lib/api';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Lock, Eye, EyeOff, Loader2, CheckCircle2 } from 'lucide-react';
 import PawFleetLogo from '../components/ui/PawFleetLogo';
@@ -23,7 +24,7 @@ export default function ResetPassword() {
     setBusy(true);
     setError('');
     try {
-      const res = await fetch('/api/password-reset', {
+      const res = await fetch(apiUrl('/api/password-reset'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'reset', token, password: pw }),

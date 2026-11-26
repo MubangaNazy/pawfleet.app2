@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { apiUrl } from '../../lib/api';
 import { Plus, Pencil, Trash2, X, Search, ShoppingBag, Camera, Upload, Sparkles, Loader2, Check, Copy } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
@@ -61,7 +62,7 @@ export default function AdminShopManager() {
       const { data: sess } = await supabase.auth.getSession();
       const token = sess.session?.access_token;
       if (!token) { setSeedError('Please log out, log back in, then try again.'); setSeeding(false); return; }
-      const res = await fetch('/api/admin-seed-demo-shop', { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetch(apiUrl('/api/admin-seed-demo-shop'), { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) { setSeedError(json.error || 'Could not set up the demo shop. Please try again.'); setSeeding(false); return; }
       setSeedResult({ email: json.email, password: json.password, productsAdded: json.productsAdded });

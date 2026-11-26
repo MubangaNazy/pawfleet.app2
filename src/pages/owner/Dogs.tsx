@@ -1,4 +1,5 @@
 import React, { useRef, useState } from 'react';
+import BreedPicker from '../../components/ui/BreedPicker';
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import { Camera, Plus, X, ArrowRight, Upload, ChevronDown, Search, Bath, Stethoscope, Dog as DogIcon } from 'lucide-react';
@@ -6,63 +7,6 @@ import { useApp } from '../../context/AppContext';
 import { Button } from '../../components/ui/Button';
 
 // ── Breed lists ──────────────────────────────────────────────
-const DOG_BREEDS = [
-  'Mixed / Unknown',
-  'Labrador Retriever', 'German Shepherd', 'Golden Retriever', 'French Bulldog',
-  'Bulldog', 'Poodle (Standard)', 'Poodle (Toy/Miniature)', 'Beagle', 'Rottweiler',
-  'Yorkshire Terrier', 'Boxer', 'Siberian Husky', 'Dachshund', 'Great Dane',
-  'Doberman Pinscher', 'Miniature Schnauzer', 'Shih Tzu', 'Boston Terrier',
-  'Bernese Mountain Dog', 'Pomeranian', 'Havanese', 'Border Collie',
-  'Cavalier King Charles Spaniel', 'Shetland Sheepdog', 'English Springer Spaniel',
-  'English Cocker Spaniel', 'Maltese', 'Mastiff', 'Weimaraner',
-  'Rhodesian Ridgeback', 'Basset Hound', 'Newfoundland', 'Belgian Malinois',
-  'Bichon Frisé', 'West Highland Terrier', 'Akita', 'Chihuahua',
-  'Staffordshire Bull Terrier', 'American Pit Bull Terrier', 'Irish Setter',
-  'Cocker Spaniel', 'Vizsla', 'Alaskan Malamute', 'Chow Chow',
-  'Australian Shepherd', 'Shiba Inu', 'Jack Russell Terrier', 'Pug',
-  'Lhasa Apso', 'Airedale Terrier', 'Bloodhound', 'Whippet', 'Samoyed',
-  'Basenji', 'Dalmatian', 'Greyhound', 'Bull Terrier', 'Shar-Pei',
-  'Other',
-];
-function BreedPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  const [open, setOpen] = useState(false);
-  const [search, setSearch] = useState('');
-  const filtered = DOG_BREEDS.filter(b => b.toLowerCase().includes(search.toLowerCase()));
-
-  return (
-    <div className="relative">
-      <button type="button" onClick={() => setOpen(o => !o)}
-        className="w-full h-11 px-4 rounded-xl border border-surface-border bg-white text-sm text-ink flex items-center justify-between focus:outline-none focus:border-primary transition-all">
-        <span className={value ? 'text-ink' : 'text-ink-muted'}>{value || 'Select breed'}</span>
-        <ChevronDown className={`w-4 h-4 text-ink-muted transition-transform ${open ? 'rotate-180' : ''}`} />
-      </button>
-      {open && (
-        <div className="absolute left-0 right-0 top-12 z-50 bg-white border border-surface-border rounded-2xl shadow-xl overflow-hidden"
-          style={{ maxHeight: 280 }}>
-          <div className="flex items-center gap-2 px-3 py-2 border-b border-surface-border">
-            <Search className="w-4 h-4 text-ink-muted shrink-0" />
-            <input autoFocus type="text" value={search} onChange={e => setSearch(e.target.value)}
-              placeholder="Search breed…"
-              className="flex-1 text-sm focus:outline-none bg-transparent" />
-          </div>
-          <div className="overflow-y-auto" style={{ maxHeight: 220 }}>
-            {filtered.length === 0
-              ? <p className="text-center text-sm text-ink-muted py-6">No breeds found</p>
-              : filtered.map(b => (
-                <button key={b} type="button"
-                  onClick={() => { onChange(b); setOpen(false); setSearch(''); }}
-                  className={`w-full text-left px-4 py-2.5 text-sm hover:bg-surface-secondary transition-colors ${value === b ? 'font-bold text-primary bg-primary/5' : 'text-ink'}`}>
-                  {b}
-                </button>
-              ))
-            }
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
 async function resizePhoto(file: File, maxDim = 512, quality = 0.78): Promise<string> {
   return new Promise(resolve => {
     const reader = new FileReader();

@@ -3,7 +3,7 @@ import { AlertTriangle, CheckCircle2, Clock, X, Smartphone, ArrowLeft, Loader2, 
 import { useApp } from '../../context/AppContext';
 import type { User } from '../../types';
 import { differenceInDays, parseISO, addDays, addMonths, format } from 'date-fns';
-import { initiateMobileMoneyPayment, verifyPayment } from '../../lib/lenco';
+import { startPayment, paymentStatus, type PaymentIntent, type Operator } from '../../lib/lenco';
 
 // ── Pricing ────────────────────────────────────────────────
 export const SUBSCRIPTION_PRICE: Record<string, number> = {
@@ -64,7 +64,6 @@ type ModalStep = 'provider' | 'phone' | 'awaiting' | 'success' | 'bank';
 
 // ── Payment Modal ──────────────────────────────────────────
 function PayModal({ user, onClose }: { user: User; onClose: () => void }) {
-  const { activateSubscription } = useApp();
   const price = SUBSCRIPTION_PRICE[user.role] ?? 100;
 
   const [step, setStep]         = useState<ModalStep>('provider');
@@ -72,71 +71,84 @@ function PayModal({ user, onClose }: { user: User; onClose: () => void }) {
   const [phone, setPhone]       = useState('');
   const [error, setError]       = useState('');
   const [loading, setLoading]   = useState(false);
-  const [reference, setReference] = useState('');
+  const [intentId, setIntentId] = useState('');
   const [pollCount, setPollCount] = useState(0);
   const [activeUntil, setActiveUntil] = useState<Date | null>(null);
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const alive = useRef(true);
 
   const selectedProvider = PROVIDERS.find(p => p.id === provider);
 
+  const stopPolling = () => { if (pollRef.current) { clearTimeout(pollRef.current); pollRef.current = null; } };
+
   useEffect(() => {
-    return () => { if (pollRef.current) clearTimeout(pollRef.current); };
+    alive.current = true;
+    return () => { alive.current = false; stopPolling(); };
   }, []);
 
-  const startPolling = (ref: string) => {
-    const poll = async (count: number) => {
-      if (count > 36) { // 3 minutes
-        setError('Payment not confirmed yet. If you approved on your phone, it may take a moment — tap below to check again.');
-        setStep('phone');
-        return;
-      }
-      const result = await verifyPayment(ref);
-      if (result?.paid) {
-        activateSubscription(user.id, 1);
-        const until = addMonths(new Date(), 1);
-        setActiveUntil(until);
-        setStep('success');
-      } else {
-        setPollCount(count);
-        pollRef.current = setTimeout(() => poll(count + 1), 5000);
-      }
+  // The server extends the subscription itself once the payment is confirmed (api/payments.js), so
+  // nothing here can grant a month without a real payment, or grant it twice.
+  const applyResult = (it: PaymentIntent): boolean => {
+    if (it.status === 'successful') {
+      stopPolling();
+      const until = it.result?.subscriptionPaidUntil ? new Date(String(it.result.subscriptionPaidUntil)) : addMonths(new Date(), 1);
+      setActiveUntil(until);
+      setStep('success');
+      return true;
+    }
+    if (it.status === 'failed' || it.status === 'expired') {
+      stopPolling();
+      setError(it.status === 'expired'
+        ? 'The prompt expired before it was approved. Nothing was charged.'
+        : 'The payment was cancelled or declined. Nothing was charged.');
+      setIntentId('');
+      setStep('phone');
+      return true;
+    }
+    return false;
+  };
+
+  const startPolling = (id: string) => {
+    const poll = (count: number) => {
+      pollRef.current = setTimeout(async () => {
+        const r = await paymentStatus(id);
+        if (!alive.current) return;
+        if (r.ok && applyResult(r.data)) return;
+        if (count >= 24) { // about 2 minutes: stop and let them check by hand (never re-sends)
+          setError('Not confirmed yet. If you approved on your phone, tap "check again" below.');
+          return;
+        }
+        setPollCount(count + 1);
+        poll(count + 1);
+      }, 5000);
     };
     poll(0);
   };
 
   const handlePay = async () => {
-    if (!phone.trim() || !provider || provider === 'bank') return;
+    if (loading || !phone.trim() || !provider || provider === 'bank') return;
     setError('');
     setLoading(true);
-    const ref = `SUB-${user.id.slice(0, 8)}-${Date.now()}`;
-    const result = await initiateMobileMoneyPayment({
-      amount: price,
-      phone: phone.trim(),
-      operator: provider as 'airtel' | 'mtn' | 'zamtel',
-      reference: ref,
-    });
+    const r = await startPayment({ kind: 'subscription', operator: provider as Operator, phone: phone.trim() });
     setLoading(false);
-    if (!result) {
-      setError('Could not send payment prompt. Check your number and try again.');
-      return;
-    }
-    setReference(ref);
+    if (!alive.current) return;
+    if (!r.ok) { setError(r.error); return; }
+    if (applyResult(r.data)) return;
+    setIntentId(r.data.intentId);
+    setPollCount(0);
     setStep('awaiting');
-    startPolling(ref);
+    stopPolling();
+    startPolling(r.data.intentId);
   };
 
   const handleManualCheck = async () => {
-    if (!reference) return;
+    if (!intentId || loading) return;
     setLoading(true);
-    const result = await verifyPayment(reference);
+    const r = await paymentStatus(intentId);
     setLoading(false);
-    if (result?.paid) {
-      activateSubscription(user.id, 1);
-      setActiveUntil(addMonths(new Date(), 1));
-      setStep('success');
-    } else {
-      setError(`Payment not confirmed yet (status: ${result?.status ?? 'unknown'}). Try again in a moment.`);
-    }
+    if (!alive.current) return;
+    if (!r.ok) { setError(r.error); return; }
+    if (!applyResult(r.data)) setError('Payment not confirmed yet. Try again in a moment.');
   };
 
   // ── Provider selection ─────────────────────────────────
@@ -279,12 +291,12 @@ function PayModal({ user, onClose }: { user: User; onClose: () => void }) {
             style={{ background: 'linear-gradient(135deg,#1B4332,#2B8A50)' }}>
             {loading
               ? <><Loader2 className="w-4 h-4 animate-spin" /> Checking…</>
-              : <>✓ I've approved — confirm payment</>}
+              : <>✓ I've approved — check again</>}
           </button>
           <p className="text-[11px] text-ink-muted">
-            Auto-checking every 5s ({Math.max(0, 36 - pollCount)} checks remaining)
+            Auto-checking every 5s ({Math.max(0, 24 - pollCount)} checks remaining)
           </p>
-          <button type="button" onClick={() => setStep('phone')}
+          <button type="button" onClick={() => { stopPolling(); setIntentId(''); setError(''); setStep('phone'); }}
             className="text-xs text-ink-muted underline underline-offset-2">
             Wrong number? Go back
           </button>

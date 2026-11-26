@@ -1,0 +1,23 @@
+// Dog breeds offered in pickers. Includes breeds common in Zambia that owners asked for (Boerboel,
+// Africanis, ...). The picker also accepts any typed breed, so a missing breed never blocks anyone.
+export const DOG_BREEDS: string[] = [
+  'Mixed / Unknown',
+  'Mixed breed (local)',
+  'Boerboel', 'Boerboel cross', 'Africanis',
+  'Labrador Retriever', 'German Shepherd', 'Golden Retriever', 'French Bulldog',
+  'Bulldog', 'Poodle (Standard)', 'Poodle (Toy/Miniature)', 'Beagle', 'Rottweiler',
+  'Yorkshire Terrier', 'Boxer', 'Siberian Husky', 'Dachshund', 'Great Dane',
+  'Doberman Pinscher', 'Miniature Schnauzer', 'Shih Tzu', 'Boston Terrier',
+  'Bernese Mountain Dog', 'Pomeranian', 'Havanese', 'Border Collie',
+  'Cavalier King Charles Spaniel', 'Shetland Sheepdog', 'English Springer Spaniel',
+  'English Cocker Spaniel', 'Maltese', 'Mastiff', 'Bullmastiff', 'Cane Corso', 'Weimaraner',
+  'Rhodesian Ridgeback', 'Basset Hound', 'Newfoundland', 'Belgian Malinois',
+  'Bichon Frisé', 'West Highland Terrier', 'Akita', 'Chihuahua',
+  'Staffordshire Bull Terrier', 'American Pit Bull Terrier', 'American Bully', 'Irish Setter',
+  'Cocker Spaniel', 'Vizsla', 'Alaskan Malamute', 'Chow Chow', 'Anatolian Shepherd', 'Saint Bernard',
+  'Australian Shepherd', 'Shiba Inu', 'Jack Russell Terrier', 'Pug', 'Pekingese', 'Welsh Corgi',
+  'Labradoodle', 'Cockapoo',
+  'Lhasa Apso', 'Airedale Terrier', 'Bloodhound', 'Whippet', 'Samoyed',
+  'Basenji', 'Dalmatian', 'Greyhound', 'Bull Terrier', 'Shar-Pei',
+  'Other',
+];

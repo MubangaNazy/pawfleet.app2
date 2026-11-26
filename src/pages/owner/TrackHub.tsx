@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { format, parseISO, differenceInDays } from 'date-fns';
-import { Navigation, Plus, ChevronRight, RefreshCw } from 'lucide-react';
+import { Navigation, Plus, ChevronRight, RefreshCw, MessageCircle } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
 export default function TrackHub() {
@@ -81,9 +81,9 @@ export default function TrackHub() {
                 const dog    = data.dogs.find(d => d.id === walk.dogId);
                 const walker = data.users.find(u => u.id === walk.walkerId);
                 return (
-                  <button key={walk.id} type="button"
+                  <div key={walk.id} role="button" tabIndex={0}
                     onClick={() => navigate(`/owner/track/${walk.id}`)}
-                    className="w-full flex items-center gap-3 p-4 bg-white border border-surface-border rounded-2xl text-left hover:shadow-md transition-shadow">
+                    className="w-full flex items-center gap-3 p-4 bg-white border border-surface-border rounded-2xl text-left hover:shadow-md transition-shadow cursor-pointer">
                     <div className="w-12 h-12 rounded-2xl overflow-hidden bg-surface-secondary shrink-0 flex items-center justify-center">
                       {dog?.imageUrl
                         ? <img src={dog.imageUrl} alt={dog.name} className="w-full h-full object-cover" />
@@ -105,7 +105,14 @@ export default function TrackHub() {
                       <Navigation className="w-4 h-4"
                         style={{ color: walk.status === 'assigned' ? '#1B4332' : '#D97706' }} />
                     </div>
-                  </button>
+                    {walk.status === 'assigned' && walker && (
+                      <button type="button" aria-label={`Chat with ${walker.name}`}
+                        onClick={e => { e.stopPropagation(); navigate(`/owner/chat/${walk.id}`); }}
+                        className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 bg-[#EBF5EF]">
+                        <MessageCircle className="w-4 h-4" style={{ color: '#1B4332' }} />
+                      </button>
+                    )}
+                  </div>
                 );
               })}
             </div>

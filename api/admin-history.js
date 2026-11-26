@@ -1,9 +1,11 @@
 // Admin-only read of what's been sent: in-app/push notifications, or emails.
 // GET /api/admin-history?kind=notifications|emails&limit=50   Authorization: Bearer <admin's own token>
+import { cors } from './_lib/server.js';
 
 const clean = v => String(v || '').split('').filter(c => c.charCodeAt(0) !== 0xFEFF).join('').trim();
 
 export default async function handler(req, res) {
+  if (cors(req, res)) return;
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
   const url = clean(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL).replace(/\/$/, '');

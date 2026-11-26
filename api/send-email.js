@@ -1,174 +1,44 @@
-// Transactional emails via Resend.
-// POST /api/send-email  { to, template, data }
-// Never blocks anything else: the app fires this and moves on regardless of the result.
+// Transactional emails sent at the app's request.
+// POST /api/send-email  Authorization: Bearer <login token>   { to, template, data }
 //
-// Also covers what used to be the separate send-receipt.js — merged in to stay under Vercel Hobby's
-// 12-serverless-function cap, not because receipts share template logic with everything else here.
+// This used to send any template to any address with no login, which let anyone send convincing
+// PawFleet-branded emails (fake reset links, fake receipts). Now:
+//   - admins may send walker_approved / walker_rejected to anyone
+//   - a logged-in person may send welcome / payment_receipt to their own email only
+//   - a brand-new account (row created in the last 15 minutes, no welcome sent yet) may get its welcome
+//     email without a login, because with email confirmation on there is no session right after sign-up
+// Password reset and admin-created accounts send from the server directly (api/_lib/email.js).
 
-import { logEmail } from './_lib/logEmail.js';
+import { sendTemplate } from './_lib/email.js';
+import { cors, readBody, getCaller, adminJson, clean } from './_lib/server.js';
 
-const FROM = 'PawFleet <notifications@mail.pawfleetapp.com>';
-const RECEIPT_FROM = 'PawFleet <receipts@mail.pawfleetapp.com>';
-const SUPPORT_EMAIL = 'pawfleetapp@gmail.com';
-
-function shell(bodyHtml, { badge = '🐾', title, subtitle = 'PawFleet · Lusaka, Zambia' } = {}) {
-  return `
-<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:0;background:#f9fafb;font-family:Arial,sans-serif">
-  <div style="max-width:480px;margin:32px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08)">
-    <div style="background:linear-gradient(135deg,#1B4332,#2B8A50);padding:32px 24px;text-align:center">
-      <div style="font-size:36px;margin-bottom:8px">${badge}</div>
-      <h1 style="color:#fff;margin:0;font-size:22px;font-weight:800">${title}</h1>
-      <p style="color:rgba(255,255,255,0.8);margin:6px 0 0;font-size:14px">${subtitle}</p>
-    </div>
-    <div style="padding:24px">${bodyHtml}</div>
-    <div style="padding:16px 24px;border-top:1px solid #F3F4F6;text-align:center">
-      <p style="margin:0;font-size:12px;color:#9CA3AF">© ${new Date().getFullYear()} PawFleet · Questions? <a href="mailto:${SUPPORT_EMAIL}" style="color:#2B8A50">${SUPPORT_EMAIL}</a></p>
-    </div>
-  </div>
-</body>
-</html>`;
-}
-
-const P = (t) => `<p style="color:#374151;font-size:15px;margin:0 0 16px;line-height:1.5">${t}</p>`;
-const BOX = (bg, border, text) => `<div style="margin-top:8px;padding:16px;background:${bg};border-radius:12px;border-left:4px solid ${border};font-size:13px;color:#374151;line-height:1.5">${text}</div>`;
-const CTA = (href, label) => `<a href="${href}" style="display:inline-block;margin-top:20px;padding:13px 28px;background:linear-gradient(135deg,#1B4332,#2B8A50);color:#fff;text-decoration:none;border-radius:10px;font-weight:700;font-size:14px">${label}</a>`;
-const esc = (s) => String(s ?? '').replace(/[<>&]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]));
-
-const APP_URL = 'https://www.pawfleetapp.com';
-
-const TEMPLATES = {
-  walker_approved: (d) => ({
-    subject: "You're approved! Start walking on PawFleet 🎉",
-    html: shell(
-      P(`Hi <strong>${esc(d.name)}</strong>, great news — your walker application has been approved.`) +
-      BOX('#EBF5EF', '#2B8A50', 'You can now go online, appear on the map, and accept walks, grooming and training jobs near you.') +
-      `<div style="text-align:center">${CTA(APP_URL, 'Open PawFleet')}</div>`,
-      { badge: '🎉', title: 'Application Approved' },
-    ),
-  }),
-  walker_rejected: (d) => ({
-    subject: 'Your PawFleet walker application',
-    html: shell(
-      P(`Hi <strong>${esc(d.name)}</strong>, thank you for applying to be a walker on PawFleet.`) +
-      BOX('#FEF2F2', '#DC2626', "We're unable to approve your application at this time. If you think this is a mistake, or you'd like more information, reply to this email and we'll help.") ,
-      { badge: '📋', title: 'Application Update' },
-    ),
-  }),
-  welcome_owner: (d) => ({
-    subject: 'Welcome to PawFleet 🐾',
-    html: shell(
-      P(`Hi <strong>${esc(d.name)}</strong>, welcome to PawFleet — your account is ready to go.`) +
-      BOX('#EBF5EF', '#2B8A50', 'Add your dog, then book a walk, grooming or vet visit from trusted people near you. You can track everything live on the map.') +
-      `<div style="text-align:center">${CTA(APP_URL, 'Open PawFleet')}</div>`,
-      { badge: '🐾', title: 'Welcome to PawFleet' },
-    ),
-  }),
-  welcome_walker_pending: (d) => ({
-    subject: 'We got your walker application 🦮',
-    html: shell(
-      P(`Hi <strong>${esc(d.name)}</strong>, thanks for applying to be a walker on PawFleet.`) +
-      BOX('#FFFBEB', '#F59E0B', "An admin is reviewing your photo and NRC now — this usually takes 24 to 48 hours. You'll get another email the moment you're approved. You can log in any time to check your status.") ,
-      { badge: '🦮', title: 'Application Received' },
-    ),
-  }),
-  password_reset: (d) => ({
-    subject: 'Reset your PawFleet password',
-    html: shell(
-      P(`Hi <strong>${esc(d.name)}</strong>, we got a request to reset your PawFleet password.`) +
-      BOX('#FFFBEB', '#F59E0B', "If this wasn't you, you can ignore this email — your password stays the same unless you tap the button below.") +
-      `<div style="text-align:center">${CTA(d.resetLink, 'Reset my password')}</div>` +
-      P(`<span style="font-size:12px;color:#9CA3AF">This link works once and expires in 30 minutes.</span>`),
-      { badge: '🔒', title: 'Reset Your Password' },
-    ),
-  }),
-  account_created: (d) => ({
-    subject: `Your PawFleet ${esc(d.roleLabel)} account is ready`,
-    html: shell(
-      P(`Hi <strong>${esc(d.name)}</strong>, an admin has set up your ${esc(d.roleLabel)} account on PawFleet.`) +
-      BOX('#EBF5EF', '#2B8A50',
-        `<strong>Email:</strong> ${esc(d.email)}<br><strong>Temporary password:</strong> ${esc(d.password)}<br><br>Please log in and change your password from your profile as soon as you can.`) +
-      `<div style="text-align:center">${CTA(APP_URL, 'Log in to PawFleet')}</div>`,
-      { badge: '🔑', title: 'Your Account Is Ready' },
-    ),
-  }),
-  // Its own full layout (a receipt table), not the shared `shell()` — kept identical to the standalone
-  // send-receipt.js this replaced, including its own "from" address, handled below.
-  payment_receipt: (d) => {
-    const operatorLabel = { airtel: 'Airtel Money', mtn: 'MTN MoMo', zamtel: 'Zamtel Kwacha' }[d.operator] || 'Mobile Money';
-    const date = new Date().toLocaleDateString('en-ZM', { day: 'numeric', month: 'long', year: 'numeric' });
-    return {
-      subject: `Payment Confirmed — K${Number(d.amount).toLocaleString()} received`,
-      html: `
-<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:0;background:#f9fafb;font-family:Arial,sans-serif">
-  <div style="max-width:480px;margin:32px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08)">
-    <div style="background:linear-gradient(135deg,#1B4332,#2B8A50);padding:32px 24px;text-align:center">
-      <div style="font-size:36px;margin-bottom:8px">🐾</div>
-      <h1 style="color:#fff;margin:0;font-size:22px;font-weight:800">Payment Confirmed</h1>
-      <p style="color:rgba(255,255,255,0.8);margin:6px 0 0;font-size:14px">PawFleet · Lusaka, Zambia</p>
-    </div>
-    <div style="padding:24px">
-      <p style="color:#374151;font-size:15px;margin:0 0 20px">Hi <strong>${esc(d.name) || 'there'}</strong>, your payment was received successfully.</p>
-      <div style="background:#EBF5EF;border-radius:12px;padding:20px;text-align:center;margin-bottom:20px">
-        <p style="color:#6B7280;font-size:12px;margin:0 0 4px;text-transform:uppercase;letter-spacing:0.05em">Amount Paid</p>
-        <p style="color:#1B4332;font-size:36px;font-weight:800;margin:0">K${Number(d.amount).toLocaleString()}</p>
-      </div>
-      <table style="width:100%;border-collapse:collapse;font-size:14px;color:#374151">
-        <tr><td style="padding:8px 0;border-bottom:1px solid #F3F4F6;color:#6B7280">Description</td><td style="padding:8px 0;border-bottom:1px solid #F3F4F6;text-align:right;font-weight:600">${esc(d.description) || 'PawFleet Order'}</td></tr>
-        <tr><td style="padding:8px 0;border-bottom:1px solid #F3F4F6;color:#6B7280">Payment Method</td><td style="padding:8px 0;border-bottom:1px solid #F3F4F6;text-align:right;font-weight:600">${operatorLabel}</td></tr>
-        <tr><td style="padding:8px 0;border-bottom:1px solid #F3F4F6;color:#6B7280">Reference</td><td style="padding:8px 0;border-bottom:1px solid #F3F4F6;text-align:right;font-family:monospace;font-size:12px">${esc(d.reference) || '—'}</td></tr>
-        <tr><td style="padding:8px 0;color:#6B7280">Date</td><td style="padding:8px 0;text-align:right;font-weight:600">${date}</td></tr>
-      </table>
-      <div style="margin-top:24px;padding:16px;background:#FEF9C3;border-radius:12px;border-left:4px solid #FBBF24">
-        <p style="margin:0;font-size:13px;color:#92400E">Keep this email as your receipt. If you have any questions, contact us at <a href="mailto:${SUPPORT_EMAIL}" style="color:#2B8A50">${SUPPORT_EMAIL}</a>.</p>
-      </div>
-    </div>
-    <div style="padding:16px 24px;border-top:1px solid #F3F4F6;text-align:center">
-      <p style="margin:0;font-size:12px;color:#9CA3AF">© ${new Date().getFullYear()} PawFleet · Lusaka, Zambia</p>
-    </div>
-  </div>
-</body>
-</html>`,
-    };
-  },
-};
+const ADMIN_TEMPLATES = ['walker_approved', 'walker_rejected'];
+const SELF_TEMPLATES = ['welcome_owner', 'welcome_walker_pending', 'payment_receipt'];
+const WELCOME = ['welcome_owner', 'welcome_walker_pending'];
 
 export default async function handler(req, res) {
+  if (cors(req, res, 'POST, OPTIONS')) return;
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const RESEND_KEY = process.env.RESEND_API_KEY;
-  if (!RESEND_KEY) return res.status(500).json({ error: 'Resend not configured' });
+  const { to: rawTo, template, data } = readBody(req);
+  const to = clean(rawTo).toLowerCase();
+  if (!to || !template) return res.status(400).json({ error: 'to and template are required' });
 
-  const { to, template, data } = req.body || {};
-  const build = TEMPLATES[template];
-  if (!to || !build) return res.status(400).json({ error: 'to and a valid template are required' });
-  if (template === 'payment_receipt' && !data?.amount) return res.status(400).json({ error: 'amount is required' });
+  const caller = await getCaller(req);
+  let allowed = false;
 
-  const { subject, html } = build(data || {});
-  const from = template === 'payment_receipt' ? RECEIPT_FROM : FROM;
-
-  try {
-    const r = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${RESEND_KEY}`, 'Content-Type': 'application/json' },
-      // "from" is a send-only technical address; a reply routes to a real inbox instead.
-      body: JSON.stringify({ from, to: [to], subject, html, reply_to: SUPPORT_EMAIL }),
-    });
-    const d = await r.json();
-    if (!r.ok) {
-      console.error('send-email (Resend):', d);
-      logEmail({ to, template, subject, status: 'failed', error: d.message || 'Resend error' });
-      return res.status(r.status).json({ error: d.message || 'Resend error' });
-    }
-    logEmail({ to, template, subject, status: 'sent', resendId: d.id });
-    return res.status(200).json({ ok: true, id: d.id });
-  } catch (err) {
-    console.error('send-email error:', err);
-    return res.status(500).json({ error: err.message });
+  if (caller?.role === 'admin' && ADMIN_TEMPLATES.includes(template)) allowed = true;
+  else if (caller && SELF_TEMPLATES.includes(template) && caller.email === to) allowed = true;
+  else if (!caller && WELCOME.includes(template)) {
+    const since = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+    const fresh = await adminJson(`/rest/v1/users?email=ilike.${encodeURIComponent(to.replace(/[%_]/g, '\\$&'))}&created_at=gte.${since}&select=id`);
+    const already = await adminJson(`/rest/v1/email_log?to_email=eq.${encodeURIComponent(to)}&template=in.(welcome_owner,welcome_walker_pending)&select=id&limit=1`);
+    allowed = fresh.length > 0 && already.length === 0;
   }
+
+  if (!allowed) return res.status(caller ? 403 : 401).json({ error: 'Not allowed to send this email.' });
+
+  const result = await sendTemplate(to, template, data || {});
+  if (!result.ok) return res.status(result.status || 500).json({ error: result.error });
+  return res.status(200).json({ ok: true, id: result.id });
 }

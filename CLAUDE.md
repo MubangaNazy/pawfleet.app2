@@ -11,7 +11,7 @@
 | GitHub | https://github.com/MubangaNazy/pawfleet.app2 |
 | Vercel project | mubangachanda004-cryptos-projects / pawfleet.app2 |
 | Supabase project ID | `tqoordnjsigllzjzkqxb` (the one in `.env` and used by the live app; `ftgoofjexthuzvlyhcsw`, referenced in `supabase/.temp/linked-project.json`, is an unrelated old project — never run migrations against it) |
-| Android app ID | `zm.pawfleet.app` (Capacitor, `android/` — not committed to git, build locally) |
+| Android app ID | `com.pawfleet.app` (matches `android/`, Firebase `google-services.json` and `capacitor.config.ts`; permanent once on Google Play) |
 | Currency | Zambian Kwacha (K / ZMW) |
 | Location | Lusaka, Zambia (default map center -15.4167, 28.2833) |
 
@@ -27,8 +27,8 @@
 | Mobile | Capacitor (Android wrapper in `android/`; iOS not yet added — needs a Mac + active Apple Developer account) |
 | Native plugins | `@capacitor/geolocation`, `@capgo/background-geolocation` (GPS survives screen lock), `@capacitor/push-notifications`, `@capacitor-community/text-to-speech` (turn-by-turn voice) |
 | Push notifications | Firebase Cloud Messaging — web SDK for browsers/PWA, native Capacitor plugin for Android, one shared `requestNotificationPermission()` in `src/lib/firebase.ts` |
-| Email | Resend, via `api/send-email.js` (templates) and `api/send-receipt.js` (payment receipts). Sending domain `mail.pawfleetapp.com`; every send is logged to `public.email_log` |
-| Payments | Lenco mobile money collection (Airtel/MTN/Zamtel) |
+| Email | Resend. Templates + awaited `sendTemplate()` in `api/_lib/email.js`; `api/send-email.js` is the app-facing endpoint and needs a login (people can only email themselves; admins can send walker approved/rejected; a brand-new account can get its welcome email). Sending domain `mail.pawfleetapp.com`; every send is logged to `public.email_log` |
+| Payments | Lenco mobile money collection (Airtel/MTN/Zamtel) through `api/payments.js` only (`create` / `status`). Server prices the order, reuses a pending prompt for 3 min, max 3 prompts per 10 min, records each prompt in `payment_intents`, applies success once (creates shop orders / extends subscriptions server-side). Client: `src/lib/lenco.ts`, `PaymentModal.tsx` |
 | Monitoring | Sentry (errors) + PostHog (behavioural analytics), both wired in `src/lib/monitoring.ts` |
 | Scheduled jobs | `api/cron/reminders.js` — Vercel Cron (daily, Hobby-plan limit) **and** `.github/workflows/reminders-cron.yml` (every 15 min, free, does the real work) |
 | Hosting | Vercel (manual deploy from `main`, not auto-deploy) |
@@ -40,7 +40,7 @@
 - **Colors only**: `#1B4332` (dark), `#2B8A50` (primary), `#52B788` (light), `#EBF5EF` (bg). Amber = warnings/pending, red = danger/error. Vets get teal (`#0F766E`/`#0891B2`), shops get amber/gold (`#B45309`/`#F59E0B`) as secondary accents.
 - Logo component: `src/components/ui/PawFleetLogo.tsx` — do NOT change SVG paths.
 - No cats — the platform is dogs (and other pets via "Add pet") only; cat references were deliberately removed everywhere.
-- Landing page (`/landing`) only: palette is sampled from the puppy photo (mint, gold, caramel, cream, forest), by the owner's request. The 3D puppy is five photos (front, side, back, three-quarter, top) on sculpted meshes that cross-fade as it turns (`src/components/landing/puppyScene.ts`, textures in `public/landing/`, rebuilt by `scripts/landing/make_puppy_assets.py`). Its spot per chapter and the map route live in `src/components/landing/puppyPath.ts`. The dog walks across the screen following the scroll on a clock-driven walk, and finishes the walk by itself if scrolling stops (owner's call: it must stay on screen, never walk off and back in). The map route and gold line are locked to the scroll. three.js loads only on this page via dynamic import. Performance: the canvas is only a box around the dog, moved with a CSS transform; phones and machines with 4 or fewer CPU cores use `*-sm.webp` and a lighter shader.
+- Landing page (`/landing`) only: palette is sampled from the puppy photo (mint, gold, caramel, cream, forest), by the owner's request. The 3D puppy is five photos (front, side, back, three-quarter, top) on sculpted meshes that cross-fade as it turns (`src/components/landing/puppyScene.ts`, textures in `public/landing/`, rebuilt by `scripts/landing/make_puppy_assets.py`). Its spot per chapter and the map route live in `src/components/landing/puppyPath.ts`. The dog walks across the screen following the scroll on a clock-driven walk, and finishes the walk by itself if scrolling stops (owner's call: it must stay on screen, never walk off and back in). The map route and gold line are locked to the scroll. three.js loads only on this page via dynamic import. Performance: phones don't use three.js at all; they slide pre-rendered frames (`src/components/landing/puppySprite.ts`, `public/landing/sprite-*.webp`, rebuilt by `scripts/landing/make_puppy_sprites.py`). Both versions share `puppyWalker.ts`. On desktop the canvas is only a box around the dog, and machines with 4 or fewer CPU cores use `*-sm.webp` and a lighter shader.
 
 ---
 
@@ -55,7 +55,7 @@
 
 Demo/seeded logins are **off** by default (`VITE_ENABLE_DEMO=true` would re-enable them; they have no real session or DB rows behind them and should not be relied on). All real accounts go through Supabase Auth.
 
-Forgot password: self-service at `/forgot-password` → emailed link → `/reset-password` (see `api/request-password-reset.js` / `api/reset-password.js`). No more needing to touch SQL to recover a lost login.
+Forgot password: self-service at `/forgot-password` → emailed link → `/reset-password`, both steps in `api/password-reset.js` (case-insensitive email match, awaited send, max 3 per hour). Signup stores emails lower-case.
 
 ---
 
@@ -104,6 +104,17 @@ See `docs/REALIGNMENT.md` for the diagnosis, system map and two-phone test.
 - **Orphaned accounts — closed**: `users.phone` was `UNIQUE NOT NULL`, and `register()`/`login()`'s auto-heal path silently swallowed insert errors on a duplicate phone, leaving real Supabase Auth logins with no `public.users` row (surfaced as "your account or your dog's profile is not fully saved yet"). Fixed by `supabase/migrations/20260924_phone_not_unique.sql` + retry-once-with-null-phone logic in `AppContext.tsx`. 7 real accounts repaired directly.
 - **"Add Walker" never created a real login — closed**: `addUser()` used to do a client-side `users` insert with `password: ''` hardcoded, discarding whatever the admin typed. Replaced with `api/admin-create-account.js` (creates a real Supabase Auth login + profile, used by both Admin → Walkers and Admin → Vets & Shop Owners).
 
+## Launch round (2026-11-26)
+- Android app calls the server through `apiUrl()` (`src/lib/api.ts`). Never use a bare `fetch('/api/...')`: inside the APK it hits `https://localhost`.
+- Every `api/*` handler uses `cors()` from `api/_lib/server.js` (allows the site and `https://localhost`). `getCaller(req)` = who is calling, from their token.
+- Function count is 11 of Vercel Hobby's 12 (create/verify-payment merged into `payments.js`).
+- Home Services = three photo plan cards (`src/lib/plans.ts`, **sample pricing**, photos in `public/images/plans/`), opening `/owner/plans/:planId`. Plan checkout (purchases, sessions, availability) is the next phase; design is in the launch plan.
+- Shop redesigned (white cards, Sort + Filter sheets). Cart items carry the product photo.
+- Marketplace → **Adopt a Pet** (`/owner/adopt`, `src/lib/adoption.ts`); admin review at `/admin/adoptions`.
+- Breeds: `src/lib/breeds.ts` + `components/ui/BreedPicker.tsx` (any typed breed allowed; Boerboel, Africanis added).
+- Walk safety: starting a walk asks for a pickup photo (`components/walker/PickupPhotoSheet.tsx`); both sides can send photos in the walk chat (`src/lib/walkPhotos.ts`). Ending a walk from any screen saves the route (`takeWalkTrail`).
+- Android back button: `components/AndroidBackButton.tsx` (`@capacitor/app`). Release signing reads `android/keystore.properties` (gitignored).
+
 ## Pending / Known Issues
 - [ ] iOS: needs a Mac + an **active** Apple Developer account ($99/yr) before `npx cap add ios` + Xcode work can start
 - [ ] WhatsApp OTP: needs the owner to set up a WhatsApp Business API account first
@@ -121,6 +132,9 @@ Source of truth is `supabase/migrations/*.sql`, run manually in the Supabase SQL
 - `20260924_phone_not_unique.sql` — orphaned-account fix, see above
 - `20260926_password_reset_tokens.sql` — forgot-password tokens (server-only table)
 - `20260927_email_log.sql` — email send history (server-only table)
+- `20261126_payment_intents.sql` — one row per Lenco prompt; `shop_orders.payment_reference`
+- `20261126_adoption_listings.sql` — Adopt a Pet listings, admin approval enforced by RLS + trigger
+- `20261126_chat_security.sql` — walk chat readable only by owner/walker/admin; `chat-images` bucket
 
 When adding a new one: write the file, tell the owner the exact SQL to paste into the SQL Editor, and don't assume it's applied until they confirm (there's no automated way to run it from here).
 
@@ -150,9 +164,10 @@ Visit https://www.pawfleetapp.com on Android Chrome → ⋮ menu → "Add to Hom
 api/
   admin-create-account.js   ← admin creates a real login (walker/vet/shopowner)
   admin-history.js          ← admin-only read of notifications + email_log
-  request-password-reset.js, reset-password.js
-  send-email.js             ← all templated transactional email (Resend)
-  send-receipt.js           ← payment receipt email
+  password-reset.js         ← forgot password, both steps
+  payments.js               ← Lenco prompts + status (the only payment endpoint)
+  send-email.js             ← app-facing email endpoint (auth-checked)
+  _lib/email.js, _lib/server.js ← templates/sendTemplate, cors/getCaller/adminFetch
   cron/reminders.js         ← scheduled reminders (see Tech Stack)
   _lib/logEmail.js          ← shared email-log writer (underscore = not its own route)
 src/

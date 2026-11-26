@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { format, differenceInMinutes, isToday, isYesterday, isThisWeek } from 'date-fns';
-import { Clock, MapPin, Star, X, RefreshCw, ChevronRight } from 'lucide-react';
+import { Clock, MapPin, Star, X, RefreshCw, ChevronRight, MessageCircle } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { StatusBadge } from '../../components/ui/Badge';
 import { WalkStatus } from '../../types';
@@ -273,6 +273,15 @@ export default function OwnerHistory() {
 
                       /* Completed — route, pay + rate */
                       if (walk.status === 'completed') {
+                        if (walk.walkerId) {
+                          actions.push(
+                            <Link key="chat" to={`/owner/chat/${walk.id}`}
+                              className="flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-xl active:scale-95 transition-transform"
+                              style={{ color: '#2B8A50', background: '#EBF5EF' }}>
+                              <MessageCircle className="w-3.5 h-3.5" /> Photos & chat
+                            </Link>
+                          );
+                        }
                         if (walk.routePoints && walk.routePoints.length > 1) {
                           actions.push(
                             <Link key="route" to={`/owner/track/${walk.id}`}
@@ -372,7 +381,9 @@ export default function OwnerHistory() {
         const payment = data.payments.find(p => p.walkId === confirmWalkId);
         return (
           <PaymentModal
-            amount={w?.walkerEarning || 0}
+            kind="walk"
+            refId={confirmWalkId}
+            amount={w?.price || 0}
             description={`Payment to ${walker?.name || 'walker'} for walk`}
             customerName={currentUser?.name || ''}
             customerPhone={currentUser?.phone}

@@ -87,18 +87,57 @@ export function spotAt(pose: Pose, hold: number) {
   return { x: a.x + (b.x - a.x) * t, y: a.y, yaw: a.yaw };
 }
 
+// Chapter positions, measured once. Reading layout every frame right after the page
+// has been restyled forces a full recalculation, which is what hurts on phones.
+let layout: { wraps: HTMLElement[]; tops: number[]; heights: number[]; pinned: number[] } | null = null;
+
+// Even reading scrollY makes the browser catch up on pending styles, so it's read
+// once per scroll event and shared from here.
+let pageY = 0;
+let trackingScroll = false;
+export const scrolled = () => pageY;
+
+export function measureChapters(wraps: HTMLElement[]) {
+  pageY = scrollY;
+  if (!trackingScroll) {
+    trackingScroll = true;
+    addEventListener('scroll', () => { pageY = scrollY; }, { passive: true });
+  }
+  layout = {
+    wraps,
+    tops: wraps.map(w => w.offsetTop),
+    heights: wraps.map(w => w.offsetHeight),
+    pinned: wraps.map(w => w.offsetHeight - (w.firstElementChild as HTMLElement).offsetHeight),
+  };
+  return layout;
+}
+const measured = (wraps: HTMLElement[]) => (layout && layout.wraps === wraps ? layout : measureChapters(wraps));
+
+/** A chapter's top and bottom relative to the screen. */
+export function chapterBox(wraps: HTMLElement[], i: number) {
+  const m = measured(wraps);
+  const top = m.tops[i] - pageY;
+  return { top, bottom: top + m.heights[i] };
+}
+
+/** Where a chapter's pinned section sits on screen right now. */
+export function sectionTop(wraps: HTMLElement[], i: number) {
+  const m = measured(wraps);
+  const s = pageY - m.tops[i];
+  return s < 0 ? -s : s <= m.pinned[i] ? 0 : m.pinned[i] - s;
+}
+
 /** Which chapter the page is on, how far through its pause, and how far into the walk to the next one. */
 export function scrollStage(wraps: HTMLElement[]) {
-  const y = scrollY;
+  const m = measured(wraps);
+  const y = pageY;
   for (let i = 0; i < wraps.length; i++) {
-    const w = wraps[i];
-    if (i < wraps.length - 1 && y >= w.offsetTop + w.offsetHeight) continue;
-    const pinned = w.offsetHeight - (w.firstElementChild as HTMLElement).offsetHeight;
-    const s = y - w.offsetTop;
+    if (i < wraps.length - 1 && y >= m.tops[i] + m.heights[i]) continue;
+    const s = y - m.tops[i];
     return {
       i,
-      hold: Math.min(1, Math.max(0, s / Math.max(1, pinned))),
-      walk: Math.min(1, Math.max(0, (s - pinned) / Math.max(1, w.offsetHeight - pinned))),
+      hold: Math.min(1, Math.max(0, s / Math.max(1, m.pinned[i]))),
+      walk: Math.min(1, Math.max(0, (s - m.pinned[i]) / Math.max(1, m.heights[i] - m.pinned[i]))),
     };
   }
   return { i: 0, hold: 0, walk: 0 };

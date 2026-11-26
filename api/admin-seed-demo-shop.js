@@ -4,6 +4,7 @@
 // POST /api/admin-seed-demo-shop   Authorization: Bearer <the admin's own login token>
 
 import crypto from 'crypto';
+import { cors } from './_lib/server.js';
 
 const clean = v => String(v || '').split('').filter(c => c.charCodeAt(0) !== 0xFEFF).join('').trim();
 
@@ -24,6 +25,7 @@ const DEMO_PRODUCTS = [
 ];
 
 export default async function handler(req, res) {
+  if (cors(req, res)) return;
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   const url = clean(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL).replace(/\/$/, '');

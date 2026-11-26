@@ -1,7 +1,8 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'zm.pawfleet.app',
+  // Must match android/app/build.gradle and google-services.json. Permanent once on Google Play.
+  appId: 'com.pawfleet.app',
   appName: 'PawFleet',
   webDir: 'dist',
   plugins: {
@@ -24,7 +25,6 @@ const config: CapacitorConfig = {
     scrollEnabled: false,
   },
   server: {
-    // Allow localhost during dev; remove before prod build
     cleartext: false,
   },
 };

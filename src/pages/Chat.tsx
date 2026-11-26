@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Send, Phone, Mic, MicOff, Trash2 } from 'lucide-react';
+import { ArrowLeft, Send, Phone, Mic, MicOff, Trash2, Camera, Loader2 } from 'lucide-react';
+import { sendWalkPhoto } from '../lib/walkPhotos';
 import { supabase } from '../lib/supabase';
 import { useApp } from '../context/AppContext';
 import { format } from 'date-fns';
@@ -37,7 +38,7 @@ declare global {
 
 export default function Chat() {
   const { walkId } = useParams<{ walkId: string }>();
-  const { data, currentUser } = useApp();
+  const { data, currentUser, sendNotification } = useApp();
   const navigate = useNavigate();
   const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState('');
@@ -45,6 +46,8 @@ export default function Chat() {
   const [listening, setListening] = useState(false);
   const [sendError, setSendError] = useState('');
   const [selectedMsgId, setSelectedMsgId] = useState<string | null>(null);
+  const [sendingPhoto, setSendingPhoto] = useState(false);
+  const photoRef = useRef<HTMLInputElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
   const pressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -160,8 +163,28 @@ export default function Chat() {
       // Roll back optimistic message
       setMessages(prev => prev.filter(m => m.id !== tempId));
       setText(msg);
-      setSendError('Message not saved — ask admin to run the messages RLS SQL fix.');
+      setSendError('Message not sent. Check your connection and try again.');
       setTimeout(() => setSendError(''), 5000);
+    }
+  };
+
+  const sendPhoto = async (file?: File) => {
+    if (!file || !walkId || !currentUser || sendingPhoto) return;
+    setSendingPhoto(true);
+    const r = await sendWalkPhoto(walkId, currentUser.id, file);
+    setSendingPhoto(false);
+    if (r.error || !r.url || !r.id) {
+      setSendError(r.error || 'Photo not sent. Try again.');
+      setTimeout(() => setSendError(''), 5000);
+      return;
+    }
+    setMessages(prev => prev.some(m => m.id === r.id) ? prev : [...prev, {
+      id: r.id!, walk_id: walkId, sender_id: currentUser.id, text: r.url!,
+      created_at: new Date().toISOString(), sender_name: currentUser.name,
+    }]);
+    if (otherPerson) {
+      sendNotification(otherPerson.id, 'walk_photo', `📸 Photo from ${currentUser.name}`,
+        'Open the chat to see it.', { walkId });
     }
   };
 
@@ -334,6 +357,19 @@ export default function Chat() {
               style={{ lineHeight: '1.5' }}
             />
           </div>
+
+          {/* Photo: pickup proof, updates during the walk, or the owner sending a photo of the dog */}
+          <input ref={photoRef} type="file" accept="image/*" className="hidden"
+            onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; sendPhoto(f); }} />
+          <button
+            onClick={() => photoRef.current?.click()}
+            disabled={sendingPhoto}
+            title="Send a photo"
+            aria-label="Send a photo"
+            className="w-11 h-11 flex items-center justify-center rounded-full shrink-0 bg-surface-secondary text-ink-secondary hover:bg-surface-hover border border-surface-border active:scale-95 disabled:opacity-50"
+          >
+            {sendingPhoto ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
+          </button>
 
           {/* Mic button — only shown if browser supports speech */}
           {speechSupported && (

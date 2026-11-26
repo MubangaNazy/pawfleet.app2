@@ -5,6 +5,7 @@
 // the previous version of this feature called Gemini directly from the client with a key embedded in
 // the public JS bundle, which anyone could pull out and spend your quota with. Gated on just being a
 // real logged-in user (not admin-only) so a random script can't hit it for free, same reasoning.
+import { cors } from './_lib/server.js';
 
 const clean = v => String(v || '').split('').filter(c => c.charCodeAt(0) !== 0xFEFF).join('').trim();
 const MODEL = 'claude-haiku-4-5-20251001';
@@ -17,6 +18,7 @@ relevant (e.g. a breed prone to a condition, or a recent entry that connects to 
 force a connection that isn't there.`;
 
 export default async function handler(req, res) {
+  if (cors(req, res)) return;
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   const url = clean(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL).replace(/\/$/, '');

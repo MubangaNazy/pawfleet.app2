@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from 're
 import { useNavigate } from 'react-router-dom';
 import { Bone, Dog, MapPin, MessageCircle, Scissors, ShieldCheck, ShoppingBag, Sparkles, Stethoscope, Store, UsersRound, UtensilsCrossed } from 'lucide-react';
 import PawFleetLogo from '../components/ui/PawFleetLogo';
-import { routeAt, routeSamples, scrollStage } from '../components/landing/puppyPath';
+import { chapterBox, measureChapters, routeAt, routeSamples, scrollStage } from '../components/landing/puppyPath';
 import { GROOM_PACKAGES } from '../lib/groomingPackages';
 import { supabase } from '../lib/supabase';
 
@@ -330,6 +330,7 @@ const CSS = `
 }
 @media (max-width:760px){
   .pfl .chap>section{min-height:600px}
+  .pfl .chap{content-visibility:auto;contain-intrinsic-size:auto 175svh}
   .pfl .nav{padding-top:14px}
   .pfl .nav__links,.pfl .nav__cta .signin,.pfl .badge{display:none}
   .pfl .logo{margin-right:0}
@@ -482,7 +483,12 @@ export default function Landing() {
         lastHold: -1,
       };
     });
-    const movers = Array.from(root.querySelectorAll<HTMLElement>('[data-speed]'));
+    const movers = Array.from(root.querySelectorAll<HTMLElement>('[data-speed]')).map(el => ({
+      el,
+      chapter: wraps.indexOf(el.closest('.chap') as HTMLElement),
+      speed: parseFloat(el.dataset.speed!),
+      rot: parseFloat(el.dataset.rot ?? '0'),
+    }));
     const done = root.querySelector<SVGPathElement>('.done');
     const way = root.querySelector<SVGPathElement>('.way');
     const trackBar = root.querySelector<HTMLElement>('.livecard i b');
@@ -498,10 +504,11 @@ export default function Landing() {
 
     const render = () => {
       const h = innerHeight;
-      for (const el of movers) {
-        const p = -el.closest('.chap')!.getBoundingClientRect().top / h;
-        const rot = parseFloat(el.dataset.rot ?? '0');
-        el.style.transform = `translate3d(0,${p * parseFloat(el.dataset.speed!) * h}px,0) rotate(${p * rot}deg)`;
+      for (const m of movers) {
+        const box = chapterBox(wraps, m.chapter);
+        if (box.bottom < 0 || box.top > h) continue;
+        const p = -box.top / h;
+        m.el.style.transform = `translate3d(0,${p * m.speed * h}px,0) rotate(${p * m.rot}deg)`;
       }
       const stage = scrollStage(wraps);
       root.classList.toggle('on-dark', chapters[stage.i].sec.dataset.theme === 'dark' && stage.walk < 0.9);
@@ -510,7 +517,7 @@ export default function Landing() {
       if (!puppyLive) drawWalked(stage.i > trackIndex ? 1 : stage.i === trackIndex ? stage.hold : 0);
 
       chapters.forEach((c, n) => {
-        const r = c.wrap.getBoundingClientRect();
+        const r = chapterBox(wraps, n);
         if (calm || r.bottom < -h * 0.2 || r.top > h * 1.1) return;
         // enter: 0 as the chapter slides in, 1 once it has arrived.
         // leave: 0 while it's pinned and being read, 1 once it's nearly gone.
@@ -563,7 +570,7 @@ export default function Landing() {
       queued = true;
       requestAnimationFrame(() => { queued = false; render(); });
     };
-    const onResize = () => { setRouteEnds([routeAt(0), routeAt(1)]); onScroll(); };
+    const onResize = () => { measureChapters(wraps); setRouteEnds([routeAt(0), routeAt(1)]); onScroll(); };
     render();
     addEventListener('scroll', onScroll, { passive: true });
     addEventListener('resize', onResize);
@@ -577,11 +584,15 @@ export default function Landing() {
 
     let dispose: (() => void) | undefined;
     let cancelled = false;
-    import('../components/landing/puppyScene')
-      .then(async ({ createPuppyScene }) => {
+    // Phones get pre-rendered frames; only desktops pay for live 3D.
+    const makePuppy = small
+      ? import('../components/landing/puppySprite').then(m => m.createPuppySprite)
+      : import('../components/landing/puppyScene').then(m => m.createPuppyScene);
+    makePuppy
+      .then(async create => {
         if (!canvasRef.current) return;
         puppyLive = true;
-        const stop = await createPuppyScene(canvasRef.current, wraps, drawWalked);
+        const stop = await create(canvasRef.current, wraps, drawWalked);
         if (cancelled) return stop();
         dispose = stop;
         canvasRef.current?.classList.add('ready');
@@ -765,7 +776,7 @@ export default function Landing() {
             <div className="tiles">
               <button className="tile tile--big card sc" onClick={go('/register')}>
                 <PuppyShop />
-                <span><b>Find a new dog</b><small>Browse listings with vaccination, deworming and microchip status shown up front.</small></span>
+                <span><b>Adopt a pet</b><small>Meet dogs looking for a home, each one checked by PawFleet before it is listed.</small></span>
               </button>
               <button className="tile card sc" onClick={go('/register')}>
                 <span className="ic"><UtensilsCrossed size={21} /></span>

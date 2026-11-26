@@ -8,12 +8,15 @@
 //   The token is a one-time, 30-minute-lived secret from the emailed link; we only ever store its hash.
 
 import crypto from 'crypto';
+import { sendTemplate } from './_lib/email.js';
+import { cors } from './_lib/server.js';
 
 const clean = v => String(v || '').split('').filter(c => c.charCodeAt(0) !== 0xFEFF).join('').trim();
 const APP_URL = 'https://www.pawfleetapp.com';
 const GENERIC_OK = { ok: true, message: "If an account exists for that email, we've sent a link to reset the password." };
 
 export default async function handler(req, res) {
+  if (cors(req, res, 'POST, OPTIONS')) return;
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   const url = clean(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL).replace(/\/$/, '');
@@ -34,9 +37,17 @@ export default async function handler(req, res) {
     if (!email) return res.status(400).json({ error: 'Email is required.' });
 
     try {
-      const rows = await admin(`/rest/v1/users?email=eq.${encodeURIComponent(email)}&select=id,name`).then(r => r.json());
+      // Emails were stored exactly as typed at sign-up, so match without caring about capitals.
+      // ilike treats % and _ as wildcards: escape them so the match stays exact.
+      const pattern = email.replace(/[%_\\]/g, '\\$&');
+      const rows = await admin(`/rest/v1/users?email=ilike.${encodeURIComponent(pattern)}&select=id,name,email`).then(r => r.json());
       const user = Array.isArray(rows) ? rows[0] : null;
       if (!user) return res.status(200).json(GENERIC_OK); // don't reveal whether the account exists
+
+      // At most 3 reset emails per account per hour (stops anyone flooding someone's inbox).
+      const hourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+      const recent = await admin(`/rest/v1/email_log?to_email=ilike.${encodeURIComponent(pattern)}&template=eq.password_reset&created_at=gte.${hourAgo}&select=id`).then(r => r.ok ? r.json() : []).catch(() => []);
+      if (Array.isArray(recent) && recent.length >= 3) return res.status(200).json(GENERIC_OK);
 
       const rawToken = crypto.randomBytes(32).toString('hex');
       const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
@@ -55,11 +66,9 @@ export default async function handler(req, res) {
       }
 
       const resetLink = `${APP_URL}/reset-password?token=${rawToken}`;
-      fetch(`https://${req.headers.host}/api/send-email`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ to: email, template: 'password_reset', data: { name: user.name, resetLink } }),
-      }).catch(() => {});
+      // Awaited: a serverless function can be frozen the moment it responds, which used to drop this email.
+      const sent = await sendTemplate(user.email || email, 'password_reset', { name: user.name, resetLink });
+      if (!sent.ok) console.error('password-reset (request): email not sent:', sent.error);
 
       return res.status(200).json(GENERIC_OK);
     } catch (err) {

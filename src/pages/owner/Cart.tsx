@@ -2,7 +2,8 @@ import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, ShoppingCart, Minus, Plus, Trash2, CheckCircle, Package, Truck, MapPin, Loader2, CreditCard } from 'lucide-react';
 import { useCart } from '../../context/CartContext';
-import { useShop } from '../../context/ShopContext';
+import { useShop, type ShopProduct } from '../../context/ShopContext';
+import { apiPost } from '../../lib/api';
 import PaymentModal from '../../components/ui/PaymentModal';
 import { useApp } from '../../context/AppContext';
 
@@ -52,75 +53,82 @@ export default function Cart() {
     }
   };
 
+  const placingRef = useRef(false);
+
   const handleCheckout = () => {
-    if (!address.trim()) return;
+    if (!address.trim() || placingRef.current) return;
     if (payMethod === 'pod') {
-      confirmOrder('pay_on_delivery');
+      placingRef.current = true;
+      const purchaseItems = cartPurchaseItems();
+      if (currentUser && purchaseItems.length > 0) {
+        createPurchase(purchaseItems, currentUser.id, currentUser.name, address, 'pay_on_delivery');
+      }
+      finishOrder(purchaseItems, 'pay_on_delivery');
     } else {
       setShowPayment(true);
     }
   };
 
-  const confirmOrder = (method: string) => {
-    if (currentUser) {
-      const purchaseItems = items.flatMap(cartItem => {
-        const product = products.find(p => p.id === cartItem.id);
-        return product ? [{ product, qty: cartItem.qty }] : [];
-      });
-      if (purchaseItems.length > 0) {
-        createPurchase(purchaseItems, currentUser.id, currentUser.name, address, method);
+  const cartPurchaseItems = () => items.flatMap(cartItem => {
+    const product = products.find(p => p.id === cartItem.id);
+    return product ? [{ product, qty: cartItem.qty }] : [];
+  });
 
-        // Group by shop owner and send Supabase-backed notifications
-        const byOwner: Record<string, typeof purchaseItems> = {};
-        purchaseItems.forEach(pi => {
-          const ownerId = pi.product.shopOwnerId || 'pawfleet';
-          if (ownerId !== 'pawfleet') {
-            if (!byOwner[ownerId]) byOwner[ownerId] = [];
-            byOwner[ownerId].push(pi);
-          }
-        });
-        Object.entries(byOwner).forEach(([ownerId, shopItems]) => {
-          const itemSummary = shopItems.map(si => `${si.product.name} ×${si.qty}`).join(', ');
-          const earned = shopItems.reduce((s, si) => s + si.product.price * si.qty, 0);
-          const qty = shopItems.reduce((s, si) => s + si.qty, 0);
-          sendNotification(
-            ownerId,
-            'shop_order',
-            `New Order! 🎉 K${earned} earned`,
-            `${currentUser.name} ordered: ${itemSummary}. Deliver to: ${address}`,
-            {
-              buyerId: currentUser.id,
-              buyerName: currentUser.name,
-              earned: String(earned),
-              address,
-              itemSummary,
-              phone: phone || currentUser.phone || '',
-              paymentMethod: method,
-              payOnDelivery: method === 'pay_on_delivery' || payMethod === 'pod' ? 'true' : 'false',
-              totalQty: String(qty),
-              deliveryStatus: 'pending',
-            }
-          );
-        });
-      }
-    }
-    // Send receipt email for online payments
-    if (method !== 'pay_on_delivery' && currentUser?.email) {
-      fetch('/api/send-email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          to: currentUser.email,
-          template: 'payment_receipt',
-          data: {
-            name: currentUser.name,
-            amount: total,
-            description: `Shop order (${items.reduce((s, i) => s + i.qty, 0)} items)`,
-            reference: method,
-            operator: method,
-          },
-        }),
+  // Online orders are created by the server the moment the payment is confirmed (api/payments.js),
+  // so closing the app after paying can never lose the order, and a second check can never duplicate it.
+  const onPaid = (_method: string, reference: string) => {
+    if (placingRef.current) return;
+    placingRef.current = true;
+    const purchaseItems = cartPurchaseItems();
+    finishOrder(purchaseItems, 'mobile_money');
+    if (currentUser?.email) {
+      apiPost('/api/send-email', {
+        to: currentUser.email,
+        template: 'payment_receipt',
+        data: {
+          name: currentUser.name,
+          amount: total,
+          description: `Shop order (${items.reduce((s, i) => s + i.qty, 0)} items)`,
+          reference,
+        },
       }).catch(() => {});
+    }
+  };
+
+  const finishOrder = (purchaseItems: { product: ShopProduct; qty: number }[], method: string) => {
+    if (currentUser) {
+      // Group by shop owner and send Supabase-backed notifications
+      const byOwner: Record<string, typeof purchaseItems> = {};
+      purchaseItems.forEach(pi => {
+        const ownerId = pi.product.shopOwnerId || 'pawfleet';
+        if (ownerId !== 'pawfleet') {
+          if (!byOwner[ownerId]) byOwner[ownerId] = [];
+          byOwner[ownerId].push(pi);
+        }
+      });
+      Object.entries(byOwner).forEach(([ownerId, shopItems]) => {
+        const itemSummary = shopItems.map(si => `${si.product.name} ×${si.qty}`).join(', ');
+        const earned = shopItems.reduce((s, si) => s + si.product.price * si.qty, 0);
+        const qty = shopItems.reduce((s, si) => s + si.qty, 0);
+        sendNotification(
+          ownerId,
+          'shop_order',
+          `New Order! 🎉 K${earned} earned`,
+          `${currentUser.name} ordered: ${itemSummary}. Deliver to: ${address}`,
+          {
+            buyerId: currentUser.id,
+            buyerName: currentUser.name,
+            earned: String(earned),
+            address,
+            itemSummary,
+            phone: phone || currentUser.phone || '',
+            paymentMethod: method,
+            payOnDelivery: method === 'pay_on_delivery' ? 'true' : 'false',
+            totalQty: String(qty),
+            deliveryStatus: 'pending',
+          }
+        );
+      });
     }
     clearCart();
     setShowPayment(false);
@@ -203,8 +211,8 @@ export default function Cart() {
         {/* Items */}
         {items.map(item => (
           <div key={item.id} className="bg-white border border-surface-border rounded-2xl p-4 flex items-center gap-4">
-            <div className="w-16 h-16 rounded-xl bg-surface-secondary flex items-center justify-center text-3xl shrink-0">
-              {item.emoji}
+            <div className="w-16 h-16 rounded-xl bg-surface-secondary flex items-center justify-center text-3xl shrink-0 overflow-hidden">
+              {item.img ? <img src={item.img} alt="" className="w-full h-full object-contain p-1" /> : item.emoji}
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-ink">{item.name}</p>
@@ -365,11 +373,13 @@ export default function Cart() {
 
       {showPayment && (
         <PaymentModal
+          kind="shop_order"
+          payload={{ items: items.map(i => ({ id: i.id, qty: i.qty })), address, contactPhone: phone || currentUser?.phone || '' }}
           amount={total}
           description={`Shop order (${count} item${count !== 1 ? 's' : ''})`}
           customerName={currentUser?.name || ''}
           customerPhone={phone || currentUser?.phone}
-          onConfirm={confirmOrder}
+          onConfirm={onPaid}
           onClose={() => setShowPayment(false)}
         />
       )}

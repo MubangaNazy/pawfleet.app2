@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { apiUrl } from '../../lib/api';
 import { useNavigate } from 'react-router-dom';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Plus, X, ChevronRight, Sparkles, Weight, Calendar, Activity, Mic, MicOff, Footprints, Bath, Stethoscope, Check, Bell, NotebookPen, ClipboardList, Syringe, Share2, Pencil, Copy, Loader2, Dog as DogIcon, Bot, HeartPulse, ShoppingBag } from 'lucide-react';
@@ -39,7 +40,7 @@ async function getAIInsight(text: string, dogName?: string, context?: { breed?: 
   const { data: sess } = await supabase.auth.getSession();
   const token = sess.session?.access_token;
   if (!token) throw new Error('Please log out, log back in, then try again.');
-  const res = await fetch('/api/ai-health-insight', {
+  const res = await fetch(apiUrl('/api/ai-health-insight'), {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ text, dogName, ...context }),
@@ -330,7 +331,7 @@ export default function PetHealth() {
       const { data: sess } = await supabase.auth.getSession();
       const token = sess.session?.access_token;
       if (!token) throw new Error('Please log out, log back in, then try again.');
-      const res = await fetch('/api/pet-health-share', {
+      const res = await fetch(apiUrl('/api/pet-health-share'), {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'create', dogId: selectedDog.id }),
@@ -351,7 +352,7 @@ export default function PetHealth() {
     try {
       const { data: sess } = await supabase.auth.getSession();
       const token = sess.session?.access_token;
-      await fetch('/api/pet-health-share', {
+      await fetch(apiUrl('/api/pet-health-share'), {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'revoke', dogId: selectedDog.id }),

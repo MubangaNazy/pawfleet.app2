@@ -293,10 +293,16 @@ export default function OwnerRequestWalk() {
                   {pickupMode === 'live' ? 'Your walker can see where to meet you. ' : ''}See them arrive on the map.
                 </p>
               </div>
-              <button type="button" onClick={() => navigate(`/owner/track/${createdWalkId}`)}
-                className="text-xs font-bold text-primary shrink-0">
-                Track
-              </button>
+              <div className="flex flex-col items-end gap-1 shrink-0">
+                <button type="button" onClick={() => navigate(`/owner/track/${createdWalkId}`)}
+                  className="text-xs font-bold text-primary">
+                  Track
+                </button>
+                <button type="button" onClick={() => navigate(`/owner/chat/${createdWalkId}`)}
+                  className="text-xs font-bold text-primary">
+                  Chat
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -344,8 +350,10 @@ export default function OwnerRequestWalk() {
           </button>
         </div>
 
-        {showPayModal && (
+        {showPayModal && createdWalkId && (
           <PaymentModal
+            kind="walk"
+            refId={createdWalkId}
             amount={createdWalkPrice}
             description={`Dog walk${addGrooming ? ' + grooming' : ''} for ${selectedDog?.name || 'your dog'}`}
             customerName={currentUser?.name || ''}

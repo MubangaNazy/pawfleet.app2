@@ -11,6 +11,7 @@ import { useTurnByTurn } from '../../hooks/useTurnByTurn';
 import { getVoicePref, primeVoice, setVoicePref, voiceSupported } from '../../lib/voice';
 import { isValidCoord } from '../../lib/geo';
 import { uploadDataUrlToStorage } from '../../lib/image';
+import PickupPhotoSheet from '../../components/walker/PickupPhotoSheet';
 
 type LatLng = [number, number];
 const LUSAKA: LatLng = [-15.4167, 28.2833];
@@ -35,6 +36,7 @@ function totalDistance(pts: LatLng[]): number {
 export default function WalkerLiveWalk() {
   const { walkId } = useParams<{ walkId: string }>();
   const { data, endWalk, startWalk, currentUser, sendNotification } = useApp();
+  const [showPickup, setShowPickup] = useState(false);
   const [sosConfirm, setSosConfirm] = useState(false);
   const [sosDone, setSosDone]       = useState(false);
   const navigate = useNavigate();
@@ -181,20 +183,16 @@ export default function WalkerLiveWalk() {
     navigate('/walker/walks');
   };
 
-  const handleStart = async () => {
+  // Starting a walk first asks for a pickup photo (PickupPhotoSheet), which notifies the owner.
+  const handleStart = () => { if (walkId) setShowPickup(true); };
+
+  const doStart = () => {
     if (!walkId) return;
+    setShowPickup(false);
     setStarting(true);
     const loc = myPos ? { lat: myPos[0], lng: myPos[1] } : { lat: LUSAKA[0], lng: LUSAKA[1] };
     startWalk(walkId, loc);
     if (voiceOn && voiceSupported()) primeVoice('Voice directions on');
-    if (owner) {
-      sendNotification(
-        owner.id, 'walk_started',
-        `🐕 ${dog?.name || 'Your dog'} has been picked up!`,
-        `${currentUser?.name || 'Your walker'} has picked up ${dog?.name || 'your dog'} and the walk has started. You can track live on the map.`,
-        { walkId: walkId! }
-      );
-    }
     setStarting(false);
   };
 
@@ -267,7 +265,7 @@ export default function WalkerLiveWalk() {
       });
       if (owner) {
         sendNotification(
-          owner.id, 'walk_started',
+          owner.id, 'walk_photo',
           `📸 Photo from your walker`,
           `${currentUser.name} sent a photo of ${dog?.name || 'your dog'} during the walk. Tap to view.`,
           { walkId: walkId! }
@@ -291,6 +289,7 @@ export default function WalkerLiveWalk() {
 
   return (
     <div className="flex flex-col h-screen bg-ink">
+      {showPickup && <PickupPhotoSheet walk={walk} onContinue={doStart} onClose={() => setShowPickup(false)} />}
       {/* Header */}
       <div className="bg-white border-b border-surface-border px-4 py-3 flex items-center gap-3 shrink-0 z-[1001]">
         <button type="button" onClick={() => navigate('/walker/walks')}

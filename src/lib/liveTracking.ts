@@ -395,3 +395,24 @@ export function stopWalkSession(): LatLng[] {
   sessionListeners.forEach(f => f());
   return trail;
 }
+
+/**
+ * The GPS trail of a walk that is being ended, from whichever screen ends it. Stops the live session
+ * if it belongs to this walk, otherwise falls back to the trail saved on the phone. Undefined if none.
+ * (Ending from My Walks or Walk Detail used to drop the trail, so those walks saved no route.)
+ */
+export function takeWalkTrail(walkId: string): [number, number][] | undefined {
+  let trail: LatLng[] = [];
+  if (session?.walkId === walkId) trail = stopWalkSession();
+  else {
+    try {
+      const raw = localStorage.getItem(trailKey(walkId));
+      if (raw) trail = JSON.parse(raw);
+      localStorage.removeItem(trailKey(walkId));
+    } catch { /* nothing saved */ }
+  }
+  const pts = (Array.isArray(trail) ? trail : [])
+    .filter(p => Array.isArray(p) && Number.isFinite(p[0]) && Number.isFinite(p[1]))
+    .map(p => [p[0], p[1]] as [number, number]);
+  return pts.length > 1 ? pts : undefined;
+}

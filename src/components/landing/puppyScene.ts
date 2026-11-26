@@ -6,10 +6,10 @@
 // tail, head, legs and tongue are bent in the vertex shader. Rebuild the textures
 // with scripts/landing/make_puppy_assets.py.
 //
-// The dog follows the scroll across the screen on a clock-driven walk: see the
-// note above the first `scrollStage` call.
+// How it moves lives in puppyWalker, shared with the phone version in puppySprite.
 import * as THREE from 'three';
-import { isPhone, poses, routeAt, scrollStage, spotAt } from './puppyPath';
+import { isPhone, poses } from './puppyPath';
+import { TURNTABLE, createWalker, lerp, viewsAt } from './puppyWalker';
 
 type Vec = [number, number];
 type Rig = {
@@ -60,65 +60,7 @@ const RIGS: Record<string, Rig> = {
   },
 };
 
-// The turntable, in yaw order. Mirrored photos make the dog's other side.
-const TURNTABLE: { name: string; yaw: number; mirror: boolean }[] = [
-  { name: 'back', yaw: -180, mirror: false },
-  { name: 'side', yaw: -90, mirror: false },
-  { name: 'quarter', yaw: -45, mirror: false },
-  { name: 'front', yaw: 0, mirror: false },
-  { name: 'quarter', yaw: 45, mirror: true },
-  { name: 'side', yaw: 90, mirror: true },
-];
-
-const clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v));
-const clamp01 = (v: number) => clamp(v, 0, 1);
-const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
-const smooth = (a: number, b: number, v: number) => { const t = clamp01((v - a) / (b - a)); return t * t * (3 - 2 * t); };
 const D2R = Math.PI / 180;
-
-function tubTexture(front: boolean) {
-  const c = document.createElement('canvas');
-  c.width = 1000;
-  c.height = 520;
-  const g = c.getContext('2d')!;
-  if (!front) {
-    g.fillStyle = '#A9DCCB';
-    g.beginPath();
-    g.ellipse(500, 150, 470, 92, 0, 0, Math.PI * 2);
-    g.fill();
-    return c;
-  }
-  // Gold feet, white body, gold rim, then a line of foam over the rim.
-  g.fillStyle = '#C8922F';
-  for (const x of [230, 770]) {
-    g.beginPath();
-    g.ellipse(x, 470, 46, 34, 0, 0, Math.PI * 2);
-    g.fill();
-  }
-  const body = g.createLinearGradient(0, 150, 0, 470);
-  body.addColorStop(0, '#FFFFFF');
-  body.addColorStop(1, '#CDE9DF');
-  g.fillStyle = body;
-  g.beginPath();
-  g.moveTo(40, 170);
-  g.bezierCurveTo(60, 400, 170, 470, 300, 470);
-  g.lineTo(700, 470);
-  g.bezierCurveTo(830, 470, 940, 400, 960, 170);
-  g.closePath();
-  g.fill();
-  g.fillStyle = '#DDA94A';
-  g.beginPath();
-  g.roundRect(14, 142, 972, 40, 20);
-  g.fill();
-  for (let i = 0; i < 46; i++) {
-    const x = 70 + (i * 860) / 45, r = 26 + ((i * 37) % 26);
-    g.fillStyle = i % 3 ? '#FFFFFF' : '#EAF7F1';
-    g.beginPath();
-    g.arc(x, 130 - ((i * 53) % 24), r, 0, Math.PI * 2);
-    g.fill();
-  }
-  return c;
-}
 
 function shadowTexture() {
   const c = document.createElement('canvas');
@@ -357,32 +299,8 @@ export async function createPuppyScene(canvas: HTMLCanvasElement, wraps: HTMLEle
   };
   addEventListener('pointermove', onMove, { passive: true });
 
-  // The bathtub in the grooming chapter: two page layers either side of the dog's
-  // canvas, so it can stand between the tub's back and front.
-  const tubLayers = [tubTexture(false), tubTexture(true)];
-  tubLayers.forEach((layer, i) => {
-    layer.style.cssText = `position:fixed;left:0;top:0;z-index:${i ? 21 : 19};display:none;pointer-events:none;will-change:transform`;
-    canvas.after(layer);
-  });
-  let tubShown = false;
-
-  // Follows the scroll the whole way down: it strolls slowly through each pinned
-  // section and walks on to the next, so there's no point where scrolling leaves it
-  // standing. If the page stops mid-walk, it carries on the way it was heading.
-  const stage0 = scrollStage(wraps);
-  const startPose = poses()[stage0.i];
-  const startSpot = spotAt(startPose, stage0.hold);
-  let routeQ = startPose.map ? stage0.hold : 0;
-  let walking = false;
-  let lastY = scrollY;
-  let lastMove = -1;
-  let scrollDir = 1;
-  const start0 = routeAt(routeQ);
-  const cur = {
-    x: startSpot.x, y: startSpot.y, s: startPose.s, yaw: startSpot.yaw, dir: 1,
-    speed: 0, stride: 0, gait: 0, map: startPose.map ? 1 : 0,
-    heading: Math.atan2(start0.dy * innerHeight, start0.dx * innerWidth) - Math.PI / 2,
-  };
+  const walker = createWalker(wraps, onWalked, canvas);
+  const { cur } = walker;
   const clock = new THREE.Clock();
   let raf = 0;
   let frame = 0;
@@ -392,125 +310,17 @@ export async function createPuppyScene(canvas: HTMLCanvasElement, wraps: HTMLEle
     raf = requestAnimationFrame(tick);
     const dt = Math.min(clock.getDelta(), 0.05);
     const t = clock.elapsedTime;
-    if (scrollY !== lastY) { scrollDir = scrollY > lastY ? 1 : -1; lastY = scrollY; lastMove = t; }
-    const scrolling = t - lastMove < 0.35;
-
-    const stage = scrollStage(wraps);
-    const K = poses();
-    const a = K[stage.i], b = K[Math.min(stage.i + 1, K.length - 1)];
-    const pace = isPhone() ? 1.9 : 1.5;
-    const px = cur.x, py = cur.y;
-
-    // How far across to the next chapter's spot the page says the dog should be.
-    const T = stage.walk;
-    const across = T === 0 ? 0 : scrolling ? Math.min(1, T / 0.82) : scrollDir > 0 ? 1 : 0;
-    const from = spotAt(a, stage.hold), to = spotAt(b, 0);
-    // The stroll through a pinned section, drifting toward wherever it goes next.
-    const stroll = (n: number, hold: number) => {
-      const pose = K[n];
-      if (pose.map || pose.stops) return 0;
-      const here = pose.x, next = K[Math.min(n + 1, K.length - 1)], prev = K[Math.max(n - 1, 0)];
-      const way = n === K.length - 1 ? Math.sign(here - spotAt(prev, 1).x) : Math.sign(spotAt(next, 0).x - here) || 1;
-      const share = n === 0 ? hold : n === K.length - 1 ? hold - 1 : hold - 0.5;
-      return share * way * (isPhone() ? 0.1 : 0.14);
-    };
-    const fromX = from.x + stroll(stage.i, stage.hold), toX = to.x + stroll(Math.min(stage.i + 1, K.length - 1), 0);
-    const goalX = lerp(fromX, toX, across), goalY = lerp(from.y, to.y, across);
-    const restYaw = (across > 0.5 ? to : from).yaw;
-    const onRoute = a.map && T === 0;
-    const atHome = b.map && across >= 1;
-
-    // Tracking map: the dog and its gold line sit exactly on the scroll position.
-    const routeGoal = onRoute ? stage.hold : atHome ? 0 : a.map ? 1 : b.map ? 0 : routeQ;
-    routeQ = lerp(routeQ, routeGoal, 1 - Math.exp(-dt * 12));
-    const dx = goalX - cur.x, dy = goalY - cur.y;
-    const dist = Math.hypot(dx, dy);
-    const wantMap = (onRoute || atHome) && (cur.map > 0.5 || dist < 0.05);
-    cur.map = clamp01(cur.map + (wantMap ? dt : -dt) * 4.5);
-
-    if (wantMap || cur.map > 0.02) {
-      const r = routeAt(routeQ);
-      const k = 1 - Math.exp(-dt * 16);
-      cur.x = lerp(cur.x, r.x, k);
-      cur.y = lerp(cur.y, r.y, k);
-      cur.speed = Math.hypot(cur.x - px, cur.y - py) / Math.max(dt, 1e-3);
-      walking = false;
-      onWalked(routeQ);
-    } else {
-      if (dist > 0.012) walking = true;
-      if (dist < 0.004 && !scrolling) walking = false;
-      if (walking && Math.abs(dx) > 0.012) cur.dir = dx > 0 ? 1 : -1;
-      const goal = walking ? Math.min(pace, dist * 2.4 + 0.02) : 0;
-      cur.speed = lerp(cur.speed, goal * (walking ? smooth(95, 40, Math.abs(cur.yaw - cur.dir * 90)) : 1), 1 - Math.exp(-dt * 7));
-      if (dist > 1e-4) {
-        const move = Math.min(cur.speed * dt, dist);
-        cur.x += (dx / dist) * move;
-        cur.y += (dy / dist) * move;
-      }
-    }
-
-    // Face the way it's going, and turn to the reader on arrival.
-    const yawGoal = walking ? cur.dir * 90 : cur.map ? cur.yaw : restYaw;
-    cur.yaw = clamp(lerp(cur.yaw, yawGoal, 1 - Math.exp(-dt * 5)), -180, 90);
-    const sGoal = cur.map > 0.5 || wantMap ? (a.map ? a : b).s : lerp(a.map ? b.s : a.s, b.map ? a.s : b.s, across);
-    cur.s = lerp(cur.s, sGoal * (1 - 0.08 * cur.stride * (1 - cur.map)), 1 - Math.exp(-dt * 4));
+    const { base, climb, halfW, halfH, walking, scrolling, inTub, wriggle } = walker.step(dt, t);
 
     const km = 1 - Math.exp(-dt * 2.5);
     mouse.sx = lerp(mouse.sx, mouse.x, km);
     mouse.sy = lerp(mouse.sy, mouse.y, km);
 
-    const halfH = Math.tan((camera.fov * D2R) / 2) * camera.position.z;
-    const halfW = halfH * camera.aspect;
-    // Sized by whichever side of the screen is tighter, so phones fit too.
-    const fit = Math.min(halfH * 1.16, halfW * 1.5);
-    const base = fit * cur.s;
-
-    // The tub rides up and down with its section; the dog climbs over its rim.
-    const groomAt = K.findIndex(p => p.stops);
-    const groomStop = K[groomAt].stops!.find(s => s.tub)!;
-    const groomTop = (wraps[groomAt].firstElementChild as HTMLElement).getBoundingClientRect().top;
-    const tubOn = Math.abs(groomTop) < innerHeight;
-    const tubBase = fit * K[groomAt].s;
-    if (tubOn !== tubShown) {
-      tubShown = tubOn;
-      tubLayers.forEach(layer => { layer.style.display = tubOn ? 'block' : 'none'; });
-    }
-    if (tubOn) {
-      const perWorld = innerHeight / (2 * halfH);
-      const w = 1.5 * tubBase * perWorld, h = 0.78 * tubBase * perWorld;
-      const left = ((1 + groomStop.x) / 2) * innerWidth - w / 2;
-      const top = innerHeight / 2 - (groomStop.y * halfH - tubBase * 0.26) * perWorld - h / 2 + groomTop;
-      for (const layer of tubLayers) {
-        layer.style.width = `${w}px`;
-        layer.style.height = `${h}px`;
-        layer.style.transform = `translate3d(${left}px,${top}px,0)`;
-      }
-    }
-    const nearRim = Math.abs(Math.abs(cur.x - groomStop.x) * halfW / tubBase - 0.72);
-    const climb = tubOn && !cur.map ? Math.exp(-nearRim * nearRim * 30) * 0.09 * tubBase : 0;
-
     flight.scale.setScalar(base);
     flight.position.set(cur.x * halfW, cur.y * halfH - base / 2 + climb, 0);
 
-    // Steps follow the distance covered, so the paws don't slide along the floor.
-    const moved = Math.hypot((cur.x - px) * halfW, (cur.y - py) * halfH) / base;
-    cur.gait += (moved / 0.85) * Math.PI * 2;
-    cur.stride = lerp(cur.stride, clamp01(cur.speed / (pace * 0.14)), 1 - Math.exp(-dt * 7));
-
-    if (cur.map > 0 && moved > 2e-4) {
-      const aim = Math.atan2((cur.y - py) * innerHeight, (cur.x - px) * innerWidth) - Math.PI / 2;
-      const turn = Math.atan2(Math.sin(aim - cur.heading), Math.cos(aim - cur.heading));
-      cur.heading += turn * (1 - Math.exp(-dt * 8));
-    }
-
-    // Find the two views either side of the current yaw. They rotate together and
-    // share one width, so their outlines line up while the fade between them runs.
-    let n = 0;
-    while (n < views.length - 2 && cur.yaw >= views[n + 1].yaw) n++;
-    const va = views[n], vb = views[n + 1];
-    const u = (cur.yaw - va.yaw) / (vb.yaw - va.yaw);
-    const f = smooth(0.2, 0.8, u);
-    const width = lerp(va.mesh.userData.aspect, vb.mesh.userData.aspect, smooth(0, 1, u));
+    const { a: from, b: to, f, width } = viewsAt(cur.yaw);
+    const va = views[TURNTABLE.indexOf(from)], vb = views[TURNTABLE.indexOf(to)];
     const standing = 1 - cur.map;
     const idle = (1 - cur.stride) * standing;
     const sway = (mouse.sx * 14 + Math.sin(t * 0.7) * 3) * idle;
@@ -531,12 +341,10 @@ export async function createPuppyScene(canvas: HTMLCanvasElement, wraps: HTMLEle
     (topMesh.material as THREE.ShaderMaterial).uniforms.uOpacity.value = cur.map;
 
     // Wriggles in the bath while the page passes the tub.
-    const tubTime = tubOn && !cur.map && Math.abs(cur.x - groomStop.x) * halfW < tubBase * 0.3;
     hopper.position.y = Math.abs(Math.sin(cur.gait)) * 0.016 * cur.stride;
-    hopper.rotation.z = Math.sin(cur.gait * 2) * 0.008 * cur.stride + (tubTime ? Math.sin(t * 7) * 0.025 : 0);
+    hopper.rotation.z = Math.sin(cur.gait * 2) * 0.008 * cur.stride + (wriggle ? Math.sin(t * 7) * 0.025 : 0);
     hopper.scale.y = 1 + Math.sin(t * 2.6) * 0.005 * (1 - cur.stride);
 
-    const inTub = tubOn && Math.abs(cur.x - groomStop.x) * halfW < tubBase * 0.72;
     shadow.visible = standing > 0.01 && !inTub;
     shadow.scale.set(width * 0.8 + 0.2, 1, 1);
     (shadow.material as THREE.MeshBasicMaterial).opacity = standing;
@@ -576,7 +384,7 @@ export async function createPuppyScene(canvas: HTMLCanvasElement, wraps: HTMLEle
     geometry.dispose();
     Object.values(materials).forEach(m => m.dispose());
     textures.forEach(tex => tex.dispose());
-    tubLayers.forEach(layer => layer.remove());
+    walker.dispose();
     renderer.dispose();
   };
 }

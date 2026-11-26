@@ -7,6 +7,7 @@ import { useApp } from '../../context/AppContext';
 import Onboarding from '../../components/ui/Onboarding';
 import { SkeletonOwnerDashboard } from '../../components/ui/Skeleton';
 import { useDirectInbox } from '../../lib/directMessages';
+import { PLANS } from '../../lib/plans';
 
 // ── Scroll-reveal wrapper ────────────────────────────────────
 function Reveal({ children, delay = 0, className = '' }: { children: ReactNode; delay?: number; className?: string }) {
@@ -545,58 +546,24 @@ export default function OwnerDashboard() {
           <div>
             <h2 className="text-base font-bold text-ink mb-3">Services</h2>
 
-            {/* 3-column service cards — image-forward with CTA */}
+            {/* Care plans — full-photo cards with a dark green fade behind the title */}
             <div className="grid grid-cols-3 gap-3">
-              {/* Dog Walking */}
-              <Link to="/owner/request"
-                className="relative overflow-hidden rounded-2xl flex flex-col justify-between active:scale-95 transition-transform"
-                style={{ background: '#1B4332', boxShadow: '0 4px 14px rgba(27,67,50,0.25)', minHeight: 130 }}>
-                <div className="absolute top-0 right-0 w-20 h-20 rounded-full opacity-10"
-                  style={{ background: 'radial-gradient(circle, white, transparent)', transform: 'translate(40%,-40%)' }} />
-                <div className="p-3.5">
-                  <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-white/15"><Dog className="w-5 h-5 text-white" strokeWidth={1.6} /></div>
-                  <p className="text-white font-bold text-xs mt-2 leading-tight">Dog Walking</p>
-                </div>
-                <div className="px-3.5 pb-3 flex items-center justify-end">
-                  <div className="w-6 h-6 rounded-full flex items-center justify-center bg-white/20">
-                    <ChevronRight className="w-3.5 h-3.5 text-white" />
+              {PLANS.map(plan => (
+                <Link key={plan.id} to={`/owner/plans/${plan.id}`}
+                  className="relative overflow-hidden rounded-2xl active:scale-95 transition-transform"
+                  style={{ aspectRatio: '0.66', boxShadow: '0 6px 18px rgba(27,67,50,0.22)' }}>
+                  <img src={plan.image} alt="" loading="lazy" className="absolute inset-0 w-full h-full object-cover object-top" />
+                  <div className="absolute inset-0"
+                    style={{ background: 'linear-gradient(to top, #1B4332 0%, rgba(27,67,50,0.92) 30%, rgba(27,67,50,0.35) 55%, rgba(27,67,50,0) 72%)' }} />
+                  <div className="absolute inset-x-0 bottom-0 p-2.5 flex flex-col gap-2">
+                    <p className="text-white font-extrabold text-[13px] leading-tight drop-shadow-sm">{plan.title}</p>
+                    <span className="self-end w-7 h-7 rounded-full flex items-center justify-center"
+                      style={{ background: 'rgba(255,255,255,0.18)', border: '1px solid rgba(255,255,255,0.25)' }}>
+                      <ChevronRight className="w-4 h-4 text-white" />
+                    </span>
                   </div>
-                </div>
-              </Link>
-
-              {/* Grooming */}
-              <Link to="/owner/services"
-                className="relative overflow-hidden rounded-2xl flex flex-col justify-between active:scale-95 transition-transform"
-                style={{ background: '#2B8A50', boxShadow: '0 4px 14px rgba(43,138,80,0.25)', minHeight: 130 }}>
-                <div className="absolute top-0 right-0 w-20 h-20 rounded-full opacity-10"
-                  style={{ background: 'radial-gradient(circle, white, transparent)', transform: 'translate(40%,-40%)' }} />
-                <div className="p-3.5">
-                  <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-white/15"><Scissors className="w-5 h-5 text-white" strokeWidth={1.6} /></div>
-                  <p className="text-white font-bold text-xs mt-2 leading-tight">Grooming</p>
-                </div>
-                <div className="px-3.5 pb-3 flex items-center justify-end">
-                  <div className="w-6 h-6 rounded-full flex items-center justify-center bg-white/20">
-                    <ChevronRight className="w-3.5 h-3.5 text-white" />
-                  </div>
-                </div>
-              </Link>
-
-              {/* Vetting */}
-              <Link to="/owner/services"
-                className="relative overflow-hidden rounded-2xl flex flex-col justify-between active:scale-95 transition-transform"
-                style={{ background: '#52B788', boxShadow: '0 4px 14px rgba(82,183,136,0.3)', minHeight: 130 }}>
-                <div className="absolute top-0 right-0 w-20 h-20 rounded-full opacity-10"
-                  style={{ background: 'radial-gradient(circle, white, transparent)', transform: 'translate(40%,-40%)' }} />
-                <div className="p-3.5">
-                  <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-white/15"><Stethoscope className="w-5 h-5 text-white" strokeWidth={1.6} /></div>
-                  <p className="text-white font-bold text-xs mt-2 leading-tight">Vetting</p>
-                </div>
-                <div className="px-3.5 pb-3 flex items-center justify-end">
-                  <div className="w-6 h-6 rounded-full flex items-center justify-center bg-white/20">
-                    <ChevronRight className="w-3.5 h-3.5 text-white" />
-                  </div>
-                </div>
-              </Link>
+                </Link>
+              ))}
             </div>
 
             {/* Shop treats — image banner */}

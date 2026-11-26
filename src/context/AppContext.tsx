@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { apiUrl, apiPost } from '../lib/api';
 import { supabase } from '../lib/supabase';
 import { User, Dog, Walk, Payment, WalkerStats, WalkerBadge, AppData, Role, BadgeId, AppNotification } from '../types';
 import { requestNotificationPermission, onForegroundMessage } from '../lib/firebase';
@@ -11,11 +12,9 @@ import { shrinkDataUrl } from '../lib/image';
 // approving a walker, rejecting one, or finishing sign-up.
 function sendEmail(to: string | undefined, template: string, data: Record<string, unknown>) {
   if (!to) return;
-  fetch('/api/send-email', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ to, template, data }),
-  }).catch(() => {}); // best-effort; the in-app/push notification is the reliable path
+  // Sends the login token when there is one; the server only lets people email themselves (or admins
+  // email walkers about their application).
+  apiPost('/api/send-email', { to: to.trim().toLowerCase(), template, data }).catch(() => {}); // best-effort
 }
 
 // ── Type helpers ────────────────────────────────────────────
@@ -557,7 +556,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (identifier: string, pw: string): Promise<{ user: User | null; error?: string }> => {
     // 1. Demo account bypass — fully hardcoded, no network calls needed
-    const email = PHONE_TO_EMAIL[identifier] ?? identifier;
+    identifier = identifier.trim();
+    const email = PHONE_TO_EMAIL[identifier] ?? (identifier.includes('@') ? identifier.toLowerCase() : identifier);
     const isDemoLogin = DEMO_CREDS[identifier] === pw || DEMO_CREDS[email] === pw;
     if (isDemoLogin && !DEMO_ENABLED) {
       return { user: null, error: 'Demo accounts are switched off on the live app because they cannot save bookings or messages. Please register a free account.' };
@@ -717,6 +717,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     name: string, phone: string, email: string, password: string,
     role: 'owner' | 'walker', extras?: RegisterExtras
   ): Promise<{ success: boolean; error?: string; user?: User; pendingApproval?: boolean }> => {
+    // Stored lower-case so "forgot password" and every other email lookup always finds the account.
+    email = email.trim().toLowerCase();
 
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email, password,
@@ -831,9 +833,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const token = s.session?.access_token;
     if (!token) return { ok: false, error: 'Please log out, log back in, then delete your account.' };
     // The Android app runs from its own address, so it calls the website's server directly.
-    const base = /(pawfleetapp\.com|vercel\.app)$/i.test(window.location.hostname) ? window.location.origin : 'https://www.pawfleetapp.com';
     try {
-      const res = await fetch(`${base}/api/delete-account`, {
+      const res = await fetch(apiUrl('/api/delete-account'), {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ confirm: 'DELETE' }),
@@ -1402,7 +1403,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     let res: Response;
     try {
-      res = await fetch('/api/admin-create-account', {
+      res = await fetch(apiUrl('/api/admin-create-account'), {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({

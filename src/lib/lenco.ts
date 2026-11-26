@@ -1,44 +1,49 @@
-// Lenco mobile money collection — calls our Vercel serverless proxy
-// Secret key stays server-side; browser only calls /api/create-payment
+// Lenco mobile money, through PawFleet's own server (api/payments.js). The secret key never leaves the
+// server, the server decides the amount, and the server records the outcome exactly once.
 
-export interface LencoCollectionResult {
-  id: string;
+import { apiPost } from './api';
+
+export type PaymentKind = 'shop_order' | 'walk' | 'subscription';
+export type Operator = 'airtel' | 'mtn' | 'zamtel';
+export type IntentStatus = 'pending' | 'successful' | 'failed' | 'expired';
+
+export interface PaymentIntent {
+  intentId: string;
   reference: string;
-  status: string;
-  message: string;
-}
-
-export async function initiateMobileMoneyPayment(params: {
+  status: IntentStatus;
   amount: number;
-  phone: string;
-  operator: 'airtel' | 'mtn' | 'zamtel';
-  reference?: string;
-}): Promise<LencoCollectionResult | null> {
+  operator: Operator;
+  result: Record<string, unknown>;
+  reused?: boolean;
+  uncertain?: boolean;
+  reason?: string;
+}
+
+export type PaymentResult<T> = { ok: true; data: T } | { ok: false; error: string };
+
+async function call<T>(body: unknown, timeoutMs: number): Promise<PaymentResult<T>> {
   try {
-    const reference = params.reference || `PAW-${Date.now()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
-    const res = await fetch('/api/create-payment', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...params, reference }),
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      console.warn('create-payment failed:', err);
-      return null;
-    }
-    return await res.json();
-  } catch (err) {
-    console.warn('initiateMobileMoneyPayment error:', err);
-    return null;
+    const res = await apiPost('/api/payments', body, { timeoutMs });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return { ok: false, error: data?.error || 'Payment service is not responding. Please try again.' };
+    return { ok: true, data: data as T };
+  } catch {
+    return { ok: false, error: 'Network problem. Check your connection.' };
   }
 }
 
-export async function verifyPayment(reference: string): Promise<{ paid: boolean; status: string } | null> {
-  try {
-    const res = await fetch(`/api/verify-payment?reference=${encodeURIComponent(reference)}`);
-    if (!res.ok) return null;
-    return await res.json();
-  } catch {
-    return null;
-  }
+/** Sends one prompt to the phone (or returns the one already sent for the same thing). */
+export function startPayment(params: {
+  kind: PaymentKind;
+  refId?: string;
+  operator: Operator;
+  phone: string;
+  payload?: Record<string, unknown>;
+}): Promise<PaymentResult<PaymentIntent>> {
+  return call<PaymentIntent>({ action: 'create', ...params }, 35000);
+}
+
+/** Asks the server how a prompt went. Never sends a new prompt. */
+export function paymentStatus(intentId: string): Promise<PaymentResult<PaymentIntent>> {
+  return call<PaymentIntent>({ action: 'status', intentId }, 25000);
 }

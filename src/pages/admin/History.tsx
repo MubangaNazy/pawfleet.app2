@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { apiUrl } from '../../lib/api';
 import { AlertCircle, Bell, ChevronDown, ChevronUp, CircleCheck, Loader2, Mail, RefreshCw, Search } from 'lucide-react';
 import { format } from 'date-fns';
 import { supabase } from '../../lib/supabase';
@@ -50,7 +51,7 @@ export default function AdminHistory() {
       const { data: sess } = await supabase.auth.getSession();
       const token = sess.session?.access_token;
       if (!token) { setError('Please log out, log back in, then try again.'); setLoading(false); return; }
-      const res = await fetch(`/api/admin-history?kind=${kind}&limit=100`, { headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetch(apiUrl(`/api/admin-history?kind=${kind}&limit=100`), { headers: { Authorization: `Bearer ${token}` } });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) { setError(json.error || 'Could not load this.'); setLoading(false); return; }
       if (kind === 'notifications') setNotifications(json.rows || []);

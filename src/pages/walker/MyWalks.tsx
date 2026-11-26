@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { takeWalkTrail } from '../../lib/liveTracking';
+import PickupPhotoSheet from '../../components/walker/PickupPhotoSheet';
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import { Play, Square, MapPin, Navigation, AlertCircle, MessageCircle, CheckCircle2, X, ThumbsUp } from 'lucide-react';
@@ -139,7 +141,11 @@ export default function WalkerMyWalks() {
     setFilter('all');
   };
 
-  const handleStart = async (walkId: string) => {
+  const [pickupWalkId, setPickupWalkId] = useState<string | null>(null);
+  const handleStart = (walkId: string) => setPickupWalkId(walkId);
+
+  const doStart = async (walkId: string) => {
+    setPickupWalkId(null);
     setGpsLoading(walkId);
     const location = await getGPS();
     startWalk(walkId, location);
@@ -149,12 +155,15 @@ export default function WalkerMyWalks() {
   const handleEnd = async (walkId: string) => {
     setGpsLoading(walkId);
     const location = await getGPS();
-    endWalk(walkId, location);
+    endWalk(walkId, location, takeWalkTrail(walkId));
     setGpsLoading(null);
   };
 
+  const pickupWalk = pickupWalkId ? data.walks.find(w => w.id === pickupWalkId) : undefined;
+
   return (
     <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-6">
+      {pickupWalk && <PickupPhotoSheet walk={pickupWalk} onContinue={() => doStart(pickupWalk.id)} onClose={() => setPickupWalkId(null)} />}
       <div>
         <h1 className="text-3xl font-extrabold italic"
           style={{ background: 'linear-gradient(135deg, #1B4332, #52B788)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>

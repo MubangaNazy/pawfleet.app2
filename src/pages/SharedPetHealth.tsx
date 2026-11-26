@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { apiUrl } from '../lib/api';
 import { useParams } from 'react-router-dom';
 import { Loader2, AlertCircle } from 'lucide-react';
 import PawFleetLogo from '../components/ui/PawFleetLogo';
@@ -27,7 +28,7 @@ export default function SharedPetHealth() {
 
   useEffect(() => {
     if (!token) return;
-    fetch('/api/pet-health-share', {
+    fetch(apiUrl('/api/pet-health-share'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'view', token }),

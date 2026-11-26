@@ -6,6 +6,7 @@ import { ShopProvider } from './context/ShopContext';
 import { ToastProvider } from './components/ui/Toast';
 import SplashScreen from './components/SplashScreen';
 import WalkingDog from './components/WalkingDog';
+import AndroidBackButton from './components/AndroidBackButton';
 // Login / Register / Landing are needed immediately — keep static
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -22,6 +23,7 @@ const AdminOwners      = lazy(() => import('./pages/admin/Owners'));
 const AdminPayments    = lazy(() => import('./pages/admin/Payments'));
 const AdminShopManager = lazy(() => import('./pages/admin/ShopManager'));
 const AdminPartners    = lazy(() => import('./pages/admin/Partners'));
+const AdminAdoptions   = lazy(() => import('./pages/admin/Adoptions'));
 const AdminHistory     = lazy(() => import('./pages/admin/History'));
 const AdminAnalytics   = lazy(() => import('./pages/admin/Analytics'));
 const AdminProfitMgmt  = lazy(() => import('./pages/admin/ProfitManagement'));
@@ -63,7 +65,8 @@ const PrivacySafety    = lazy(() => import('./pages/owner/PrivacySafety'));
 const PaymentMethods   = lazy(() => import('./pages/owner/PaymentMethods'));
 const SelfWalk         = lazy(() => import('./pages/owner/SelfWalk'));
 const DogTraining      = lazy(() => import('./pages/owner/DogTraining'));
-const Marketplace      = lazy(() => import('./pages/owner/Marketplace'));
+const AdoptPet         = lazy(() => import('./pages/owner/AdoptPet'));
+const PlanDetail       = lazy(() => import('./pages/owner/PlanDetail'));
 const PetHealth        = lazy(() => import('./pages/owner/PetHealth'));
 
 const ShopOwnerDashboard     = lazy(() => import('./pages/shopowner/Dashboard'));
@@ -221,9 +224,9 @@ function AppContent() {
     // Get the landing puppy ready behind the splash, so it's there on arrival.
     const ready = setTimeout(() => {
       if (!['/', '/landing'].includes(location.pathname)) return;
-      import('./components/landing/puppyScene').catch(() => {});
-      const suffix = innerWidth < 760 ? '-sm' : '';
-      for (const view of ['front', 'side', 'back', 'quarter', 'top']) new Image().src = `/landing/${view}${suffix}.webp`;
+      const phone = innerWidth < 760;
+      if (!phone) import('./components/landing/puppyScene').catch(() => {});
+      for (const view of ['front', 'side', 'back', 'quarter', 'top']) new Image().src = phone ? `/landing/sprite-${view}.webp` : `/landing/${view}.webp`;
     }, 800);
     return () => { clearTimeout(t); clearTimeout(ready); };
   }, []);
@@ -261,6 +264,7 @@ function AppRoutes() {
         <Route path="payments"    element={<AdminPayments />} />
         <Route path="shop"        element={<AdminShopManager />} />
         <Route path="partners"    element={<AdminPartners />} />
+        <Route path="adoptions"   element={<AdminAdoptions />} />
         <Route path="history"     element={<AdminHistory />} />
         <Route path="analytics"   element={<AdminAnalytics />} />
         <Route path="profit"      element={<AdminProfitMgmt />} />
@@ -342,7 +346,9 @@ function AppRoutes() {
         <Route path="profile/payment" element={<PaymentMethods />} />
         <Route path="my-walk"      element={<SelfWalk />} />
         <Route path="dog-training" element={<DogTraining />} />
-        <Route path="marketplace"  element={<Marketplace />} />
+        <Route path="adopt"        element={<AdoptPet />} />
+        <Route path="marketplace"  element={<Navigate to="/owner/adopt" replace />} />
+        <Route path="plans/:planId" element={<PlanDetail />} />
         <Route path="pet-health"   element={<PetHealth />} />
       </Route>
 
@@ -380,6 +386,7 @@ export default function App() {
 
   return (
     <BrowserRouter>
+      <AndroidBackButton />
       <AppProvider>
         <CartProvider>
           <ShopProvider>

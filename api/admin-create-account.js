@@ -5,7 +5,9 @@
 // The service role key can create logins for anyone, so this only ever runs on the server, gated on the
 // caller actually being an admin themselves — never trust a role sent in the request body for that check.
 
-const clean = v => String(v || '').split('').filter(c => c.charCodeAt(0) !== 0xFEFF).join('').trim();
+import { sendTemplate } from './_lib/email.js';
+
+const clean = v =>String(v || '').split('').filter(c => c.charCodeAt(0) !== 0xFEFF).join('').trim();
 const ALLOWED_ROLES = ['walker', 'vet', 'shopowner'];
 
 export default async function handler(req, res) {
@@ -89,15 +91,12 @@ export default async function handler(req, res) {
         .catch(() => {});
     }
 
-    // Best-effort welcome email with their login details. Never blocks the response.
+    // Welcome email with their login details. Awaited so the function is not frozen before it goes out;
+    // a failed email never undoes the account (the admin can share the details another way).
     const roleLabel = role === 'vet' ? 'veterinarian' : role === 'shopowner' ? 'shop owner' : 'walker';
-    fetch(`https://${req.headers.host}/api/send-email`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ to: email, template: 'account_created', data: { name, email, password, roleLabel } }),
-    }).catch(() => {});
+    const sent = await sendTemplate(email, 'account_created', { name, email, password, roleLabel });
 
-    return res.status(200).json({ ok: true, id: newId });
+    return res.status(200).json({ ok: true, id: newId, emailSent: sent.ok });
   } catch (err) {
     console.error('admin-create-account failed:', err);
     return res.status(500).json({ error: 'Something went wrong. Please try again.' });

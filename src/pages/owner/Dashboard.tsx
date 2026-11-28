@@ -2,7 +2,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { format } from 'date-fns';
-import { Navigation, MessageCircle, ChevronRight, Star, Users, Dog, Stethoscope, Scissors, PawPrint } from 'lucide-react';
+import { Navigation, MessageCircle, ChevronRight, Star, Users, Dog, Stethoscope, Scissors, ArrowRight } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import Onboarding from '../../components/ui/Onboarding';
 import { SkeletonOwnerDashboard } from '../../components/ui/Skeleton';
@@ -233,22 +233,23 @@ export default function OwnerDashboard() {
         <Reveal delay={50}>
           <div className="grid grid-cols-3 gap-2.5" style={{ gridAutoRows: 'auto', transform: 'translateZ(0)' }}>
 
-            {/* WALK — hero card 2×2 */}
+            {/* WALK — hero card 2×2: photo on the right fading into dark green, title left, arrow bottom-left */}
             <Link to="/owner/request"
               className="col-span-2 row-span-2 relative rounded-3xl overflow-hidden active:scale-[0.97] transition-transform"
-              style={{ minHeight: 156, background: 'linear-gradient(145deg, #071a0e 0%, #1B4332 65%, #2B8A50 100%)', boxShadow: '0 10px 32px rgba(27,67,50,0.50)' }}>
-              {/* Subtle radial glow */}
-              <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse at 70% 80%, rgba(82,183,136,0.22) 0%, transparent 65%)', pointerEvents: 'none' }} />
-              <div className="p-4 relative z-10">
-                <p className="text-white font-extrabold text-[17px] leading-tight">Walk</p>
-                <p className="text-white/50 text-[11px] mt-0.5">Book a walker</p>
+              style={{ minHeight: 156, background: '#0F3B24', boxShadow: '0 10px 32px rgba(27,67,50,0.50)' }}>
+              <img src="/images/bento/walk-dog.webp" alt="" aria-hidden="true" decoding="async"
+                className="absolute top-0 right-0 h-full object-cover"
+                style={{ width: '68%', objectPosition: '40% center' }} />
+              <div className="absolute inset-0 pointer-events-none"
+                style={{ background: 'linear-gradient(90deg, #0F3B24 0%, #0F3B24 30%, rgba(15,59,36,0.75) 44%, rgba(15,59,36,0) 66%)' }} />
+              <div className="relative z-10 p-4">
+                <p className="text-white font-extrabold text-[26px] leading-none">Walk</p>
+                <p className="text-white/90 text-[13px] mt-2">Book a walker</p>
               </div>
-              {/* Glowing paw print — a flat colour glow on the card's own gradient masks perfectly,
-                  unlike the shoe photo below which needs real cutout work. */}
-              <PawPrint size={84} strokeWidth={0} fill="#52B788"
-                style={{ position: 'absolute', bottom: 28, right: 28, opacity: 0.55, filter: 'drop-shadow(0 0 14px rgba(82,183,136,0.85))', transform: 'rotate(-8deg)' }} />
-              <img src="/images/bento/shoe.png" alt="" aria-hidden="true"
-                style={{ position: 'absolute', bottom: 10, left: 14, width: '58%', maxWidth: 190, filter: 'drop-shadow(0 6px 10px rgba(0,0,0,0.45))' }} />
+              <span className="absolute left-4 bottom-4 z-10 w-10 h-10 rounded-full flex items-center justify-center"
+                style={{ background: 'rgba(43,138,80,0.55)', border: '1px solid rgba(255,255,255,0.18)' }}>
+                <ArrowRight className="w-5 h-5 text-white" />
+              </span>
               {activeWalk && (
                 <span className="absolute top-3 right-3 z-10 flex items-center gap-1 text-[9px] font-bold text-white px-2 py-0.5 rounded-full" style={{ background: '#10B981' }}>
                   <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />LIVE

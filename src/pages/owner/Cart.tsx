@@ -357,7 +357,7 @@ export default function Cart() {
       </div>
 
       {/* Sticky checkout */}
-      <div className="fixed bottom-20 lg:bottom-6 left-0 right-0 px-4 z-20">
+      <div className="fixed above-nav left-0 right-0 px-4 z-20">
         <button
           onClick={handleCheckout}
           disabled={!address.trim()}

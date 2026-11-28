@@ -115,7 +115,7 @@ export function Layout() {
         </header>
 
         {/* Content */}
-        <main ref={mainRef} className={`flex-1 overflow-y-auto overflow-x-hidden ${(isOwner || isWalker) ? 'pb-16 lg:pb-0' : ''}`}>
+        <main ref={mainRef} className={`flex-1 overflow-y-auto overflow-x-hidden ${(isOwner || isWalker) ? 'pb-nav' : ''}`}>
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={location.pathname}

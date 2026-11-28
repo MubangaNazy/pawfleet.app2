@@ -10,6 +10,14 @@ import { installChunkRecovery, isChunkLoadError, reloadForNewVersion } from './l
 initMonitoring();
 installChunkRecovery();
 
+// Keeps pictures on the phone so they still show on a slow connection (public/firebase-messaging-sw.js).
+// Website only: the Android app already has its own images built in and uses the WebView's cache.
+if ('serviceWorker' in navigator && !(window as any).Capacitor?.isNativePlatform?.()) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/firebase-messaging-sw.js').catch(() => { /* old browser or private mode */ });
+  });
+}
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <Sentry.ErrorBoundary fallback={({ error }) => <AppCrashFallback error={error} />}>

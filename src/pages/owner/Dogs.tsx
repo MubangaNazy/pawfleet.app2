@@ -376,7 +376,7 @@ export default function OwnerDogs() {
       {/* Floating add button when pets exist */}
       {!loading && myDogs.length > 0 && (
         <button type="button" onClick={() => setShowAdd(true)}
-          className="fixed bottom-24 right-5 w-14 h-14 rounded-3xl text-white flex items-center justify-center shadow-xl active:scale-95 transition-all z-40"
+          className="fixed above-nav right-5 w-14 h-14 rounded-3xl text-white flex items-center justify-center shadow-xl active:scale-95 transition-all z-40"
           style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)', boxShadow: '0 8px 24px rgba(27,67,50,0.36)' }}>
           <Plus className="w-6 h-6" />
         </button>

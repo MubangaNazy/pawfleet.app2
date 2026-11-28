@@ -123,6 +123,12 @@ See `docs/REALIGNMENT.md` for the diagnosis, system map and two-phone test.
 - Admin review: `/admin/applications` (walkers, groomers, trainers, breeders, per-service on/off). Vets and shops are still admin-created in `/admin/partners`.
 - Deploy order matters: run the migration **before** deploying code that reads `approvals`, or nobody counts as approved.
 
+## Fair use, caching, iPhone layout (2026-11-28)
+- AI Health Assistant limits: 10 questions/day and 25,000 tokens/month per person (admins unlimited), env `AI_DAILY_QUESTIONS` / `AI_MONTHLY_TOKENS`. Usage in `ai_usage` (`20261128_ai_usage.sql`), added by RPC `pf_ai_record`. If the table is missing the endpoint doesn't block anyone.
+- Picture cache: `public/firebase-messaging-sw.js` also caches images (stale-while-revalidate, 250 max), registered on the website from `main.tsx` (not in the native app). Unique-name uploads use `cacheControl: '31536000'`.
+- Floating buttons above the bottom menu use `.above-nav` / `.above-nav-tight`, and page padding uses `.pb-nav` (`index.css`). These include the iPhone home-bar inset. Never use a bare `bottom-20` for that.
+- Community: no more base64 photos saved in posts (upload or show an error); broken pictures hide; a failed load shows "Try again" (it used to show a misleading "table not set up" SQL banner).
+
 ## Pending / Known Issues
 - [ ] iOS: needs a Mac + an **active** Apple Developer account ($99/yr) before `npx cap add ios` + Xcode work can start
 - [ ] WhatsApp OTP: needs the owner to set up a WhatsApp Business API account first
@@ -143,6 +149,8 @@ Source of truth is `supabase/migrations/*.sql`, run manually in the Supabase SQL
 - `20261126_payment_intents.sql` — one row per Lenco prompt; `shop_orders.payment_reference`
 - `20261126_adoption_listings.sql` — Adopt a Pet listings, admin approval enforced by RLS + trigger
 - `20261126_chat_security.sql` — walk chat readable only by owner/walker/admin; `chat-images` bucket
+- `20261126_service_approvals.sql` — per-service approvals + `trg_users_protect`
+- `20261128_ai_usage.sql` — AI assistant fair-use counter
 
 When adding a new one: write the file, tell the owner the exact SQL to paste into the SQL Editor, and don't assume it's applied until they confirm (there's no automated way to run it from here).
 

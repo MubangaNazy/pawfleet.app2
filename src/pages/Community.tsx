@@ -58,6 +58,9 @@ export default function Community() {
   const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
   const [submittingComment, setSubmittingComment] = useState<string | null>(null);
   const photoRef = useRef<HTMLInputElement>(null);
+  // Pictures that failed to load (deleted file, bad network) are hidden instead of showing a broken icon.
+  const [brokenImgs, setBrokenImgs] = useState<Set<string>>(new Set());
+  const markBroken = (url: string) => setBrokenImgs(prev => (prev.has(url) ? prev : new Set(prev).add(url)));
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -65,17 +68,24 @@ export default function Community() {
     if (main) main.scrollTop = 0;
   }, []);
 
+  const [loading, setLoading] = useState(true);
+  const loadPosts = async () => {
+    setLoading(true);
+    // Retry once: on a slow phone network the first request can time out.
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const { data: rows, error } = await supabase
+        .from('community_posts')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(30);
+      if (!error) { setDbReady(true); setPosts((rows ?? []) as CommunityPost[]); setLoading(false); return; }
+    }
+    setDbReady(false);
+    setLoading(false);
+  };
+
   useEffect(() => {
-    supabase
-      .from('community_posts')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(50)
-      .then(({ data: rows, error }) => {
-        if (error) { setDbReady(false); return; }
-        setDbReady(true);
-        if (rows) setPosts(rows as CommunityPost[]);
-      });
+    loadPosts();
 
     const channel = supabase
       .channel('community-feed')
@@ -107,7 +117,7 @@ export default function Community() {
       const blob = base64ToBlob(b64);
       const path = `posts/${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
       const { data, error } = await supabase.storage.from('community-images').upload(path, blob, {
-        contentType: 'image/jpeg', cacheControl: '3600', upsert: false,
+        contentType: 'image/jpeg', cacheControl: '31536000', upsert: false, // unique name, so it can be cached for good
       });
       if (error) return null;
       return supabase.storage.from('community-images').getPublicUrl(data.path).data.publicUrl;
@@ -151,7 +161,13 @@ export default function Community() {
     let finalImageUrl: string | undefined;
     if (previewImg) {
       const uploaded = await uploadPostImage(previewImg);
-      finalImageUrl = uploaded ?? previewImg; // fall back to base64 if bucket not set up yet
+      if (!uploaded) {
+        // Don't save the photo inside the post itself: it makes the feed heavy and slow on phones.
+        setPosting(false);
+        setPostError('Could not upload the photo. Check your connection and try again.');
+        return;
+      }
+      finalImageUrl = uploaded;
     }
 
     const optimisticId = crypto.randomUUID();
@@ -247,12 +263,12 @@ export default function Community() {
 
         {/* DB not ready banner */}
         {dbReady === false && (
-          <div className="px-4 py-3 rounded-2xl bg-amber-50 border border-amber-200">
-            <p className="text-xs font-bold text-amber-800 mb-1">Community table not set up</p>
-            <p className="text-xs text-amber-700">Ask admin to run this in Supabase SQL editor:</p>
-            <code className="block mt-1 text-[10px] bg-amber-100 rounded p-2 break-all text-amber-900">
-              CREATE TABLE IF NOT EXISTS community_posts (id uuid DEFAULT gen_random_uuid() PRIMARY KEY, author_id text, author_name text, author_role text, author_image text, content text, image_url text, likes int DEFAULT 0, liked_by text[] DEFAULT ARRAY[]::text[], comments jsonb DEFAULT '[]', created_at timestamptz DEFAULT now()); ALTER TABLE community_posts ENABLE ROW LEVEL SECURITY; CREATE POLICY "cp_all" ON community_posts FOR ALL TO authenticated USING (true) WITH CHECK (true);
-            </code>
+          <div className="px-4 py-3 rounded-2xl bg-amber-50 border border-amber-200 flex items-center gap-3">
+            <p className="text-xs text-amber-800 flex-1">Couldn't load posts. Check your connection and try again.</p>
+            <button onClick={loadPosts} disabled={loading}
+              className="px-3 h-8 rounded-lg text-xs font-bold text-white shrink-0 disabled:opacity-50" style={{ background: '#2B8A50' }}>
+              {loading ? 'Loading…' : 'Try again'}
+            </button>
           </div>
         )}
 
@@ -305,7 +321,9 @@ export default function Community() {
         )}
 
         {/* Feed */}
-        {posts.length === 0 && dbReady !== false ? (
+        {loading && posts.length === 0 ? (
+          <div className="py-16 text-center text-sm text-ink-muted">Loading posts…</div>
+        ) : posts.length === 0 && dbReady !== false ? (
           <div className="py-16 text-center">
             <MessageCircle className="w-10 h-10 text-ink-muted mx-auto mb-3 opacity-30" />
             <p className="text-sm font-bold text-ink mb-1">Be the first to post</p>
@@ -320,8 +338,9 @@ export default function Community() {
                 <div className="flex items-start gap-3 p-3.5 pb-2">
                   <div className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center text-white text-xs font-bold shrink-0"
                     style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)' }}>
-                    {post.author_image
-                      ? <img src={post.author_image} alt="" className="w-full h-full object-cover" />
+                    {post.author_image && !brokenImgs.has(post.author_image)
+                      ? <img src={post.author_image} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover"
+                          onError={() => markBroken(post.author_image!)} />
                       : initials(post.author_name)}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -342,10 +361,10 @@ export default function Community() {
                 {post.content && (
                   <p className="px-3.5 pb-2.5 text-sm text-ink leading-relaxed">{post.content}</p>
                 )}
-                {post.image_url && (
-                  <div className="overflow-hidden">
-                    <img src={post.image_url} alt="post" className="w-full object-cover max-h-72"
-                      style={{ imageRendering: 'auto' }} />
+                {post.image_url && !brokenImgs.has(post.image_url) && (
+                  <div className="overflow-hidden bg-[#EBF5EF]">
+                    <img src={post.image_url} alt="post" loading="lazy" decoding="async" className="w-full object-cover max-h-72"
+                      onError={() => markBroken(post.image_url!)} />
                   </div>
                 )}
 

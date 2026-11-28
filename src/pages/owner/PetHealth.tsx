@@ -36,6 +36,9 @@ function toEntry(r: any): HealthEntry {
 // Runs server-side now (api/ai-health-insight.js) — the previous version called Gemini directly from
 // the browser with a key embedded in the public bundle, which anyone could lift and spend against.
 // Breed/age/recent entries are optional context so answers can actually be a little more specific.
+type AILimits = { questionsLeftToday: number; dailyQuestions: number; monthUsedPercent: number } | null;
+let lastAILimits: AILimits = null;
+
 async function getAIInsight(text: string, dogName?: string, context?: { breed?: string; age?: number; recentEntries?: { type: string; content: string; createdAt: string }[] }): Promise<string> {
   const { data: sess } = await supabase.auth.getSession();
   const token = sess.session?.access_token;
@@ -46,6 +49,8 @@ async function getAIInsight(text: string, dogName?: string, context?: { breed?: 
     body: JSON.stringify({ text, dogName, ...context }),
   });
   const json = await res.json().catch(() => ({}));
+  if ('limits' in json) lastAILimits = json.limits ?? null;
+  if (res.status === 429) throw Object.assign(new Error(json.error), { limit: true });
   if (!res.ok) throw new Error(json.error || 'Could not reach the AI assistant.');
   return json.reply as string;
 }
@@ -284,6 +289,7 @@ export default function PetHealth() {
     if (error) console.error('health_journal delete:', error);
   };
 
+  const [aiLimits, setAILimits] = useState<AILimits>(null);
   const runAI = async () => {
     if (!aiDraft.trim()) return;
     setAIThinking(true);
@@ -295,8 +301,9 @@ export default function PetHealth() {
       });
       setAIResult(result);
     } catch (err: any) {
-      setAIResult(`Could not reach AI — ${err?.message ?? 'check your connection and try again.'}`);
+      setAIResult(err?.limit ? err.message : `Could not reach AI — ${err?.message ?? 'check your connection and try again.'}`);
     } finally {
+      setAILimits(lastAILimits);
       setAIThinking(false);
     }
   };
@@ -831,6 +838,12 @@ export default function PetHealth() {
                   ? <><div className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin" /> Analysing…</>
                   : <><Sparkles className="w-4 h-4" /> Get AI Insight</>}
               </button>
+              {aiLimits && (
+                <p className="text-[11px] text-center text-ink-muted">
+                  {aiLimits.questionsLeftToday} of {aiLimits.dailyQuestions} questions left today
+                  {aiLimits.monthUsedPercent >= 70 ? ` · ${aiLimits.monthUsedPercent}% of this month's allowance used` : ''}
+                </p>
+              )}
 
               {aiResult && (
                 <div className="rounded-2xl p-4 space-y-3" style={{ background: '#F5F3FF', border: '1px solid #DDD6FE' }}>

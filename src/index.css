@@ -34,6 +34,16 @@ html, body, #root {
 /* iOS safe-area helpers */
 .safe-area-pb { padding-bottom: max(0.5rem, env(safe-area-inset-bottom)); }
 .safe-area-pt { padding-top: max(0px, env(safe-area-inset-top)); }
+/* Floating buttons and page padding that must clear the bottom menu. The menu is taller on iPhones
+   (it makes room for the home-swipe bar), so a fixed bottom-20 overlapped it there. */
+.above-nav { bottom: calc(5rem + env(safe-area-inset-bottom, 0px)); }
+.above-nav-tight { bottom: calc(4rem + env(safe-area-inset-bottom, 0px)); }
+.pb-nav { padding-bottom: calc(4rem + env(safe-area-inset-bottom, 0px)); }
+@media (min-width: 1024px) {
+  .above-nav { bottom: 1.5rem; }
+  .above-nav-tight { bottom: 1rem; }
+  .pb-nav { padding-bottom: 0; }
+}
 
 /* Prevent iOS Safari from zooming on input focus (requires font-size >= 16px) */
 @supports (-webkit-touch-callout: none) {

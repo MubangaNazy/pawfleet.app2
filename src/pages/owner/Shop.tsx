@@ -273,7 +273,7 @@ export default function Shop() {
 
       {/* Sticky cart bar */}
       {cartTotal > 0 && (
-        <div className="fixed bottom-20 lg:bottom-6 left-0 right-0 px-4 z-20">
+        <div className="fixed above-nav left-0 right-0 px-4 z-20">
           <button type="button" onClick={() => navigate('/owner/cart')}
             className="w-full max-w-2xl mx-auto flex items-center justify-between text-white rounded-2xl px-5 py-4 shadow-xl"
             style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)' }}>

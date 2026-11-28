@@ -89,7 +89,7 @@ export default function PlanDetail() {
       </div>
 
       {/* Action */}
-      <div className="fixed bottom-20 lg:bottom-6 left-0 right-0 px-4 z-20">
+      <div className="fixed above-nav left-0 right-0 px-4 z-20">
         <div className="max-w-2xl mx-auto">
           {plan.bookPath ? (
             <button onClick={() => navigate(plan.bookPath!)}

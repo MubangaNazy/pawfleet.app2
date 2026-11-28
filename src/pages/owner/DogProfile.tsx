@@ -147,7 +147,7 @@ export default function DogProfile() {
       </div>
 
       {/* ── Sticky Book CTA ─────────────────────── */}
-      <div className="fixed bottom-16 left-0 right-0 z-50 px-4 pb-3 pt-2"
+      <div className="fixed above-nav-tight left-0 right-0 z-50 px-4 pb-3 pt-2"
         style={{ background: 'linear-gradient(to top, white 80%, transparent)' }}>
         <Link
           to="/owner/request"

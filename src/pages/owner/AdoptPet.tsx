@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft, Search, SlidersHorizontal, Heart, X, Phone, MessageCircle, MapPin, Plus, Camera,
+  Search, SlidersHorizontal, Heart, X, Phone, MessageCircle, MapPin, Plus, Camera,
   Loader2, CheckCircle2, PawPrint, Clock, Trash2,
 } from 'lucide-react';
+import PageTitle from '../../components/ui/PageTitle';
 import { useApp } from '../../context/AppContext';
 import BreedPicker from '../../components/ui/BreedPicker';
 import { isBreeder } from '../../lib/providers';
@@ -34,7 +34,6 @@ function Photo({ src, className }: { src: string; className: string }) {
 }
 
 export default function AdoptPet() {
-  const navigate = useNavigate();
   const { currentUser, data, sendNotification } = useApp();
   const me = data.users.find(u => u.id === currentUser?.id) ?? currentUser;
   const breederStatus = me?.approvals?.breeder;
@@ -122,20 +121,16 @@ export default function AdoptPet() {
   return (
     <div className="max-w-2xl mx-auto min-h-full pb-32" style={{ background: '#FBFAF7' }}>
       {/* Header */}
-      <div className="px-4 pt-4 pb-3 flex items-center justify-between">
-        <button onClick={() => navigate(-1)} aria-label="Back"
-          className="w-10 h-10 -ml-2 flex items-center justify-center rounded-full hover:bg-black/5">
-          <ArrowLeft className="w-5 h-5 text-ink" />
-        </button>
-        <h1 className="text-lg font-extrabold text-ink">Adopt a Pet</h1>
-        <button onClick={() => setShowFilter(true)} aria-label="Filter"
-          className="relative w-10 h-10 -mr-2 flex items-center justify-center rounded-full hover:bg-black/5">
-          <SlidersHorizontal className="w-5 h-5 text-ink" />
-          {activeFilters > 0 && (
-            <span className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-primary text-white text-[9px] font-bold flex items-center justify-center">{activeFilters}</span>
-          )}
-        </button>
-      </div>
+      <PageTitle title="Adopt a Pet" subtitle="Dogs from checked breeders and shelters"
+        right={
+          <button onClick={() => setShowFilter(true)} aria-label="Filter"
+            className="relative w-11 h-11 flex items-center justify-center rounded-full bg-white shadow-sm border border-black/[0.04]">
+            <SlidersHorizontal className="w-5 h-5 text-ink" />
+            {activeFilters > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 w-5 h-5 rounded-full bg-primary text-white text-[10px] font-bold flex items-center justify-center">{activeFilters}</span>
+            )}
+          </button>
+        } />
 
       {/* Search */}
       <div className="px-4">

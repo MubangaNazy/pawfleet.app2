@@ -177,6 +177,7 @@ export default function VetBooking() {
     setBookingError('');
     const note = [
       `VET BOOKING: ${service.label}`,
+      chosen.vetUserId ? `VetId: ${chosen.vetUserId}` : null,
       `📍 Clinic: ${chosen.name}`,
       `Clinic address: ${chosen.address}`,
       chosen.phone ? `Clinic phone: ${chosen.phone}` : null,

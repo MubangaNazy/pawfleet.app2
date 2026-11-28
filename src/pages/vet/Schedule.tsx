@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { format, addDays, startOfWeek, parseISO, isToday, isSameDay, addWeeks, subWeeks } from 'date-fns';
 import { ChevronLeft, ChevronRight, CheckCircle2, Clock } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { isVetBookingFor } from '../../lib/vet';
 
 const SERVICE_ICON: Record<string, string> = {
   'General Checkup': '🩺',
@@ -30,14 +31,14 @@ function parseVetNote(notes: string) {
 
 export default function VetSchedule() {
   const navigate = useNavigate();
-  const { data } = useApp();
+  const { data, currentUser } = useApp();
   const [weekOffset, setWeekOffset]     = useState(0);
   const [selectedDay, setSelectedDay]   = useState(new Date());
 
   const weekStart = startOfWeek(addWeeks(new Date(), weekOffset));
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
-  const vetWalks = data.walks.filter(w => w.notes?.startsWith('VET BOOKING:') && w.status !== 'cancelled');
+  const vetWalks = data.walks.filter(w => isVetBookingFor(w, currentUser?.id) && w.status !== 'cancelled');
 
   const walksForDay = (day: Date) =>
     vetWalks

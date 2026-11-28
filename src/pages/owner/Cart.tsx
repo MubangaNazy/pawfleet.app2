@@ -22,8 +22,14 @@ async function reverseGeocode(lat: number, lng: number): Promise<string> {
 
 export default function Cart() {
   const { items, updateQty, removeItem, clearCart, total, count } = useCart();
-  const { currentUser, sendNotification } = useApp();
+  const { currentUser, sendNotification, data } = useApp();
   const { products, createPurchase } = useShop();
+  // Which shop sells (and delivers) each cart item.
+  const shopNameFor = (productId: string) => {
+    const ownerId = products.find(p => p.id === productId)?.shopOwnerId;
+    const shop = ownerId ? data.users.find(u => u.id === ownerId) : undefined;
+    return shop ? (shop.businessName || shop.name) : '';
+  };
   const navigate = useNavigate();
 
   const [ordered, setOrdered] = useState(false);
@@ -144,7 +150,7 @@ export default function Cart() {
         <div>
           <h2 className="text-2xl font-bold text-ink mb-2">Order Placed!</h2>
           <p className="text-ink-secondary text-sm leading-relaxed">
-            Your order has been received. We'll prepare it and deliver to your address.
+            Your order has been sent to the shop. They will contact you to arrange delivery, and you'll get a notification when it's on the way.
           </p>
         </div>
         <div className="w-full bg-primary-50 rounded-2xl p-4 space-y-2">
@@ -217,6 +223,9 @@ export default function Cart() {
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-ink">{item.name}</p>
               <p className="text-xs text-ink-muted">{item.subtitle}</p>
+              {shopNameFor(item.id) && (
+                <p className="text-[11px] font-semibold text-primary mt-0.5">Delivered by {shopNameFor(item.id)}</p>
+              )}
               <p className="text-sm font-bold text-primary mt-1">
                 ZMW {(item.price * item.qty).toLocaleString()}
                 <span className="text-xs font-normal text-ink-muted ml-1">(ZMW {item.price.toLocaleString()} each)</span>

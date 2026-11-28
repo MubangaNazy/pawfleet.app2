@@ -271,7 +271,7 @@ export default function WalkerWalkDetail() {
         {walk.notes && (
           <div className="bg-white rounded-2xl border border-surface-border p-4">
             <h3 className="text-xs font-semibold text-ink-muted uppercase tracking-wide mb-2">Notes</h3>
-            <p className="text-sm text-ink italic leading-relaxed">"{walk.notes}"</p>
+            <p className="text-sm text-ink italic leading-relaxed whitespace-pre-line">"{walk.notes.split('\n').filter(l => !/^(VetId|ClinicGeo):/.test(l)).join('\n')}"</p>
           </div>
         )}
 

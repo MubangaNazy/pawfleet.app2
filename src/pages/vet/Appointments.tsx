@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { format, parseISO } from 'date-fns';
 import { Search, CheckCircle2, Clock, XCircle } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { isVetBookingFor } from '../../lib/vet';
 
 type Filter = 'all' | 'pending' | 'completed' | 'cancelled';
 
@@ -23,14 +24,14 @@ const STATUS_META: Record<string, { label: string; color: string; bg: string; ic
 };
 
 export default function VetAppointments() {
-  const { data, updateWalk } = useApp();
+  const { data, updateWalk, currentUser } = useApp();
   const navigate = useNavigate();
   const [filter,  setFilter]  = useState<Filter>('all');
   const [query,   setQuery]   = useState('');
   const [confirming, setConfirming] = useState<string | null>(null);
 
   const allVetWalks = data.walks
-    .filter(w => w.notes?.startsWith('VET BOOKING:'))
+    .filter(w => isVetBookingFor(w, currentUser?.id))
     .sort((a, b) => new Date(b.scheduledDate).getTime() - new Date(a.scheduledDate).getTime());
 
   const filtered = allVetWalks.filter(w => {

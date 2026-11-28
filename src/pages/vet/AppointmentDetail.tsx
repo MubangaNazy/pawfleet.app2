@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { format, parseISO } from 'date-fns';
 import { ArrowLeft, CheckCircle2, Phone, AlertTriangle, FileText, Save } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { isVetBookingFor } from '../../lib/vet';
 
 const SERVICE_INCLUDES: Record<string, string[]> = {
   'General Checkup':  ['Full physical exam', 'Vital signs check', 'Health report'],
@@ -57,9 +58,10 @@ function extractVetNotes(rawNotes: string): { bookingPart: string; vetNotesPart:
 export default function VetAppointmentDetail() {
   const { walkId } = useParams<{ walkId: string }>();
   const navigate   = useNavigate();
-  const { data, updateWalk } = useApp();
+  const { data, updateWalk, currentUser } = useApp();
 
-  const walk = data.walks.find(w => w.id === walkId);
+  // Only this clinic's own bookings open here (admins use the admin screens).
+  const walk = data.walks.find(w => w.id === walkId && (currentUser?.role === 'admin' || isVetBookingFor(w, currentUser?.id)));
   const { vetNotesPart } = walk ? extractVetNotes(walk.notes || '') : { vetNotesPart: '' };
   const [vetNotes, setVetNotes] = useState(vetNotesPart);
   const [saving,   setSaving]   = useState(false);

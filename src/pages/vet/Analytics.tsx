@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { format, parseISO, subDays, isAfter, startOfMonth, endOfMonth } from 'date-fns';
 import { TrendingUp, CheckCircle2, Clock, XCircle, DollarSign } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { isVetBookingFor } from '../../lib/vet';
 
 const SERVICE_ICON: Record<string, string> = {
   'General Checkup': '🩺',
@@ -26,10 +27,10 @@ function parseVetNote(notes: string) {
 type Range = '7d' | '30d' | 'month' | 'all';
 
 export default function VetAnalytics() {
-  const { data } = useApp();
+  const { data, currentUser } = useApp();
   const [range, setRange] = useState<Range>('30d');
 
-  const allVetWalks = data.walks.filter(w => w.notes?.startsWith('VET BOOKING:'));
+  const allVetWalks = data.walks.filter(w => isVetBookingFor(w, currentUser?.id));
 
   const now = new Date();
   const filtered = allVetWalks.filter(w => {

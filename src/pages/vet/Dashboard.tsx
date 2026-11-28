@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { Calendar, ClipboardList, TrendingUp, Clock, CheckCircle2, BarChart2 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { isVetBookingFor } from '../../lib/vet';
 import SubscriptionBanner from '../../components/ui/SubscriptionBanner';
 import { format, isToday, parseISO, startOfWeek, endOfWeek, isTomorrow } from 'date-fns';
 
@@ -25,10 +26,10 @@ function parseVetNote(notes: string) {
 
 export default function VetDashboard() {
   const navigate = useNavigate();
-  const { data } = useApp();
+  const { data, currentUser } = useApp();
 
   const vetWalks = data.walks
-    .filter(w => w.notes?.startsWith('VET BOOKING:'))
+    .filter(w => isVetBookingFor(w, currentUser?.id))
     .sort((a, b) => new Date(a.scheduledDate).getTime() - new Date(b.scheduledDate).getTime());
 
   const todayAppts   = vetWalks.filter(w => isToday(parseISO(w.scheduledDate)));

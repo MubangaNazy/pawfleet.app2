@@ -532,6 +532,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }));
     supabase.from('notifications').update({ data: newData }).eq('id', notifId)
       .then(({ error }) => { if (error) console.error('updateOrderStatus:', error); });
+    // Tell the buyer, from the shop, so they know when to expect it.
+    const buyerId = notif.data?.buyerId;
+    if (buyerId && status !== 'pending' && status !== notif.data?.deliveryStatus) {
+      const shopName = currentUser?.businessName || currentUser?.name || 'The shop';
+      const items = notif.data?.itemSummary || 'Your order';
+      if (status === 'confirmed') {
+        sendNotification(buyerId, 'shop_message', `Your order is on the way 🚚`, `${shopName} is delivering: ${items}.`, { shopOwnerId: currentUser?.id || '' });
+      } else {
+        sendNotification(buyerId, 'shop_message', `Order delivered ✅`, `${shopName} marked your order as delivered: ${items}.`, { shopOwnerId: currentUser?.id || '' });
+      }
+    }
   };
 
   const getAdminReferralCode = (adminId: string) => adminReferralCode(adminId);

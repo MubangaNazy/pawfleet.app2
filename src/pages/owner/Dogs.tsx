@@ -3,6 +3,7 @@ import BreedPicker from '../../components/ui/BreedPicker';
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import { Camera, Plus, X, ArrowRight, Upload, ChevronDown, Search, Bath, Stethoscope, Dog as DogIcon } from 'lucide-react';
+import PageTitle from '../../components/ui/PageTitle';
 import { useApp } from '../../context/AppContext';
 import { Button } from '../../components/ui/Button';
 
@@ -219,22 +220,10 @@ export default function OwnerDogs() {
   return (
     <div className="min-h-screen" style={{ background: '#F4F7F5' }}>
 
-      {/* Hero header */}
-      <div className="relative overflow-hidden"
-        style={{ background: 'linear-gradient(135deg, #071a0e 0%, #1B4332 55%, #2B8A50 100%)', paddingBottom: 32 }}>
-        <div style={{ position: 'absolute', top: '-20%', right: '-5%', width: '55vw', height: '55vw', borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(82,183,136,0.18) 0%, transparent 70%)', pointerEvents: 'none' }} />
-        <div className="px-5 pt-14 pb-2">
-          <p className="text-white/50 text-xs font-bold uppercase tracking-widest mb-1">PawFleet</p>
-          <h1 className="text-white font-extrabold text-3xl leading-tight">My Pets</h1>
-          <p className="text-white/60 text-sm mt-1">
-            {loading ? 'Loading…' : myDogs.length === 0 ? 'No pets registered yet' : `${myDogs.length} registered pet${myDogs.length !== 1 ? 's' : ''}`}
-          </p>
-        </div>
-      </div>
+      <PageTitle title="My Pets"
+        subtitle={loading ? 'Loading…' : myDogs.length === 0 ? 'No pets registered yet' : `${myDogs.length} registered pet${myDogs.length !== 1 ? 's' : ''}`} />
 
-      {/* Cards area — overlaps hero with rounded top */}
-      <div className="px-4 -mt-4 pb-24 space-y-4">
+      <div className="px-4 pb-24 space-y-4">
 
         {loading ? (
           [1, 2].map(i => (

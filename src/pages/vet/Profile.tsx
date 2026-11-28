@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LogOut, Stethoscope, Camera, Upload, Check, X, Pencil, MapPin, Clock } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { isVetBookingFor } from '../../lib/vet';
 import DeleteAccountRow from '../../components/account/DeleteAccount';
 import ChangePasswordRow from '../../components/account/ChangePassword';
 import PrivacyTermsRow from '../../components/account/PrivacyTermsRow';
@@ -124,7 +125,7 @@ export default function VetProfile() {
 
   const initials = currentUser?.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || 'VC';
 
-  const vetWalks     = data.walks.filter(w => w.notes?.startsWith('VET BOOKING:'));
+  const vetWalks     = data.walks.filter(w => isVetBookingFor(w, currentUser?.id));
   const totalRev     = vetWalks.filter(w => w.status === 'completed').reduce((s, w) => s + w.price, 0);
   const pendingCount = vetWalks.filter(w => w.status === 'pending').length;
 

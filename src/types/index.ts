@@ -12,6 +12,7 @@ export interface WalkerPricing {
 }
 
 export type ServiceKey = 'walking' | 'grooming' | 'training' | 'breeder';
+export type Applications = Partial<Record<ServiceKey, Record<string, string | number | boolean | string[] | undefined>>>;
 export type ApprovalStatus = 'applied' | 'approved' | 'rejected';
 /** Per-service approvals. Only an admin can set 'approved' or 'rejected' (database trigger). */
 export type Approvals = Partial<Record<ServiceKey, ApprovalStatus>>;
@@ -44,6 +45,8 @@ export interface User {
   wentOnlineAt?: string;               // ISO timestamp when walker went online
   pricing?: WalkerPricing;             // Walker's per-duration pricing (JSONB)
   approvals?: Approvals;
+  /** Answers from each application form (breeder, grooming, training), keyed by service. */
+  applications?: Applications;
 }
 
 export interface AppNotification {

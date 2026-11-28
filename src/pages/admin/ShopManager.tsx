@@ -1,6 +1,8 @@
 import { useRef, useState } from 'react';
 import { apiUrl } from '../../lib/api';
 import { Plus, Pencil, Trash2, X, Search, ShoppingBag, Camera, Upload, Sparkles, Loader2, Check, Copy } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
+import ShopPayouts from './ShopPayouts';
 import { supabase } from '../../lib/supabase';
 
 async function resizePhoto(file: File, maxDim = 800, q = 0.82): Promise<string> {
@@ -40,7 +42,29 @@ interface FormState {
 
 const BLANK: FormState = { name: '', price: '', badge: '', img: '', category: 'treats', description: '' };
 
+// Shop Manager has two parts: PawFleet's product list, and every shop with what PawFleet owes it.
 export default function AdminShopManager() {
+  const [params, setParams] = useSearchParams();
+  const tab = params.get('tab') === 'shops' ? 'shops' : 'products';
+  const go = (t: 'products' | 'shops') => setParams(t === 'shops' ? { tab: 'shops' } : {}, { replace: true });
+  return (
+    <div>
+      <div className="max-w-3xl mx-auto px-4 pt-4">
+        <div className="grid grid-cols-2 gap-1 p-1 rounded-2xl bg-surface-secondary">
+          {([['products', 'Products'], ['shops', 'Shops & payouts']] as const).map(([id, label]) => (
+            <button key={id} type="button" onClick={() => go(id)}
+              className={`h-10 rounded-xl text-sm font-bold ${tab === id ? 'bg-white text-ink shadow-sm' : 'text-ink-muted'}`}>{label}</button>
+          ))}
+        </div>
+      </div>
+      {tab === 'shops'
+        ? <div className="max-w-3xl mx-auto p-4"><ShopPayouts /></div>
+        : <ProductsManager />}
+    </div>
+  );
+}
+
+function ProductsManager() {
   const { products, addProduct, updateProduct, removeProduct } = useShop();
   const { count: cartTotal } = useCart();
   const fileRef = useRef<HTMLInputElement>(null);

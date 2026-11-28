@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import React, { useEffect, useState } from 'react';
 import { format, isToday } from 'date-fns';
 import { CheckCircle, Clock, ArrowRight, Flame, TrendingUp, ChevronRight, Users } from 'lucide-react';
+import ApplyServiceSheet from '../../components/apply/ApplyServiceSheet';
 import SubscriptionBanner from '../../components/ui/SubscriptionBanner';
 import { useApp } from '../../context/AppContext';
 import Onboarding from '../../components/ui/Onboarding';
@@ -9,7 +10,6 @@ import { SkeletonWalkerDashboard } from '../../components/ui/Skeleton';
 import { StatusBadge } from '../../components/ui/Badge';
 import WalkRequestPopup, { getDeclinedWalks, addDeclinedWalk } from '../../components/ui/WalkRequestPopup';
 import { WalkingDogIllustration } from '../../components/ui/Illustrations';
-import type { User } from '../../types';
 import GoOnlineCard from '../../components/walker/GoOnlineCard';
 import { useDirectInbox } from '../../lib/directMessages';
 import { canWalkerTakeOpenJob } from '../../lib/jobs';
@@ -91,11 +91,13 @@ export default function WalkerDashboard() {
   const groomingOnly = !!groomingStatus && !walkingStatus;
   const [applyingFor, setApplyingFor] = useState<'' | 'grooming' | 'walking'>('');
   const [applyDone, setApplyDone] = useState('');
+  const [showGroomApply, setShowGroomApply] = useState(false);
   const applyExtra = async (key: 'grooming' | 'walking') => {
+    if (key === 'grooming') { setShowGroomApply(true); return; }
     setApplyingFor(key);
     await applyForService(key);
     setApplyingFor('');
-    setApplyDone(key === 'grooming' ? 'Grooming application sent. We will let you know once it is approved.' : 'Walking application sent. We will let you know once it is approved.');
+    setApplyDone('Walking application sent. We will let you know once it is approved.');
   };
 
   const gamStats = getWalkerStats(currentUser?.id || '');
@@ -560,156 +562,14 @@ export default function WalkerDashboard() {
       )}
 
       {/* ── Trainer Application Modal ── */}
-      {showTrainerModal && (
-        <TrainerApplicationModal
-          walker={currentUser!}
-          onClose={() => setShowTrainerModal(false)}
-        />
+      {showGroomApply && (
+        <ApplyServiceSheet service="grooming" onClose={() => setShowGroomApply(false)}
+          onDone={() => { setShowGroomApply(false); setApplyDone('Grooming application sent. We will let you know once it is approved.'); }} />
       )}
-    </div>
-  );
-}
-
-// ── Trainer Application Modal ──────────────────────────────────
-function TrainerApplicationModal({ walker, onClose }: { walker: User; onClose: () => void }) {
-  const { updateUser, sendNotification, data } = useApp();
-  const [step, setStep] = React.useState<'info' | 'form' | 'done'>('info');
-  const [experience, setExperience] = React.useState('');
-  const [motivation, setMotivation] = React.useState('');
-  const [submitting, setSubmitting] = React.useState(false);
-
-  const adminUser = data.users.find(u => u.role === 'admin');
-
-  const handleSubmit = async () => {
-    setSubmitting(true);
-    const existing = (walker.pricing as any) || {};
-    await updateUser(walker.id, {
-      pricing: {
-        ...existing,
-        trainerStatus: 'applied',
-        trainerAppliedAt: new Date().toISOString(),
-        experience,
-        motivation,
-      },
-      approvals: { ...(walker.approvals || {}), training: 'applied' },
-    });
-    const adminId = adminUser?.id ?? '47ba55a7-0484-4047-bd56-1aa383aa1c7b';
-    sendNotification(adminId, 'trainer_application', 'Trainer Application', `${walker.name} has applied to become a dog trainer`, {
-      walkerId: walker.id, walkerName: walker.name, experience, motivation,
-    });
-    setSubmitting(false);
-    setStep('done');
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black/55 backdrop-blur-sm z-50 flex items-end"
-      onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="w-full max-w-lg mx-auto bg-white rounded-t-3xl overflow-hidden"
-        style={{ maxHeight: '92vh' }} onClick={e => e.stopPropagation()}>
-
-        {/* Handle */}
-        <div className="flex justify-center pt-3 pb-1">
-          <div className="w-10 h-1 rounded-full bg-surface-border" />
-        </div>
-
-        {step === 'info' && (
-          <div className="px-6 pb-10">
-            {/* Icon */}
-            <div className="flex justify-center mt-4 mb-5">
-              <div className="w-20 h-20 rounded-3xl flex items-center justify-center"
-                style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)' }}>
-                <svg width="44" height="44" viewBox="0 0 44 44" fill="none">
-                  <rect x="4" y="20" width="22" height="13" rx="6.5" fill="white" opacity="0.9"/>
-                  <rect x="24" y="23" width="14" height="7" rx="3.5" fill="white" opacity="0.85"/>
-                  <circle cx="12" cy="26" r="3" fill="#1B4332"/>
-                  <path d="M33 13 Q36 17 36 22" stroke="white" strokeWidth="2.5" strokeLinecap="round" fill="none" opacity="0.7"/>
-                  <path d="M36 10 Q40 16 40 22" stroke="white" strokeWidth="2.5" strokeLinecap="round" fill="none" opacity="0.4"/>
-                  <circle cx="10" cy="10" r="7" fill="#52B788"/>
-                  <circle cx="10" cy="10" r="2.5" fill="white"/>
-                  <circle cx="6.5" cy="6.5" r="1.5" fill="white"/>
-                  <circle cx="13.5" cy="6.5" r="1.5" fill="white"/>
-                </svg>
-              </div>
-            </div>
-            <h2 className="text-xl font-extrabold text-ink text-center mb-1">Become a Dog Trainer</h2>
-            <p className="text-sm text-ink-secondary text-center mb-6">Join PawFleet's certified trainer programme and earn more</p>
-
-            <div className="space-y-3 mb-7">
-              {[
-                { icon: '💰', title: 'Higher earnings', desc: 'Trainers earn K3,500–K6,000 per training package' },
-                { icon: '📋', title: 'Flexible schedule', desc: '35–60 min daily sessions, 14-day programmes' },
-                { icon: '🎓', title: 'PawFleet certified', desc: 'Get a verified trainer badge on your profile' },
-                { icon: '🐕', title: 'Basic & security training', desc: 'Commands, aggression control, protection training' },
-              ].map(item => (
-                <div key={item.title} className="flex items-start gap-3 p-3.5 rounded-2xl border border-surface-border">
-                  <span className="text-xl shrink-0">{item.icon}</span>
-                  <div>
-                    <p className="font-bold text-ink text-sm">{item.title}</p>
-                    <p className="text-xs text-ink-muted mt-0.5">{item.desc}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <button onClick={() => setStep('form')}
-              className="w-full py-4 rounded-2xl text-white font-extrabold text-base"
-              style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)', boxShadow: '0 8px 24px rgba(27,67,50,0.3)' }}>
-              Apply Now →
-            </button>
-          </div>
-        )}
-
-        {step === 'form' && (
-          <div className="px-6 pb-10">
-            <h2 className="text-lg font-extrabold text-ink mb-1 mt-4">Your application</h2>
-            <p className="text-sm text-ink-muted mb-5">Tell us about your experience with dogs</p>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-ink-muted uppercase tracking-wide mb-1.5">Dog handling experience</label>
-                <textarea
-                  value={experience}
-                  onChange={e => setExperience(e.target.value)}
-                  rows={3}
-                  placeholder="E.g. I've been handling dogs for 3 years, helped train guard dogs..."
-                  className="w-full px-4 py-3 rounded-2xl border border-surface-border text-sm text-ink resize-none focus:outline-none focus:border-primary"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-ink-muted uppercase tracking-wide mb-1.5">Why do you want to be a trainer?</label>
-                <textarea
-                  value={motivation}
-                  onChange={e => setMotivation(e.target.value)}
-                  rows={3}
-                  placeholder="E.g. I'm passionate about working with dogs and want to help owners..."
-                  className="w-full px-4 py-3 rounded-2xl border border-surface-border text-sm text-ink resize-none focus:outline-none focus:border-primary"
-                />
-              </div>
-            </div>
-
-            <button onClick={handleSubmit} disabled={submitting || !experience.trim()}
-              className="w-full py-4 rounded-2xl text-white font-extrabold text-base mt-6 disabled:opacity-50"
-              style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)', boxShadow: '0 8px 24px rgba(27,67,50,0.3)' }}>
-              {submitting ? 'Submitting…' : 'Submit Application'}
-            </button>
-          </div>
-        )}
-
-        {step === 'done' && (
-          <div className="px-6 pb-12 text-center">
-            <p className="text-5xl mt-8 mb-4">🎉</p>
-            <h2 className="text-xl font-extrabold text-ink mb-2">Application Submitted!</h2>
-            <p className="text-sm text-ink-secondary mb-8">
-              The admin will review your application and contact you within 48 hours. You'll get a notification when approved.
-            </p>
-            <button onClick={onClose}
-              className="w-full py-4 rounded-2xl text-white font-bold"
-              style={{ background: 'linear-gradient(135deg, #1B4332, #2B8A50)' }}>
-              Back to Dashboard
-            </button>
-          </div>
-        )}
-      </div>
+      {showTrainerModal && (
+        <ApplyServiceSheet service="training" onClose={() => setShowTrainerModal(false)}
+          onDone={() => { setShowTrainerModal(false); setApplyDone('Trainer application sent. We will let you know once it is approved.'); }} />
+      )}
     </div>
   );
 }

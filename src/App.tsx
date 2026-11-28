@@ -25,6 +25,7 @@ const AdminShopManager = lazy(() => import('./pages/admin/ShopManager'));
 const AdminPartners    = lazy(() => import('./pages/admin/Partners'));
 const AdminAdoptions   = lazy(() => import('./pages/admin/Adoptions'));
 const AdminApplications = lazy(() => import('./pages/admin/Applications'));
+const AdminTrails       = lazy(() => import('./pages/admin/Trails'));
 const AdminHistory     = lazy(() => import('./pages/admin/History'));
 const AdminAnalytics   = lazy(() => import('./pages/admin/Analytics'));
 const AdminProfitMgmt  = lazy(() => import('./pages/admin/ProfitManagement'));
@@ -267,6 +268,10 @@ function AppRoutes() {
         <Route path="partners"    element={<AdminPartners />} />
         <Route path="adoptions"   element={<AdminAdoptions />} />
         <Route path="applications" element={<AdminApplications />} />
+        <Route path="groomers" element={<AdminApplications key="grooming" lock="grooming" title="Groomers" intro="Everyone who grooms on PawFleet: individuals, grooming businesses and walkers who also groom. Approve applications and see each groomer's answers." />} />
+        <Route path="trainers" element={<AdminApplications key="training" lock="training" title="Trainers" intro="Dog trainers: their experience, methods and references. Only approved trainers get training requests." />} />
+        <Route path="breeders" element={<AdminApplications key="breeder" lock="breeder" title="Breeders & shelters" intro="Breeders and shelters who can list dogs on Adopt a Pet. Check their kennel details, vet reference and photos before approving. Each dog they list is reviewed again in Adoptions." />} />
+        <Route path="trails" element={<AdminTrails />} />
         <Route path="history"     element={<AdminHistory />} />
         <Route path="analytics"   element={<AdminAnalytics />} />
         <Route path="profit"      element={<AdminProfitMgmt />} />

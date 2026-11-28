@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Map, ListChecks, PlusCircle,
   Users, UserCog, CreditCard, Activity, DollarSign, Clock,
   LogOut, X, Dog, ChevronRight, Scissors, ShoppingBag, User, Calendar, Bell, Package, TrendingUp, History, Trophy, Stethoscope, ClipboardList,
-  GraduationCap, Store, ClipboardCheck,
+  GraduationCap, Store, ClipboardCheck, Route, Heart,
 } from 'lucide-react';
 import PawFleetLogo from '../ui/PawFleetLogo';
 import { useApp } from '../../context/AppContext';
@@ -16,11 +16,16 @@ const adminNav = [
   { to: '/admin/walks',       icon: ListChecks,      label: 'All Walks' },
   { to: '/admin/create-walk', icon: PlusCircle,      label: 'Create Walk' },
   { to: '/admin/map',         icon: Map,             label: 'Live Map' },
+  { to: '/admin/trails',      icon: Route,           label: 'Trails' },
   { to: '/admin/walkers',     icon: UserCog,         label: 'Walkers' },
+  { to: '/admin/groomers',    icon: Scissors,        label: 'Groomers' },
+  { to: '/admin/trainers',    icon: GraduationCap,   label: 'Trainers' },
+  { to: '/admin/breeders',    icon: Heart,           label: 'Breeders & Shelters' },
   { to: '/admin/owners',      icon: Users,           label: 'Owners' },
   { to: '/admin/dogs',        icon: Dog,             label: 'All Pets' },
   { to: '/admin/payments',    icon: CreditCard,      label: 'Payments' },
   { to: '/admin/shop',        icon: ShoppingBag,     label: 'Shop Manager' },
+  { to: '/admin/shop?tab=shops', icon: CreditCard,   label: 'Shops & Payouts' },
   { to: '/admin/partners',    icon: Stethoscope,     label: 'Vets & Shop Owners' },
   { to: '/admin/applications', icon: ClipboardCheck, label: 'Applications' },
   { to: '/admin/adoptions',   icon: Store,           label: 'Adoptions' },

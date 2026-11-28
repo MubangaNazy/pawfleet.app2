@@ -5,6 +5,8 @@ import { format, parseISO } from 'date-fns';
 import { useApp } from '../../context/AppContext';
 import { SERVICE_LABEL, providerTitle } from '../../lib/providers';
 import type { User, ServiceKey, ApprovalStatus } from '../../types';
+import { ApplicationSummary } from '../../components/apply/ApplicationForm';
+import type { ApplicationValues, ApplyService } from '../../lib/applications';
 
 type Tab = ServiceKey | 'all';
 const TABS: { id: Tab; label: string }[] = [
@@ -22,10 +24,17 @@ const STATUS_STYLE: Record<ApprovalStatus, string> = {
   rejected: 'bg-red-50 text-red-600 border-red-200',
 };
 
-export default function AdminApplications() {
+const FORM_SERVICES: ApplyService[] = ['grooming', 'training', 'breeder'];
+
+/**
+ * Review screen. With `lock` it becomes one section (Groomers, Breeders, Trainers): only that service,
+ * opening on "Waiting" when someone is waiting, otherwise on the approved list.
+ */
+export default function AdminApplications({ lock, title, intro }: { lock?: ServiceKey; title?: string; intro?: string } = {}) {
   const { data, setApproval } = useApp();
-  const [tab, setTab] = useState<Tab>('walking');
-  const [status, setStatus] = useState<ApprovalStatus>('applied');
+  const [tab, setTab] = useState<Tab>(lock ?? 'walking');
+  const [status, setStatus] = useState<ApprovalStatus>(() =>
+    lock && !data.users.some(u => u.approvals?.[lock] === 'applied') ? 'approved' : 'applied');
   const [q, setQ] = useState('');
   const [busy, setBusy] = useState('');
   const [msg, setMsg] = useState('');
@@ -60,15 +69,16 @@ export default function AdminApplications() {
   return (
     <div className="max-w-5xl mx-auto p-4 space-y-4">
       <div>
-        <h1 className="text-xl font-extrabold text-ink">Applications</h1>
-        <p className="text-sm text-ink-muted">
+        <h1 className="text-xl font-extrabold text-ink">{title ?? 'Applications'}</h1>
+        {intro && <p className="text-sm text-ink-muted">{intro}</p>}
+        <p className={`text-sm text-ink-muted ${intro ? 'hidden' : ''}`}>
           Each service is approved on its own. Approving someone as a walker does not make them a groomer.
           Vets and shops are added in <Link to="/admin/partners" className="text-primary font-semibold">Vets &amp; Shop Owners</Link>;
           pets for adoption in <Link to="/admin/adoptions" className="text-primary font-semibold">Adoptions</Link>.
         </p>
       </div>
 
-      <div className="flex gap-2 overflow-x-auto pb-1">
+      <div className={`flex gap-2 overflow-x-auto pb-1 ${lock ? 'hidden' : ''}`}>
         {TABS.map(t => {
           const n = t.id === 'all' ? 0 : count(t.id);
           return (
@@ -80,6 +90,17 @@ export default function AdminApplications() {
           );
         })}
       </div>
+
+      {lock && (
+        <div className="grid grid-cols-3 gap-2">
+          {(['applied', 'approved', 'rejected'] as ApprovalStatus[]).map(st => (
+            <div key={st} className="bg-white rounded-2xl border border-surface-border p-3">
+              <p className="text-2xl font-extrabold text-ink">{data.users.filter(u => u.approvals?.[lock] === st).length}</p>
+              <p className="text-[11px] text-ink-muted">{st === 'applied' ? 'Waiting for review' : st === 'approved' ? 'Approved' : 'Rejected / removed'}</p>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="flex flex-wrap gap-2 items-center">
         {tab !== 'all' && (['applied', 'approved', 'rejected'] as ApprovalStatus[]).map(s => (
@@ -132,6 +153,17 @@ export default function AdminApplications() {
                   <span className="text-[10px] text-ink-muted">ID / registration document — tap to open full size</span>
                 </a>
               )}
+
+              {(() => {
+                const shown = (tab === 'all' ? FORM_SERVICES : FORM_SERVICES.filter(k => k === tab))
+                  .filter(k => tab !== 'all' || u.applications?.[k]);
+                return shown.map(k => (
+                  <details key={k} className="rounded-xl bg-surface-secondary px-3 py-2" open={tab !== 'all' && status === 'applied'}>
+                    <summary className="text-xs font-bold text-ink cursor-pointer">{SERVICE_LABEL[k]} application</summary>
+                    <div className="pt-2"><ApplicationSummary service={k} value={u.applications?.[k] as ApplicationValues | undefined} /></div>
+                  </details>
+                ));
+              })()}
 
               <div className="space-y-2 pt-1">
                 {services.map(k => {

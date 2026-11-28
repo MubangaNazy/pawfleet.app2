@@ -3,7 +3,8 @@ import { isWalker, isGroomer, isTrainer } from '../lib/providers';
 import { canWalkerTakeOpenJob } from '../lib/jobs';
 import { apiUrl, apiPost } from '../lib/api';
 import { supabase } from '../lib/supabase';
-import { User, Dog, Walk, Payment, WalkerStats, WalkerBadge, AppData, Role, BadgeId, AppNotification, ServiceKey, ApprovalStatus, Approvals } from '../types';
+import { User, Dog, Walk, Payment, WalkerStats, WalkerBadge, AppData, Role, BadgeId, AppNotification, ServiceKey, ApprovalStatus, Approvals, Applications } from '../types';
+import { uploadApplicationPhotos, type ApplyService } from '../lib/applications';
 import { requestNotificationPermission, onForegroundMessage } from '../lib/firebase';
 import { identifyUser, clearUser, trackEvent } from '../lib/monitoring';
 import { goOffline } from '../lib/liveTracking';
@@ -17,6 +18,18 @@ function sendEmail(to: string | undefined, template: string, data: Record<string
   // Sends the login token when there is one; the server only lets people email themselves (or admins
   // email walkers about their application).
   apiPost('/api/send-email', { to: to.trim().toLowerCase(), template, data }).catch(() => {}); // best-effort
+}
+
+// Never store a raw photo (data: URL) inside the users row or login metadata: too big, and it would be
+// loaded for every user. Only uploaded links are kept.
+function stripPhotos(apps?: Applications): Applications | undefined {
+  if (!apps) return apps;
+  const out: Applications = {};
+  for (const [k, v] of Object.entries(apps)) {
+    if (!v) continue;
+    out[k as ServiceKey] = Object.fromEntries(Object.entries(v).filter(([, x]) => !(typeof x === 'string' && x.startsWith('data:'))));
+  }
+  return out;
 }
 
 // ── Type helpers ────────────────────────────────────────────
@@ -38,6 +51,7 @@ const toUser = (r: any): User => ({
   wentOnlineAt: r.went_online_at ?? undefined,
   pricing: r.pricing ?? undefined,
   approvals: r.approvals ?? {},
+  applications: r.applications ?? {},
   referralCode: r.referral_code ?? undefined,
   referredByAdminId: r.referred_by_admin_id ?? undefined,
   fcmToken: r.fcm_token ?? undefined,
@@ -118,6 +132,8 @@ interface RegisterExtras {
   businessName?: string;
   businessAddress?: string;
   businessType?: string;
+  /** Application answers; photo answers may still be data: URLs and are uploaded after sign-up. */
+  applications?: Applications;
 }
 interface AppContextType {
   loading: boolean;
@@ -660,6 +676,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               businessAddress: meta.businessAddress || undefined,
               businessType: meta.businessType || undefined,
               nrc: meta.nrc || undefined,
+              applications: meta.applications && typeof meta.applications === 'object' ? meta.applications : {},
             };
             const healRow = (phoneValue: string | null) => supabase.from('users').upsert({
               id: healed.id, name: healed.name, phone: phoneValue,
@@ -670,6 +687,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               business_address: healed.businessAddress ?? null,
               business_type: healed.businessType ?? null,
               nrc: healed.nrc ?? null,
+              applications: healed.applications ?? {},
             }, { onConflict: 'id' });
             let { error: healErr } = await healRow(meta.phone || null);
             // Someone else already has this phone on file — keep the account working rather than fail on it.
@@ -777,6 +795,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         businessAddress: extras?.businessAddress ?? null,
         businessType: extras?.businessType ?? null,
         nrc: extras?.nrc ?? null,
+        applications: stripPhotos(extras?.applications),
       } },
     });
     if (authError) return { success: false, error: authError.message };
@@ -824,6 +843,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
+    // Application photos can only be uploaded with a login; without one (email confirmation on) they are
+    // dropped and the admin sees the text answers, plus can ask for photos.
+    let savedApplications: Applications = {};
+    if (extras?.applications) {
+      const hasSession = !!(await supabase.auth.getSession()).data.session;
+      for (const [k, v] of Object.entries(extras.applications)) {
+        if (!v) continue;
+        const withLinks = hasSession ? await uploadApplicationPhotos(userId, k as ApplyService, v) : v;
+        savedApplications[k as ServiceKey] = stripPhotos({ [k]: withLinks })?.[k as ServiceKey];
+      }
+    }
+
     const newUser: User = {
       id: userId, name, phone, email, password: '', role, createdAt: now,
       imageUrl: publicImageUrl,
@@ -834,6 +865,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       businessName: extras?.businessName,
       businessAddress: extras?.businessAddress,
       businessType: extras?.businessType,
+      applications: savedApplications,
     };
 
     // Insert profile row — critical for the account to actually work.
@@ -847,6 +879,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       business_name: extras?.businessName ?? null,
       business_address: extras?.businessAddress ?? null,
       business_type: extras?.businessType ?? null,
+      applications: savedApplications,
     }, { onConflict: 'id' });
     let { error: insertError } = await insertProfile(phone);
     // Someone else already has this phone on file — keep the new account, don't fail the whole sign-up on it.
@@ -870,7 +903,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     // Tell admins about every application (walker, groomer, breeder / shelter).
     const applied = Object.keys(extras?.approvals ?? {});
-    const appliedLabel = applied.includes('grooming') ? 'Groomer' : applied.includes('breeder') ? 'Breeder / shelter' : 'Walker';
+    const appliedLabel = applied.includes('grooming') ? 'Groomer' : applied.includes('training') ? 'Trainer' : applied.includes('breeder') ? 'Breeder / shelter' : 'Walker';
     if (role === 'walker' || applied.length > 0) {
       data.users.filter(u => u.role === 'admin').forEach(admin => {
         sendNotification(admin.id, 'walker_signup',
@@ -1541,6 +1574,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (resolvedUpdates.wentOnlineAt !== undefined)           dbFields.went_online_at          = resolvedUpdates.wentOnlineAt;
     if (resolvedUpdates.pricing !== undefined)               dbFields.pricing                 = resolvedUpdates.pricing;
     if (resolvedUpdates.approvals !== undefined)             dbFields.approvals               = resolvedUpdates.approvals;
+    if (resolvedUpdates.applications !== undefined)          dbFields.applications            = stripPhotos(resolvedUpdates.applications);
     if (Object.keys(dbFields).length > 0) {
       supabase.from('users').update(dbFields).eq('id', userId)
         .then(({ error }) => { if (error) console.error('updateUser:', error); });

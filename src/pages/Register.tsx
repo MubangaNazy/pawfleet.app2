@@ -7,16 +7,24 @@ import {
 import PawFleetLogo from '../components/ui/PawFleetLogo';
 import { useApp } from '../context/AppContext';
 import { prepareImage } from '../lib/image';
+import ApplicationForm from '../components/apply/ApplicationForm';
+import { applicationProblem, cleanApplication, type ApplicationValues, type ApplyService } from '../lib/applications';
 
 const ROLE_ROUTES = { owner: '/owner', walker: '/walker' };
 
-type Kind = 'owner' | 'walker' | 'groomer' | 'breeder';
+type Kind = 'owner' | 'walker' | 'groomer' | 'trainer' | 'breeder';
 const KINDS: { value: Kind; emoji: string; label: string; desc: string; noun: string; title: string; subtitle: string }[] = [
   { value: 'owner',   emoji: '🐾', label: 'Pet Owner',  desc: 'Book walks & services', noun: 'account', title: 'Join PawFleet', subtitle: "Zambia's trusted dog care app 🇿🇲" },
   { value: 'walker',  emoji: '🦮', label: 'Dog Walker', desc: 'Walk dogs & earn',      noun: 'walker',  title: 'Become a Walker', subtitle: 'Earn by walking dogs near you' },
   { value: 'groomer', emoji: '✂️', label: 'Groomer',    desc: 'Person or business',     noun: 'groomer', title: 'Join as a Groomer', subtitle: 'Get grooming bookings from dog owners' },
+  { value: 'trainer', emoji: '🎓', label: 'Dog Trainer', desc: 'Train dogs & earn',      noun: 'trainer', title: 'Join as a Trainer', subtitle: 'Get training requests from dog owners' },
   { value: 'breeder', emoji: '🏡', label: 'Breeder / Shelter', desc: 'List dogs for adoption', noun: 'breeder', title: 'Breeders & Shelters', subtitle: 'Get verified to list dogs on Adopt a Pet' },
 ];
+
+// Photo answers are kept as data: URLs here; register() uploads them once the account exists.
+function photoAnswers(_service: ApplyService, v: ApplicationValues): ApplicationValues {
+  return Object.fromEntries(Object.entries(v).filter(([, x]) => typeof x === 'string' && x.startsWith('data:')));
+}
 
 export default function Register() {
   const { register } = useApp();
@@ -27,7 +35,10 @@ export default function Register() {
   // What they are signing up as. Walkers and groomers share the provider account type in the database,
   // but each applies for its own service, approved separately by an admin.
   const [kind, setKind]               = useState<Kind>('owner');
-  const role: 'owner' | 'walker'      = kind === 'walker' || kind === 'groomer' ? 'walker' : 'owner';
+  const role: 'owner' | 'walker'      = kind === 'walker' || kind === 'groomer' || kind === 'trainer' ? 'walker' : 'owner';
+  // Groomers, trainers and breeders fill in the application form for their service.
+  const applyService: ApplyService | null = kind === 'groomer' ? 'grooming' : kind === 'trainer' ? 'training' : kind === 'breeder' ? 'breeder' : null;
+  const [answers, setAnswers] = useState<ApplicationValues>({});
   const needsId                       = kind !== 'owner';
   const [isBusiness, setIsBusiness]   = useState(false);
   const [businessName, setBusinessName] = useState('');
@@ -75,7 +86,11 @@ export default function Register() {
       if ((isBusiness || kind === 'breeder') && kind !== 'walker' && !businessName.trim()) { setError(kind === 'breeder' ? 'Enter your kennel or shelter name.' : 'Enter your business name.'); return; }
       if (kind !== 'walker' && !businessArea.trim()) { setError('Enter your area, e.g. Kabulonga, Lusaka.'); return; }
     }
-    const service = kind === 'walker' ? 'walking' : kind === 'groomer' ? 'grooming' : kind === 'breeder' ? 'breeder' : null;
+    if (applyService) {
+      const problem = applicationProblem(applyService, answers, { isBusiness });
+      if (problem) { setError(problem); return; }
+    }
+    const service = kind === 'walker' ? 'walking' : applyService;
     setLoading(true);
     const result = await register(name, phone, email, password, role, {
       photoUrl: photoUrl || undefined,
@@ -84,7 +99,10 @@ export default function Register() {
       approvals: service ? { [service]: 'applied' } : undefined,
       businessName: businessName.trim() || undefined,
       businessAddress: businessArea.trim() || undefined,
-      businessType: kind === 'groomer' ? (isBusiness ? 'grooming_business' : 'groomer') : kind === 'breeder' ? (isBusiness ? 'shelter' : 'breeder') : undefined,
+      businessType: kind === 'groomer' ? (isBusiness ? 'grooming_business' : 'groomer') : kind === 'breeder' ? (isBusiness ? 'shelter' : 'breeder') : kind === 'trainer' ? 'trainer' : undefined,
+      applications: applyService
+        ? { [applyService]: { ...cleanApplication(applyService, answers, { isBusiness }), ...photoAnswers(applyService, answers) } }
+        : undefined,
     });
     setLoading(false);
     if (result.success) {
@@ -113,7 +131,7 @@ export default function Register() {
             </div>
             <div className="px-6 py-6">
               <div className="space-y-3 mb-6">
-                {['PawFleet checks your photo and documents', "We'll notify you in the app when you're approved", kind === 'breeder' ? 'Then you can list pets on Adopt a Pet' : kind === 'groomer' ? 'Then set your grooming price and start taking bookings' : 'Log in any time to check — then start accepting walks!'].map((s, i) => (
+                {['PawFleet checks your photo and documents', "We'll notify you in the app when you're approved", kind === 'breeder' ? 'Then you can list pets on Adopt a Pet' : kind === 'groomer' ? 'Then set your grooming price and start taking bookings' : kind === 'trainer' ? 'Then set your training price and start taking requests' : 'Log in any time to check — then start accepting walks!'].map((s, i) => (
                   <div key={i} className="flex items-center gap-3 p-3 rounded-xl" style={{ background: '#F4F9F6' }}>
                     <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0"
                       style={{ background: '#2B8A50' }}>{i + 1}</div>
@@ -204,7 +222,7 @@ export default function Register() {
           {/* Role toggle */}
           <div className="grid grid-cols-2 gap-2 mb-6">
             {KINDS.map(r => (
-              <button key={r.value} type="button" onClick={() => { setKind(r.value); setIsBusiness(false); setError(''); }}
+              <button key={r.value} type="button" onClick={() => { setKind(r.value); setIsBusiness(false); setError(''); setAnswers({}); }}
                 className="p-3 rounded-2xl border-2 text-left transition-all"
                 style={kind === r.value
                   ? { borderColor: '#1B4332', background: '#EBF5EF' }
@@ -366,6 +384,10 @@ export default function Register() {
                 </div>
                 <p className="px-4 pb-3 text-[11px] text-gray-400">Used for background verification only</p>
               </div>
+            )}
+
+            {applyService && (
+              <ApplicationForm service={applyService} value={answers} onChange={setAnswers} ctx={{ isBusiness }} />
             )}
 
             {/* Error */}

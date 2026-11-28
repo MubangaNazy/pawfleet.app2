@@ -129,6 +129,13 @@ See `docs/REALIGNMENT.md` for the diagnosis, system map and two-phone test.
 - Floating buttons above the bottom menu use `.above-nav` / `.above-nav-tight`, and page padding uses `.pb-nav` (`index.css`). These include the iPhone home-bar inset. Never use a bare `bottom-20` for that.
 - Community: no more base64 photos saved in posts (upload or show an error); broken pictures hide; a failed load shows "Try again" (it used to show a misleading "table not set up" SQL banner).
 
+## Admin sections, applications, payouts, trails (2026-11-28)
+- Application forms (breeder / grooming / training) are defined once in `src/lib/applications.ts` and rendered by `components/apply/ApplicationForm.tsx`. Used by: Register (Groomer, **Trainer**, Breeder kinds), `ApplyServiceSheet` (walker dashboard: also offer grooming, become a trainer), Adopt a Pet's breeder application. Answers live in `users.applications[service]`; photos are uploaded to `avatars/nrc/apply-...` and never stored as data URLs in the row.
+- Admin sections: `/admin/groomers`, `/admin/trainers`, `/admin/breeders` = `Applications` with `lock`; `/admin/applications` still shows everything.
+- Shop payouts: Shop Manager → "Shops & payouts" (`/admin/shop?tab=shops`, `pages/admin/ShopPayouts.tsx`). Owed = online (`mobile_money`) shop_orders - `shop_payouts`. Pay on delivery is never owed. Recording a payout notifies the shop.
+- Trails: table `trails`, filled by trigger `trg_walks_trail` when a walk completes with `route_points` (backfilled once). Admin page `/admin/trails`.
+- `20261128_admin_sections.sql` must run **before** deploying: sign-up writes `users.applications`.
+
 ## Pending / Known Issues
 - [ ] iOS: needs a Mac + an **active** Apple Developer account ($99/yr) before `npx cap add ios` + Xcode work can start
 - [ ] WhatsApp OTP: needs the owner to set up a WhatsApp Business API account first
@@ -151,6 +158,8 @@ Source of truth is `supabase/migrations/*.sql`, run manually in the Supabase SQL
 - `20261126_chat_security.sql` — walk chat readable only by owner/walker/admin; `chat-images` bucket
 - `20261126_service_approvals.sql` — per-service approvals + `trg_users_protect`
 - `20261128_ai_usage.sql` — AI assistant fair-use counter
+- `20261128_shop_marketplace.sql` — shop products editable only by their shop; orders private
+- `20261128_admin_sections.sql` — users.applications, shop_payouts, trails + trigger
 
 When adding a new one: write the file, tell the owner the exact SQL to paste into the SQL Editor, and don't assume it's applied until they confirm (there's no automated way to run it from here).
 

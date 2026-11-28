@@ -3,6 +3,8 @@ import {
   Search, SlidersHorizontal, Heart, X, Phone, MessageCircle, MapPin, Plus, Camera,
   Loader2, CheckCircle2, PawPrint, Clock, Trash2,
 } from 'lucide-react';
+import { applicationProblem, cleanApplication, uploadApplicationPhotos, type ApplicationValues } from '../../lib/applications';
+import ApplicationForm from '../../components/apply/ApplicationForm';
 import PageTitle from '../../components/ui/PageTitle';
 import { useApp } from '../../context/AppContext';
 import BreedPicker from '../../components/ui/BreedPicker';
@@ -526,6 +528,7 @@ function BreederApplyForm({ onClose, onDone }: { onClose: () => void; onDone: ()
   const [idPhoto, setIdPhoto] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [answers, setAnswers] = useState<ApplicationValues>(() => (currentUser?.applications?.breeder as ApplicationValues) || {});
   const input = 'w-full h-11 px-4 rounded-xl border border-surface-border bg-white text-sm text-ink focus:outline-none focus:border-primary';
 
   const submit = async () => {
@@ -534,6 +537,9 @@ function BreederApplyForm({ onClose, onDone }: { onClose: () => void; onDone: ()
     if (!area.trim()) return setError('Enter your area.');
     if (!idNo.trim()) return setError('Enter your NRC or registration number.');
     if (!idPhoto && !currentUser.nrcImageUrl) return setError('Add a photo of your NRC or registration certificate.');
+    const ctx = { isBusiness: type === 'shelter' };
+    const problem = applicationProblem('breeder', answers, ctx);
+    if (problem) return setError(problem);
     setSaving(true);
     setError('');
     let nrcImageUrl: string | undefined;
@@ -541,9 +547,14 @@ function BreederApplyForm({ onClose, onDone }: { onClose: () => void; onDone: ()
       nrcImageUrl = (await uploadDataUrlToStorage('avatars', `nrc/${currentUser.id}.jpg`, idPhoto)) || undefined;
       if (!nrcImageUrl) { setSaving(false); return setError('Could not upload the photo. Check your connection.'); }
     }
+    const uploaded = await uploadApplicationPhotos(currentUser.id, 'breeder', answers);
+    if (Object.entries(answers).some(([k, v]) => typeof v === 'string' && v.startsWith('data:') && !uploaded[k])) {
+      setSaving(false); return setError('A photo could not be uploaded. Check your connection and try again.');
+    }
     const err = await applyForService('breeder', {
       businessName: name.trim(), businessAddress: area.trim(), businessType: type, nrc: idNo.trim(),
       ...(nrcImageUrl ? { nrcImageUrl } : {}),
+      applications: { ...(currentUser.applications || {}), breeder: cleanApplication('breeder', uploaded, ctx) },
     });
     setSaving(false);
     if (err) return setError(err);
@@ -570,6 +581,7 @@ function BreederApplyForm({ onClose, onDone }: { onClose: () => void; onDone: ()
       </button>
       <input ref={fileRef} type="file" accept="image/*" className="hidden"
         onChange={async e => { const f = e.target.files?.[0]; e.target.value = ''; if (f) { try { setIdPhoto(await prepareImage(f, { maxDim: 1400, quality: 0.75, maxBytes: 300_000 })); } catch { setError('That photo could not be read.'); } } }} />
+      <ApplicationForm service="breeder" value={answers} onChange={setAnswers} ctx={{ isBusiness: type === 'shelter' }} />
       {error && <p className="text-sm text-danger text-center">{error}</p>}
       <button onClick={submit} disabled={saving}
         className="w-full h-12 rounded-2xl text-sm font-bold text-white flex items-center justify-center gap-2 disabled:opacity-60"
